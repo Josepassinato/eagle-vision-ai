@@ -22,13 +22,16 @@ const Index = () => {
   }, [baseUrl]);
 
   const saveBase = () => {
-    localStorage.setItem("notifierBase", baseUrl);
-    toast({ title: "URL salva", description: baseUrl });
+    const norm = baseUrl.trim().replace(/\/+$/, "");
+    setBaseUrl(norm);
+    localStorage.setItem("notifierBase", norm);
+    toast({ title: "URL salva", description: norm });
   };
 
   const handleHealth = async () => {
+    const healthUrl = `${baseUrl}`.trim().replace(/\/+$/, "") + "/health";
     try {
-      const r = await fetch(`${baseUrl}/health`);
+      const r = await fetch(healthUrl);
       const text = await r.text();
       let j: any = null;
       try {
@@ -46,7 +49,7 @@ const Index = () => {
       const msg = e?.message || String(e);
       setDiag(
         JSON.stringify(
-          { action: "health", ok: false, error: msg, url: `${baseUrl}/health` },
+          { action: "health", ok: false, error: msg, url: healthUrl },
           null,
           2
         )
@@ -62,11 +65,13 @@ const Index = () => {
 
   const handleTest = async () => {
     const ts = new Date().toISOString();
+    const healthUrl = `${baseUrl}`.trim().replace(/\/+$/, "") + "/health";
+    const notifyUrl = `${baseUrl}`.trim().replace(/\/+$/, "") + "/notify_event";
     try {
-      const healthRes = await fetch(`${baseUrl}/health`);
+      const healthRes = await fetch(healthUrl);
       if (!healthRes.ok)
         throw new Error(`Health HTTP ${healthRes.status} ${healthRes.statusText}`);
-      const res = await fetch(`${baseUrl}/notify_event`, {
+      const res = await fetch(notifyUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -101,7 +106,7 @@ const Index = () => {
       const msg = err?.message || String(err);
       setDiag(
         JSON.stringify(
-          { action: "notify_event", ok: false, error: msg, url: `${baseUrl}/notify_event` },
+          { action: "notify_event", ok: false, error: msg, url: notifyUrl },
           null,
           2
         )
