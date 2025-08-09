@@ -1,0 +1,134 @@
+import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+};
+
+interface SendTelegramRequest {
+  chat_id?: string;
+  text?: string;
+}
+
+async function getChatIds(token: string): Promise<string[]> {
+  const url = `https://api.telegram.org/bot${token}/getUpdates`;
+  try {
+    const resp = await fetch(url);
+    if (!resp.ok) {
+      console.error("getUpdates failed", resp.status, await resp.text());
+      return [];
+    }
+    const data = await resp.json();
+    const chatIds = new Set<string>();
+    for (const update of data.result ?? []) {
+      for (const key of [
+        "message",
+        "edited_message",
+        "channel_post",
+        "edited_channel_post",
+        "my_chat_member",
+      ]) {
+        const node = update[key];
+        if (!node) continue;
+        const chat = node.chat ?? node?.chat ?? undefined;
+        if (chat?.id) chatIds.add(String(chat.id));
+      }
+    }
+    return Array.from(chatIds);
+  } catch (e) {
+    console.error("getChatIds error", e);
+    return [];
+  }
+}
+
+async function sendMessage(token: string, chatId: string, text: string) {
+  const url = `https://api.telegram.org/bot${token}/sendMessage`;
+  const resp = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ chat_id: chatId, text, parse_mode: "HTML" }),
+  });
+  if (!resp.ok) {
+    const t = await resp.text();
+    throw new Error(`Telegram sendMessage ${resp.status} ${resp.statusText} ${t}`);
+  }
+  return await resp.json();
+}
+
+serve(async (req) => {
+  // CORS preflight
+  if (req.method === "OPTIONS") {
+    return new Response(null, { headers: corsHeaders });
+  }
+
+  const start = Date.now();
+  try {
+    if (req.method !== "POST") {
+      return new Response(JSON.stringify({ error: "Use POST" }), {
+        status: 405,
+        headers: { "Content-Type": "application/json", ...corsHeaders },
+      });
+    }
+
+    const token = Deno.env.get("TELEGRAM_BOT_TOKEN");
+    const configuredChat = Deno.env.get("TELEGRAM_CHAT_ID");
+    if (!token) {
+      return new Response(JSON.stringify({ error: "Missing TELEGRAM_BOT_TOKEN" }), {
+        status: 500,
+        headers: { "Content-Type": "application/json", ...corsHeaders },
+      });
+    }
+
+    const body = (await req.json().catch(() => ({}))) as SendTelegramRequest;
+    const text =
+      body.text ||
+      `[Visão de Águia] Teste via Supabase\n${new Date().toISOString()}`;
+
+    let chatIds: string[] = [];
+    if (body.chat_id) chatIds = [body.chat_id];
+    else if (configuredChat && configuredChat.trim().length > 0) {
+      chatIds = configuredChat
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean);
+    } else {
+      chatIds = await getChatIds(token);
+    }
+
+    if (!chatIds.length) {
+      return new Response(
+        JSON.stringify({
+          ok: false,
+          error:
+            "Nenhum chat_id encontrado. Envie /start para o bot no Telegram e tente novamente.",
+        }),
+        { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+
+    let sent = 0;
+    for (const cid of chatIds) {
+      try {
+        await sendMessage(token, cid, text);
+        sent++;
+      } catch (e) {
+        console.error("sendMessage error for", cid, e);
+      }
+    }
+
+    const latency_ms = Date.now() - start;
+    const resp = { ok: true, sent_to_chats: sent, total_chats: chatIds.length, chat_ids: chatIds, latency_ms };
+    console.log("send_telegram result", resp);
+
+    return new Response(JSON.stringify(resp), {
+      status: sent > 0 ? 200 : 500,
+      headers: { "Content-Type": "application/json", ...corsHeaders },
+    });
+  } catch (error: any) {
+    console.error("send_telegram error", error);
+    return new Response(JSON.stringify({ ok: false, error: error?.message || String(error) }), {
+      status: 500,
+      headers: { "Content-Type": "application/json", ...corsHeaders },
+    });
+  }
+});

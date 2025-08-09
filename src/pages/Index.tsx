@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { toast } from "@/hooks/use-toast";
 import { Send } from "lucide-react";
 import { useEffect, useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
 
 const Index = () => {
   const initialUrl =
@@ -121,6 +122,36 @@ const Index = () => {
     }
   };
 
+  const handleTestSupabase = async () => {
+    const ts = new Date().toISOString();
+    try {
+      const { data, error } = await supabase.functions.invoke("send_telegram", {
+        body: { text: `[Visão de Águia] Teste via Supabase - ${ts}` },
+      });
+      if (error) throw new Error(error.message || String(error));
+      setDiag(
+        JSON.stringify({ action: "send_telegram", ok: true, response: data }, null, 2)
+      );
+      toast({
+        title: "Notificação via Supabase enviada",
+        description: `Chats: ${data?.chat_ids?.length ?? "?"} (latência ${data?.latency_ms}ms)`,
+      });
+    } catch (e: any) {
+      setDiag(
+        JSON.stringify(
+          { action: "send_telegram", ok: false, error: e?.message || String(e) },
+          null,
+          2
+        )
+      );
+      toast({
+        title: "Falha via Supabase",
+        description: "Verifique o token do bot e se enviou /start para ele.",
+        variant: "destructive",
+      });
+    }
+  }; 
+
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
@@ -157,6 +188,9 @@ const Index = () => {
               </Button>
               <Button onClick={handleTest}>
                 <Send className="mr-2 h-4 w-4" /> Testar notificação
+              </Button>
+              <Button onClick={handleTestSupabase} variant="accent">
+                Testar via Supabase
               </Button>
             </div>
 
