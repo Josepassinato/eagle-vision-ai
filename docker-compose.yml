@@ -70,3 +70,32 @@ services:
       start_period: 120s
     volumes:
       - ./face-service/models:/models
+
+  reid:
+    build: ./reid-service
+    container_name: reid-service
+    restart: unless-stopped
+    runtime: nvidia
+    ports:
+      - "18090:18090"
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
+      - REID_MODEL_PATH=/models/osnet_x0_75.onnx
+      - REID_INPUT_FORMAT=RGB
+    volumes:
+      - ./reid-service/models:/models
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:18090/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
