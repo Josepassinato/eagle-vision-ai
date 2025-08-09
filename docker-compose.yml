@@ -114,10 +114,10 @@ services:
       - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
       - INGEST_EVENT_URL=${INGEST_EVENT_URL}
       - VISION_WEBHOOK_SECRET=${VISION_WEBHOOK_SECRET}
-      - T_FACE=0.60
-      - T_REID=0.82
-      - T_MOVE=3
-      - N_FRAMES=15
+      - T_FACE=0.65
+      - T_REID=0.86
+      - T_MOVE=4
+      - N_FRAMES=20
       - MAX_PEOPLE=10
       - MAX_IMAGE_MB=2
       - REQUEST_TIMEOUT=0.150
@@ -249,7 +249,7 @@ services:
       - SUPABASE_URL=${SUPABASE_URL}
       - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
       - FACE_URL=http://face-service:18080
-      - T_FACE=0.60
+      - T_FACE=0.65
       - K=10
       - EMA_ALPHA=0.30
       - STREAM_SNAPSHOT_URL=http://mediamtx:8888/simulador/index.m3u8
