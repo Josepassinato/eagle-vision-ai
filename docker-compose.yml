@@ -137,9 +137,9 @@ services:
     container_name: frame-puller
     restart: unless-stopped
     environment:
-      - STREAM_URL=rtsp://mediamtx:8554/entrada
+      - STREAM_URL=rtsp://mediamtx:8554/simulador
       - FUSION_URL=http://fusion:8080
-      - CAMERA_ID=cam01
+      - CAMERA_ID=cam-sim
       - PULLER_FPS=8
       - MAX_IMAGE_MB=0.5
       - MIN_FPS=3
