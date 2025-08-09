@@ -14,13 +14,187 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      events: {
+        Row: {
+          camera_id: string | null
+          face_similarity: number | null
+          frames_confirmed: number | null
+          id: number
+          movement_px: number | null
+          person_id: string | null
+          reason: string | null
+          reid_similarity: number | null
+          ts: string | null
+        }
+        Insert: {
+          camera_id?: string | null
+          face_similarity?: number | null
+          frames_confirmed?: number | null
+          id?: number
+          movement_px?: number | null
+          person_id?: string | null
+          reason?: string | null
+          reid_similarity?: number | null
+          ts?: string | null
+        }
+        Update: {
+          camera_id?: string | null
+          face_similarity?: number | null
+          frames_confirmed?: number | null
+          id?: number
+          movement_px?: number | null
+          person_id?: string | null
+          reason?: string | null
+          reid_similarity?: number | null
+          ts?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "events_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "people"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      people: {
+        Row: {
+          body_embedding: string | null
+          created_at: string | null
+          face_embedding: string | null
+          id: string
+          name: string
+        }
+        Insert: {
+          body_embedding?: string | null
+          created_at?: string | null
+          face_embedding?: string | null
+          id?: string
+          name: string
+        }
+        Update: {
+          body_embedding?: string | null
+          created_at?: string | null
+          face_embedding?: string | null
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      binary_quantize: {
+        Args: { "": string } | { "": unknown }
+        Returns: unknown
+      }
+      halfvec_avg: {
+        Args: { "": number[] }
+        Returns: unknown
+      }
+      halfvec_out: {
+        Args: { "": unknown }
+        Returns: unknown
+      }
+      halfvec_send: {
+        Args: { "": unknown }
+        Returns: string
+      }
+      halfvec_typmod_in: {
+        Args: { "": unknown[] }
+        Returns: number
+      }
+      hnsw_bit_support: {
+        Args: { "": unknown }
+        Returns: unknown
+      }
+      hnsw_halfvec_support: {
+        Args: { "": unknown }
+        Returns: unknown
+      }
+      hnsw_sparsevec_support: {
+        Args: { "": unknown }
+        Returns: unknown
+      }
+      hnswhandler: {
+        Args: { "": unknown }
+        Returns: unknown
+      }
+      ivfflat_bit_support: {
+        Args: { "": unknown }
+        Returns: unknown
+      }
+      ivfflat_halfvec_support: {
+        Args: { "": unknown }
+        Returns: unknown
+      }
+      ivfflathandler: {
+        Args: { "": unknown }
+        Returns: unknown
+      }
+      l2_norm: {
+        Args: { "": unknown } | { "": unknown }
+        Returns: number
+      }
+      l2_normalize: {
+        Args: { "": string } | { "": unknown } | { "": unknown }
+        Returns: unknown
+      }
+      match_body: {
+        Args: { query: string; k?: number }
+        Returns: {
+          id: string
+          name: string
+          similarity: number
+        }[]
+      }
+      match_face: {
+        Args: { query: string; k?: number }
+        Returns: {
+          id: string
+          name: string
+          similarity: number
+        }[]
+      }
+      sparsevec_out: {
+        Args: { "": unknown }
+        Returns: unknown
+      }
+      sparsevec_send: {
+        Args: { "": unknown }
+        Returns: string
+      }
+      sparsevec_typmod_in: {
+        Args: { "": unknown[] }
+        Returns: number
+      }
+      vector_avg: {
+        Args: { "": number[] }
+        Returns: string
+      }
+      vector_dims: {
+        Args: { "": string } | { "": unknown }
+        Returns: number
+      }
+      vector_norm: {
+        Args: { "": string }
+        Returns: number
+      }
+      vector_out: {
+        Args: { "": string }
+        Returns: unknown
+      }
+      vector_send: {
+        Args: { "": string }
+        Returns: string
+      }
+      vector_typmod_in: {
+        Args: { "": unknown[] }
+        Returns: number
+      }
     }
     Enums: {
       [_ in never]: never
