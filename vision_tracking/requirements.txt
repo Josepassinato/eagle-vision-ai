@@ -1,0 +1,4 @@
+# Vision Tracking Module Requirements
+numpy>=1.21.0
+opencv-python-headless>=4.5.0
+typing-extensions>=4.0.0
