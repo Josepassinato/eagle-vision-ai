@@ -50,10 +50,14 @@ T_REID = float(os.getenv("T_REID", "0.82"))
 T_MOVE = float(os.getenv("T_MOVE", "3"))
 N_FRAMES = int(os.getenv("N_FRAMES", "15"))
 
+# Multi-tracker
+MULTI_TRACKER_URL = os.getenv("MULTI_TRACKER_URL", "http://multi-tracker:8087")
+
 # Limites
 MAX_PEOPLE = int(os.getenv("MAX_PEOPLE", "10"))
 MAX_IMAGE_MB = int(os.getenv("MAX_IMAGE_MB", "2"))
 REQUEST_TIMEOUT = float(os.getenv("REQUEST_TIMEOUT", "0.150"))  # 150ms
+
 
 # Instâncias globais
 app = FastAPI(title="Fusion API", description="Visão de Águia - Person Identification Fusion", version="1.0.0")
@@ -344,6 +348,29 @@ async def ingest_frame(request: IngestFrameRequest):
             
             # 6. Se confirmou identificação, criar evento
             if person_id and reason:
+                ts_iso = datetime.fromtimestamp(request.ts, timezone.utc).isoformat()
+
+                # Resolver identidade global no multi-tracker
+                try:
+                    resolve_req = {
+                        "camera_id": request.camera_id,
+                        "ts": ts_iso,
+                        "jpg_b64": crop_b64,
+                        "prelim_person_id": person_id,
+                        "face_similarity": face_sim,
+                        "reid_similarity": reid_sim,
+                    }
+                    resolve_res = await call_service_with_retry(
+                        f"{MULTI_TRACKER_URL}/resolve",
+                        resolve_req,
+                        {"Content-Type": "application/json"},
+                        "multi-tracker"
+                    )
+                    if resolve_res and resolve_res.get("global_person_id"):
+                        person_id = resolve_res["global_person_id"]
+                except Exception as e:
+                    logger.warning(f"multi-tracker resolve failed: {e}")
+
                 event_data = {
                     "camera_id": request.camera_id,
                     "person_id": person_id,
@@ -352,7 +379,7 @@ async def ingest_frame(request: IngestFrameRequest):
                     "reid_similarity": reid_sim,
                     "frames_confirmed": frames_confirmed,
                     "movement_px": move_px,
-                    "ts": datetime.fromtimestamp(request.ts, timezone.utc).isoformat()
+                    "ts": ts_iso
                 }
                 
                 # Enviar para Supabase
