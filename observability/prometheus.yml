@@ -1,0 +1,22 @@
+global:
+  scrape_interval: 5s
+  evaluation_interval: 15s
+
+rule_files:
+  - "alerts.yml"
+
+scrape_configs:
+  - job_name: fusion
+    static_configs:
+      - targets: ["fusion:8080"]
+    metrics_path: /metrics
+
+  - job_name: frame_puller
+    static_configs:
+      - targets: ["frame-puller:9100"]
+    metrics_path: /metrics
+
+  - job_name: analytics
+    static_configs:
+      - targets: ["analytics:8090"]
+    metrics_path: /metrics

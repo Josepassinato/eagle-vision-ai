@@ -136,6 +136,8 @@ services:
     build: ./frame-puller
     container_name: frame-puller
     restart: unless-stopped
+    ports:
+      - "9100:9100"  # Prometheus metrics
     environment:
       - STREAM_URL=rtsp://mediamtx:8554/simulador
       - FUSION_URL=http://fusion:8080
@@ -146,10 +148,10 @@ services:
       - MAX_FPS=10
       - LATENCY_THRESHOLD=0.5
       - RECONNECT_DELAY=5
+      - METRICS_PORT=9100
     depends_on:
       - mediamtx
       - fusion
-    # No ports exposed - client only service
 
   camera-sim:
     build: ./camera-sim
@@ -179,3 +181,39 @@ services:
       timeout: 10s
       retries: 3
       start_period: 30s
+
+  prometheus:
+    image: prom/prometheus:v2.53.0
+    container_name: prometheus
+    restart: unless-stopped
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--web.enable-lifecycle"
+    volumes:
+      - ./observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./observability/alerts.yml:/etc/prometheus/alerts.yml:ro
+      - ./observability/prom-data:/prometheus
+    ports:
+      - "9090:9090"
+    depends_on:
+      - fusion
+      - frame-puller
+      - analytics
+
+  grafana:
+    image: grafana/grafana:11.1.0
+    container_name: grafana
+    restart: unless-stopped
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_DEFAULT_THEME=light
+    volumes:
+      - ./observability/grafana/provisioning:/etc/grafana/provisioning
+      - ./observability/grafana/dashboards:/var/lib/grafana/dashboards
+      - ./observability/grafana-data:/var/lib/grafana
+    ports:
+      - "3000:3000"
+    depends_on:
+      - prometheus

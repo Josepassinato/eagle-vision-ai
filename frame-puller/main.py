@@ -19,6 +19,7 @@ import numpy as np
 import requests
 from PIL import Image
 from io import BytesIO
+from prometheus_client import Counter, Histogram, Gauge, generate_latest, CONTENT_TYPE_LATEST, start_http_server
 
 # Configuração de logging
 logging.basicConfig(
@@ -37,6 +38,14 @@ MIN_FPS = int(os.getenv("MIN_FPS", "3"))
 MAX_FPS = int(os.getenv("MAX_FPS", "10"))
 LATENCY_THRESHOLD = float(os.getenv("LATENCY_THRESHOLD", "0.5"))  # 500ms
 RECONNECT_DELAY = int(os.getenv("RECONNECT_DELAY", "5"))  # 5 segundos
+METRICS_PORT = int(os.getenv("METRICS_PORT", "9100"))
+
+# Prometheus metrics
+puller_frames_sent_total = Counter('puller_frames_sent_total', 'Total frames sent to fusion')
+puller_http_errors_total = Counter('puller_http_errors_total', 'Total HTTP errors', ['status_code'])
+puller_latency_seconds = Histogram('puller_latency_seconds', 'Latency of fusion requests')
+puller_backpressure_fps = Gauge('puller_backpressure_fps', 'Current FPS after backpressure adjustment')
+puller_connection_failures_total = Counter('puller_connection_failures_total', 'Total stream connection failures')
 
 class FramePuller:
     """Serviço de captura e envio de frames"""
@@ -48,6 +57,7 @@ class FramePuller:
         
         # Métricas
         self.latency_history = deque(maxlen=50)  # Últimas 50 latências
+        puller_backpressure_fps.set(self.current_fps)
         self.frame_count = 0
         self.success_count = 0
         self.error_count = 0
@@ -88,6 +98,7 @@ class FramePuller:
             
         except Exception as e:
             logger.error(f"Error connecting to stream: {e}")
+            puller_connection_failures_total.inc()
             return False
     
     def frame_to_base64(self, frame: np.ndarray, quality: int = 85) -> Optional[str]:
@@ -126,108 +137,49 @@ class FramePuller:
                 "max_people": 10
             }
             
-            start_time = time.time()
-            
-            response = requests.post(
-                f"{FUSION_URL}/ingest_frame",
-                json=payload,
-                headers={"Content-Type": "application/json"},
-                timeout=2.0
-            )
-            
-            latency = time.time() - start_time
-            self.latency_history.append(latency)
+            with puller_latency_seconds.time():
+                response = requests.post(
+                    f"{FUSION_URL}/ingest",
+                    json=payload,
+                    timeout=5.0
+                )
             
             if response.status_code == 200:
-                self.success_count += 1
-                
-                # Log eventos detectados
-                result = response.json()
-                if result.get("events"):
-                    logger.info(f"Events detected: {len(result['events'])} - "
-                              f"Latency: {latency:.3f}s")
-                
-                # Verificar backpressure
-                self.handle_backpressure(latency)
+                logger.debug(f"Frame sent successfully: {response.status_code}")
+                puller_frames_sent_total.inc()
                 return True
-                
             else:
-                logger.warning(f"Fusion API error {response.status_code}: {response.text}")
-                self.error_count += 1
+                logger.warning(f"Fusion API error: {response.status_code}")
+                puller_http_errors_total.labels(status_code=str(response.status_code)).inc()
                 return False
                 
-        except requests.exceptions.Timeout:
-            logger.warning("Request to Fusion API timed out")
-            self.error_count += 1
-            self.handle_backpressure(2.0)  # Considerar timeout como alta latência
-            return False
-            
-        except Exception as e:
-            logger.error(f"Error sending frame to Fusion: {e}")
-            self.error_count += 1
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Error sending frame to fusion: {e}")
+            puller_http_errors_total.labels(status_code="timeout").inc()
             return False
     
     def handle_backpressure(self, latency: float):
         """Gerencia backpressure ajustando FPS"""
-        now = time.time()
+        if latency > LATENCY_THRESHOLD:
+            self.current_fps = max(MIN_FPS, self.current_fps - 0.5)
+        elif latency < LATENCY_THRESHOLD * 0.5:
+            self.current_fps = min(MAX_FPS, self.current_fps + 0.2)
         
-        # Só ajustar FPS a cada 10 segundos
-        if now - self.last_fps_adjust < 10:
-            return
-        
-        # Calcular latência média
-        if len(self.latency_history) > 10:
-            avg_latency = sum(self.latency_history) / len(self.latency_history)
+        if self.current_fps < MIN_FPS:
+            self.current_fps = MIN_FPS
+        elif self.current_fps > MAX_FPS:
+            self.current_fps = MAX_FPS
             
-            if avg_latency > LATENCY_THRESHOLD:
-                self.consecutive_slow_requests += 1
-                
-                # Reduzir FPS se latência alta por vários frames
-                if self.consecutive_slow_requests >= 3 and self.current_fps > MIN_FPS:
-                    old_fps = self.current_fps
-                    self.current_fps = max(MIN_FPS, self.current_fps - 1)
-                    logger.warning(f"High latency detected ({avg_latency:.3f}s), "
-                                 f"reducing FPS: {old_fps} → {self.current_fps}")
-                    self.last_fps_adjust = now
-                    self.consecutive_slow_requests = 0
-                    
-            else:
-                self.consecutive_slow_requests = 0
-                
-                # Aumentar FPS se latência boa e não no máximo
-                if avg_latency < LATENCY_THRESHOLD * 0.5 and self.current_fps < MAX_FPS:
-                    old_fps = self.current_fps
-                    self.current_fps = min(MAX_FPS, self.current_fps + 1)
-                    logger.info(f"Low latency detected ({avg_latency:.3f}s), "
-                              f"increasing FPS: {old_fps} → {self.current_fps}")
-                    self.last_fps_adjust = now
-    
-    def print_stats(self):
-        """Imprime estatísticas do serviço"""
-        runtime = time.time() - self.start_time
+        # Update metrics
+        puller_backpressure_fps.set(self.current_fps)
         
-        if len(self.latency_history) > 0:
-            avg_latency = sum(self.latency_history) / len(self.latency_history)
-            max_latency = max(self.latency_history)
-        else:
-            avg_latency = 0
-            max_latency = 0
-        
-        success_rate = (self.success_count / max(1, self.frame_count)) * 100
-        actual_fps = self.frame_count / max(1, runtime)
-        
-        logger.info(f"Stats - Runtime: {runtime:.1f}s, Frames: {self.frame_count}, "
-                   f"Success: {self.success_count} ({success_rate:.1f}%), "
-                   f"Errors: {self.error_count}")
-        logger.info(f"FPS - Target: {self.current_fps}, Actual: {actual_fps:.1f}")
-        logger.info(f"Latency - Avg: {avg_latency:.3f}s, Max: {max_latency:.3f}s")
+        logger.debug(f"Backpressure: latency={latency:.3f}s, new_fps={self.current_fps}")
+        self.latency_history.append(latency)
     
     async def run(self):
         """Loop principal de captura e envio"""
         self.running = True
         logger.info("Starting frame pulling...")
-        
-        last_stats = time.time()
         
         while self.running:
             try:
@@ -258,13 +210,18 @@ class FramePuller:
                 if not frame_b64:
                     continue
                 
-                # Enviar para Fusion (não bloquear)
+                # Enviar para Fusion
+                start_time = time.time()
                 success = self.send_frame_to_fusion(frame_b64, timestamp)
+                latency = time.time() - start_time
                 
-                # Estatísticas periódicas
-                if time.time() - last_stats > 30:  # A cada 30 segundos
-                    self.print_stats()
-                    last_stats = time.time()
+                if success:
+                    self.success_count += 1
+                else:
+                    self.error_count += 1
+                
+                # Verificar backpressure
+                self.handle_backpressure(latency)
                 
                 # Aguardar próximo frame
                 processing_time = time.time() - frame_start
@@ -285,45 +242,33 @@ class FramePuller:
         if self.cap:
             self.cap.release()
         
-        self.print_stats()
         logger.info("Frame puller stopped")
     
     def stop(self):
         """Para o serviço"""
         self.running = False
 
-async def main():
-    """Função principal"""
-    logger.info("Starting Frame Puller service...")
+if __name__ == "__main__":
+    # Start Prometheus metrics server
+    start_http_server(METRICS_PORT)
+    logger.info(f"Prometheus metrics server started on port {METRICS_PORT}")
     
-    # Verificar configuração
-    logger.info(f"Configuration:")
-    logger.info(f"  STREAM_URL: {STREAM_URL}")
-    logger.info(f"  FUSION_URL: {FUSION_URL}")
-    logger.info(f"  CAMERA_ID: {CAMERA_ID}")
-    logger.info(f"  PULLER_FPS: {PULLER_FPS}")
-    logger.info(f"  MAX_IMAGE_MB: {MAX_IMAGE_MB}")
-    
-    # Testar conectividade com Fusion
-    try:
-        response = requests.get(f"{FUSION_URL}/health", timeout=5.0)
-        if response.status_code == 200:
-            logger.info("Fusion API is healthy")
-        else:
-            logger.warning(f"Fusion API health check failed: {response.status_code}")
-    except Exception as e:
-        logger.error(f"Cannot reach Fusion API: {e}")
-        logger.error("Continuing anyway, will retry on frame send...")
-    
-    # Iniciar serviço
     puller = FramePuller()
     
+    # Health check da Fusion API antes de começar
     try:
-        await puller.run()
+        logger.info("Checking Fusion API health...")
+        response = requests.get(f"{FUSION_URL}/health", timeout=10)
+        if response.status_code == 200:
+            logger.info("✅ Fusion API is healthy")
+        else:
+            logger.warning(f"⚠️ Fusion API returned {response.status_code}")
+    except Exception as e:
+        logger.error(f"❌ Cannot reach Fusion API: {e}")
+        logger.info("Continuing anyway...")
+    
+    try:
+        asyncio.run(puller.run())
     except KeyboardInterrupt:
-        logger.info("Shutting down...")
-    finally:
+        logger.info("Shutting down Frame Puller...")
         puller.stop()
-
-if __name__ == "__main__":
-    asyncio.run(main())

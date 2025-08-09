@@ -1,0 +1,18 @@
+groups:
+- name: visao-aguia-alerts
+  rules:
+  - alert: FusionLatencyHigh
+    expr: histogram_quantile(0.90, sum(rate(fusion_infer_seconds_bucket[5m])) by (le,stage)) > 1.5
+    for: 5m
+    labels: 
+      severity: warning
+    annotations:
+      summary: "Latência alta na Fusion (p90 > 1.5s)"
+      
+  - alert: PullerErrorRateHigh
+    expr: (sum(rate(puller_http_errors_total[5m])) / (sum(rate(puller_frames_sent_total[5m])) + sum(rate(puller_http_errors_total[5m])))) > 0.1
+    for: 5m
+    labels: 
+      severity: warning
+    annotations:
+      summary: "Erro HTTP no puller > 10% (5m)"
