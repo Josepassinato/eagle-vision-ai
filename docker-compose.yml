@@ -99,3 +99,35 @@ services:
       timeout: 10s
       retries: 3
       start_period: 60s
+
+  fusion:
+    build: ./fusion
+    container_name: fusion-service
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      - YOLO_URL=http://yolo-detection:18060
+      - FACE_URL=http://face-service:18080
+      - REID_URL=http://reid:18090
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
+      - INGEST_EVENT_URL=${INGEST_EVENT_URL}
+      - VISION_WEBHOOK_SECRET=${VISION_WEBHOOK_SECRET}
+      - T_FACE=0.60
+      - T_REID=0.82
+      - T_MOVE=3
+      - N_FRAMES=15
+      - MAX_PEOPLE=10
+      - MAX_IMAGE_MB=2
+      - REQUEST_TIMEOUT=0.150
+    depends_on:
+      - yolo-detection
+      - face-service
+      - reid
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8080/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s

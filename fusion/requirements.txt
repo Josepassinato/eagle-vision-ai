@@ -1,0 +1,16 @@
+# Fusion Service Requirements
+fastapi==0.115.0
+uvicorn[standard]==0.30.6
+numpy==2.0.1
+opencv-python-headless==4.10.0.84
+pillow==10.4.0
+requests==2.32.3
+python-dotenv==1.0.1
+prometheus-client==0.21.0
+pydantic==2.9.2
+
+# For vision tracking
+typing-extensions>=4.0.0
+
+# For face client inline usage
+supabase==2.9.1
