@@ -82,6 +82,35 @@ export type Database = {
         }
         Relationships: []
       }
+      people_faces: {
+        Row: {
+          created_at: string
+          embedding: string
+          id: string
+          person_id: string
+        }
+        Insert: {
+          created_at?: string
+          embedding: string
+          id?: string
+          person_id: string
+        }
+        Update: {
+          created_at?: string
+          embedding?: string
+          id?: string
+          person_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "people_faces_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "people"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
