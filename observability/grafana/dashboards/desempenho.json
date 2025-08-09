@@ -389,6 +389,36 @@
       ],
       "title": "Histograma de Latências por Estágio",
       "type": "heatmap"
+    },
+    {
+      "datasource": {"type":"prometheus","uid":"prometheus"},
+      "fieldConfig": {"defaults":{"color":{"mode":"palette-classic"},"custom":{"axisPlacement":"auto","drawStyle":"line","fillOpacity":10,"lineInterpolation":"linear","lineWidth":1,"showPoints":"auto","stacking":{"group":"A","mode":"normal"}},"mappings":[],"unit":"short"},"overrides":[]},
+      "gridPos": {"h":8,"w":8,"x":0,"y":16},
+      "id": 6,
+      "options": {"legend":{"displayMode":"list","placement":"bottom"},"tooltip":{"mode":"single","sort":"none"}},
+      "targets":[{"expr":"sum(rate(enricher_updates_total[2m])) by (person_id)","interval":"","legendFormat":"{{person_id}}","refId":"A"}],
+      "title":"Enricher Updates por Pessoa (rate)",
+      "type":"timeseries"
+    },
+    {
+      "datasource":{"type":"prometheus","uid":"prometheus"},
+      "fieldConfig":{"defaults":{"color":{"mode":"palette-classic"},"custom":{"axisPlacement":"auto","drawStyle":"line","fillOpacity":0,"lineInterpolation":"linear","lineWidth":1,"showPoints":"auto"},"mappings":[],"unit":"short"},"overrides":[]},
+      "gridPos":{"h":8,"w":8,"x":8,"y":16},
+      "id": 7,
+      "options":{"legend":{"displayMode":"list","placement":"bottom"},"tooltip":{"mode":"single","sort":"none"}},
+      "targets":[{"expr":"increase(enricher_realtime_reconnects_total[5m])","interval":"","legendFormat":"reconnects (5m)","refId":"A"}],
+      "title":"Realtime Reconnects",
+      "type":"timeseries"
+    },
+    {
+      "datasource":{"type":"prometheus","uid":"prometheus"},
+      "fieldConfig":{"defaults":{"color":{"mode":"palette-classic"},"custom":{"axisPlacement":"auto","drawStyle":"line","fillOpacity":0,"lineInterpolation":"linear","lineWidth":1,"showPoints":"auto"},"mappings":[],"unit":"ms"},"overrides":[]},
+      "gridPos":{"h":8,"w":8,"x":16,"y":16},
+      "id": 8,
+      "options":{"legend":{"displayMode":"list","placement":"bottom"},"tooltip":{"mode":"single","sort":"none"}},
+      "targets":[{"expr":"histogram_quantile(0.95, sum(rate(enricher_realtime_latency_ms_bucket[2m])) by (le))","interval":"","legendFormat":"P95","refId":"A"}],
+      "title":"Realtime Latency P95",
+      "type":"timeseries"
     }
   ],
   "refresh": "5s",
