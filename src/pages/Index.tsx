@@ -14,6 +14,7 @@ const Index = () => {
     localStorage.getItem("notifierBase") ||
     `${window.location.protocol}//${window.location.hostname}:8085`;
   const [baseUrl, setBaseUrl] = useState<string>(initialUrl);
+  const [diag, setDiag] = useState<string>("");
 
   useEffect(() => {
     // keep localStorage in sync when baseUrl changes via typing+enter
@@ -28,13 +29,28 @@ const Index = () => {
   const handleHealth = async () => {
     try {
       const r = await fetch(`${baseUrl}/health`);
-      if (!r.ok) throw new Error(`${r.status}`);
-      const j = await r.json();
+      const text = await r.text();
+      let j: any = null;
+      try {
+        j = JSON.parse(text);
+      } catch {}
+      if (!r.ok) throw new Error(`HTTP ${r.status} ${r.statusText} ${text}`);
+      setDiag(
+        JSON.stringify({ action: "health", ok: true, data: j ?? text }, null, 2)
+      );
       toast({
         title: "Notifier OK",
-        description: `telegram_configured=${j.telegram_configured} | chats=${j.chat_ids_count}`,
+        description: `telegram_configured=${j?.telegram_configured} | chats=${j?.chat_ids_count}`,
       });
-    } catch (e) {
+    } catch (e: any) {
+      const msg = e?.message || String(e);
+      setDiag(
+        JSON.stringify(
+          { action: "health", ok: false, error: msg, url: `${baseUrl}/health` },
+          null,
+          2
+        )
+      );
       toast({
         title: "Falha no health",
         description: "Verifique a URL do Notifier (porta/host) e rede",
@@ -48,7 +64,8 @@ const Index = () => {
     const ts = new Date().toISOString();
     try {
       const healthRes = await fetch(`${baseUrl}/health`);
-      if (!healthRes.ok) throw new Error(`Health ${healthRes.status}`);
+      if (!healthRes.ok)
+        throw new Error(`Health HTTP ${healthRes.status} ${healthRes.statusText}`);
       const res = await fetch(`${baseUrl}/notify_event`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -62,13 +79,33 @@ const Index = () => {
           ts,
         }),
       });
-      if (!res.ok) throw new Error(`Notify ${res.status}`);
-      const data = await res.json();
+      const text = await res.text();
+      let data: any = null;
+      try {
+        data = JSON.parse(text);
+      } catch {}
+      if (!res.ok)
+        throw new Error(`Notify HTTP ${res.status} ${res.statusText} ${text}`);
+      setDiag(
+        JSON.stringify(
+          { action: "notify_event", ok: true, response: data ?? text },
+          null,
+          2
+        )
+      );
       toast({
         title: "Notificação enviada",
-        description: `Enviada para ${data.sent_to_chats}/${data.total_chats} chats (latência ${data.latency_ms}ms).`,
+        description: `Enviada para ${data?.sent_to_chats}/${data?.total_chats} chats (latência ${data?.latency_ms}ms).`,
       });
-    } catch (err) {
+    } catch (err: any) {
+      const msg = err?.message || String(err);
+      setDiag(
+        JSON.stringify(
+          { action: "notify_event", ok: false, error: msg, url: `${baseUrl}/notify_event` },
+          null,
+          2
+        )
+      );
       toast({
         title: "Falha ao enviar",
         description:
@@ -116,6 +153,11 @@ const Index = () => {
               <Button onClick={handleTest}>
                 <Send className="mr-2 h-4 w-4" /> Testar notificação
               </Button>
+            </div>
+
+            <div className="rounded-md bg-muted/30 p-3 w-full md:max-w-xl">
+              <Label>Diagnóstico</Label>
+              <pre className="mt-2 max-h-64 overflow-auto text-xs whitespace-pre-wrap">{diag || "Sem dados ainda. Execute um teste."}</pre>
             </div>
           </CardContent>
         </Card>
