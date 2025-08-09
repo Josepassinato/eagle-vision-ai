@@ -1,0 +1,30 @@
+# Log
+logLevel: info
+
+# Habilitar protocolos modernos
+rtsp: yes
+rtmp: yes
+hls: yes
+webrtc: yes
+srt: yes
+
+# Diretório de gravações on-demand (se ativar record)
+recordPath: /recordings
+
+# Paths (rotas) — escolha UMA das opções abaixo por câmera
+
+paths:
+  # (A) PULL de uma câmera IP: a nuvem puxa via RTSP quando houver leitor
+  entrada:
+    source: rtsp://USUARIO:Senha@IP_DA_CAMERA:554/stream1
+    sourceOnDemand: yes
+    sourceProtocol: tcp
+    readUser: leitor
+    readPass: leitor123
+
+  # (B) PUSH (exemplo RTMP). Publique com credenciais e leia via RTSP/HLS/WebRTC
+  # push-demo:
+  #   publishUser: pub
+  #   publishPass: pub123
+  #   readUser: leitor
+  #   readPass: leitor123

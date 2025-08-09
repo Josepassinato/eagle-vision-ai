@@ -1,73 +1,114 @@
-# Welcome to your Lovable project
+# Visão de Águia - Gateway de Mídia (MediaMTX)
 
-## Project info
+Sistema de streaming de mídia usando MediaMTX para receber e distribuir feeds de câmeras IP via múltiplos protocolos.
 
-**URL**: https://lovable.dev/projects/bbc6b6ad-b591-47dd-9777-42f2f4bf6fef
+## 🚀 Como usar
 
-## How can I edit this code?
-
-There are several ways of editing your application.
-
-**Use Lovable**
-
-Simply visit the [Lovable Project](https://lovable.dev/projects/bbc6b6ad-b591-47dd-9777-42f2f4bf6fef) and start prompting.
-
-Changes made via Lovable will be committed automatically to this repo.
-
-**Use your preferred IDE**
-
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
-
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
+### Subir o serviço:
+```bash
+docker compose up -d
+docker compose logs -f mediamtx
 ```
 
-**Edit a file directly in GitHub**
+### Testar leitura da rota entrada:
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+**HLS no navegador:**
+```
+http://SEU_IP:8888/entrada/
+```
 
-**Use GitHub Codespaces**
+**VLC RTSP:**
+```
+rtsp://leitor:leitor123@SEU_IP:8554/entrada
+```
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+### Testar push RTMP (se usar o path push-demo):
 
-## What technologies are used for this project?
+**Exemplo com FFmpeg (arquivo local -> RTMP):**
+```bash
+ffmpeg -re -stream_loop -1 -i sample.mp4 -c copy -f flv rtmp://SEU_IP:1935/push-demo?user=pub&pass=pub123
+```
 
-This project is built with:
+**Ler via RTSP:**
+```bash
+vlc rtsp://leitor:leitor123@SEU_IP:8554/push-demo
+```
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+## 🔧 Configuração
 
-## How can I deploy this project?
+### Portas necessárias no firewall:
+- **8554/tcp** - RTSP
+- **1935/tcp** - RTMP  
+- **8888/tcp** - HLS
+- **8889/tcp** - WebRTC signaling
+- **8890/udp** - SRT
+- **UDP 8000–8200** - WebRTC mídia
 
-Simply open [Lovable](https://lovable.dev/projects/bbc6b6ad-b591-47dd-9777-42f2f4bf6fef) and click on Share -> Publish.
+### Adicionar novas câmeras:
 
-## Can I connect a custom domain to my Lovable project?
+1. Edite o arquivo `mediamtx.yml`
+2. Adicione um novo path na seção `paths:`
 
-Yes, you can!
+**Exemplo para câmera IP (PULL):**
+```yaml
+paths:
+  camera1:
+    source: rtsp://usuario:senha@192.168.1.100:554/stream1
+    sourceOnDemand: yes
+    sourceProtocol: tcp
+    readUser: leitor
+    readPass: leitor123
+```
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+**Exemplo para stream PUSH:**
+```yaml
+paths:
+  stream1:
+    publishUser: publisher
+    publishPass: pub123
+    readUser: leitor
+    readPass: leitor123
+```
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+### Usar push (enviar stream):
+
+**RTMP:**
+```bash
+ffmpeg -re -i input.mp4 -c copy -f flv rtmp://SEU_IP:1935/NOME_DO_PATH?user=PUBLISH_USER&pass=PUBLISH_PASS
+```
+
+**SRT:**
+```bash
+ffmpeg -re -i input.mp4 -c copy -f mpegts srt://SEU_IP:8890?streamid=NOME_DO_PATH&user=PUBLISH_USER&pass=PUBLISH_PASS
+```
+
+## 📋 Critérios de aceite
+
+- ✅ `docker compose up -d` sobe sem erros
+- ✅ Consigo tocar `rtsp://leitor:leitor123@SEU_IP:8554/entrada` no VLC
+- ✅ HLS disponível em `http://SEU_IP:8888/entrada/`
+- ✅ README explica como adicionar novas câmeras e como usar push
+
+## 🔒 Notas de segurança
+
+- Altere as credenciais padrão antes de usar em produção
+- Em ambiente cloud, configure adequadamente o Security Group
+- WebRTC requer portas UDP amplas (8000–8200)
+- Para máxima compatibilidade, mantenha `network_mode: host`
+
+## 🐛 Troubleshooting
+
+### Container não inicia:
+```bash
+docker compose logs mediamtx
+```
+
+### Não consegue conectar:
+1. Verifique se as portas estão abertas no firewall
+2. Teste conectividade com telnet: `telnet SEU_IP 8554`
+3. Verifique logs do MediaMTX
+
+### Stream não funciona:
+1. Verifique credenciais de acesso
+2. Teste primeiro com arquivo local
+3. Confirme formato de URL da câmera IP

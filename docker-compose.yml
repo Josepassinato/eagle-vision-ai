@@ -1,0 +1,13 @@
+version: "3.9"
+
+services:
+  mediamtx:
+    image: bluenviron/mediamtx:latest
+    container_name: mediamtx
+    restart: unless-stopped
+    network_mode: "host"   # simplifica WebRTC/SRT (UDP)
+    volumes:
+      - ./mediamtx.yml:/mediamtx.yml:ro
+      - ./recordings:/recordings
+    environment:
+      - MTX_LOGLEVEL=info
