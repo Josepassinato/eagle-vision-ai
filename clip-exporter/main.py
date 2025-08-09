@@ -11,6 +11,8 @@ import os
 import logging
 import tempfile
 import subprocess
+import time
+from datetime import datetime, timezone
 from typing import Optional, Dict, Any
 
 import requests
@@ -27,6 +29,7 @@ SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
 NOTIFIER_URL = os.getenv("NOTIFIER_URL", "http://notifier:8085")
 HLS_URL = os.getenv("HLS_URL", "http://mediamtx:8888/simulador/index.m3u8")
 DURATION_SECONDS = int(os.getenv("DURATION_SECONDS", "10"))
+RECORDINGS_DIR = os.getenv("RECORDINGS_DIR", "/recordings")
 
 # Metrics
 export_requests_total = Counter('clip_export_requests_total', 'Total clip export requests', ['status'])
@@ -102,6 +105,84 @@ def record_clip(hls_url: str, duration: int) -> Optional[bytes]:
         return None
 
 
+def ffprobe_duration(path: str) -> Optional[float]:
+    """Get media duration in seconds using ffprobe."""
+    try:
+        cmd = [
+            'ffprobe', '-v', 'error', '-select_streams', 'v:0',
+            '-show_entries', 'format=duration', '-of', 'default=noprint_wrappers=1:nokey=1', path
+        ]
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=5)
+        if result.returncode != 0:
+            return None
+        return float(result.stdout.strip())
+    except Exception:
+        return None
+
+
+def parse_event_ts(ts_value: Any) -> Optional[float]:
+    try:
+        if isinstance(ts_value, (int, float)):
+            return float(ts_value)
+        # Expecting ISO string
+        dt = datetime.fromisoformat(str(ts_value).replace('Z', '+00:00'))
+        return dt.timestamp()
+    except Exception:
+        return None
+
+
+def record_clip_from_dvr(event_ts_epoch: float, pad_before: int = 5, duration: int = 10) -> Optional[bytes]:
+    """Attempt to cut [-pad_before, +duration-pad_before] around event from local recordings.
+    Heuristic using file mtime as end time.
+    """
+    try:
+        if not os.path.isdir(RECORDINGS_DIR):
+            return None
+        # Find latest video file near event time
+        candidates = []
+        for root, _dirs, files in os.walk(RECORDINGS_DIR):
+            for name in files:
+                if name.lower().endswith(('.mp4', '.mkv', '.mov', '.ts')):
+                    path = os.path.join(root, name)
+                    try:
+                        mtime = os.path.getmtime(path)
+                        candidates.append((abs(mtime - event_ts_epoch), mtime, path))
+                    except Exception:
+                        pass
+        if not candidates:
+            return None
+        candidates.sort(key=lambda x: x[0])
+        _delta, mtime, path = candidates[0]
+        dur = ffprobe_duration(path) or 0
+        # Estimate file start time
+        start_est = mtime - dur if dur > 0 else (mtime - 60)
+        # Desired clip start
+        desired_start = event_ts_epoch - pad_before
+        offset = max(0.0, desired_start - start_est)
+        # Cut using ffmpeg
+        with tempfile.NamedTemporaryFile(suffix='.mp4', delete=False) as tmp:
+            out_path = tmp.name
+        cmd = [
+            'ffmpeg', '-y', '-ss', f'{offset:.3f}', '-i', path,
+            '-t', str(duration), '-c', 'copy', '-movflags', '+faststart', out_path
+        ]
+        logger.info("Cutting DVR file %s at offset %.2fs for %ss", path, offset, duration)
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=duration + 15)
+        if result.returncode != 0:
+            logger.error("ffmpeg DVR cut failed: %s", result.stderr)
+            try:
+                os.unlink(out_path)
+            except Exception:
+                pass
+            return None
+        with open(out_path, 'rb') as f:
+            data = f.read()
+        os.unlink(out_path)
+        return data
+    except Exception as e:
+        logger.error("record_clip_from_dvr exception: %s", e)
+        return None
+
 def upload_clip(event_id: int, clip_bytes: bytes) -> Optional[str]:
     if not SUPABASE_URL or not SUPABASE_SERVICE_ROLE_KEY:
         logger.error("Supabase configuration missing for upload")
@@ -152,7 +233,12 @@ def export_clip(req: ExportClipRequest):
                 export_requests_total.labels(status="not_found").inc()
                 raise HTTPException(status_code=404, detail="event not found")
 
-            clip = record_clip(HLS_URL, DURATION_SECONDS)
+            # Try DVR first (to get 5s before the event)
+            ts_epoch = parse_event_ts(event.get("ts")) or time.time()
+            clip = record_clip_from_dvr(ts_epoch, pad_before=5, duration=DURATION_SECONDS)
+            if not clip:
+                # Fallback to live HLS capture
+                clip = record_clip(HLS_URL, DURATION_SECONDS)
             if not clip:
                 export_requests_total.labels(status="record_fail").inc()
                 raise HTTPException(status_code=500, detail="record failed")

@@ -5,6 +5,9 @@ logLevel: info
 rtsp: yes
 rtmp: yes
 hls: yes
+# Janela DVR de ~20s (10 segmentos de 2s)
+hlsSegmentDuration: 2s
+hlsSegmentCount: 10
 webrtc: yes
 srt: yes
 
@@ -23,8 +26,12 @@ paths:
     readPass: leitor123
 
   # (B) PUSH (exemplo RTMP). Publique com credenciais e leia via RTSP/HLS/WebRTC
-  # push-demo:
-  #   publishUser: pub
-  #   publishPass: pub123
-  #   readUser: leitor
-  #   readPass: leitor123
+  simulador:
+    publishUser: pub
+    publishPass: pub123
+    readUser: leitor
+    readPass: leitor123
+    # Habilita gravação contínua em segmentos curtos
+    record: yes
+    # Os arquivos serão gravados em /recordings (montado via docker-compose)
+    # A janela HLS acima (hlsSegmentDuration/Count) mantém ~20s no playlist para DVR

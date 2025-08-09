@@ -1,0 +1,233 @@
+version: "3.9"
+
+services:
+  mediamtx:
+    image: bluenviron/mediamtx:latest
+    container_name: mediamtx
+    restart: unless-stopped
+    network_mode: "host"  # simplifica RTSP/RTMP/WebRTC em cloud VMs
+    volumes:
+      - ./mediamtx.yml:/mediamtx.yml:ro
+      - ./recordings:/recordings
+    environment:
+      - MTX_LOGLEVEL=info
+
+  yolo-detection:
+    build: ./yolo-detection
+    container_name: yolo-detection
+    restart: unless-stopped
+    ports:
+      - "18060:18060"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
+  face-service:
+    image: ghcr.io/deepinsight/insightface:rest
+    container_name: face-service
+    restart: unless-stopped
+    ports:
+      - "18081:18080"
+    environment:
+      - PYTHONPATH=/insightface-rest/src
+      - LOG_LEVEL=INFO
+      - NUM_WORKERS=1
+      - INFERENCE_BACKEND=onnx
+      - FORCE_FP16=False
+      - DET_NAME=retinaface_r50_v1
+      - DET_THRESH=0.6
+      - REC_NAME=arcface_r100_v1
+      - REC_BATCH_SIZE=1
+      - GA_NAME=genderage_v1
+      - KEEP_ALL=True
+      - MAX_SIZE=640,640
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
+  reid:
+    build: ./reid-service
+    container_name: reid-service
+    restart: unless-stopped
+    ports:
+      - "18090:18090"
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
+      - REID_MODEL_PATH=/models/osnet_x0_75.onnx
+      - REID_INPUT_FORMAT=RGB
+    volumes:
+      - ./reid-service/models:/models
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
+  lpr-service:
+    build: ./lpr-service
+    container_name: lpr-service
+    restart: unless-stopped
+    ports:
+      - "18070:18070"
+
+  multi-tracker:
+    build: ./multi-tracker
+    container_name: multi-tracker
+    restart: unless-stopped
+    environment:
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
+      - FACE_URL=http://face-service:18080
+      - T_FACE=0.65
+      - T_REID=0.86
+      - EMA_ALPHA=0.30
+    ports:
+      - "8087:8087"
+
+  fusion:
+    build: ./fusion
+    container_name: fusion-service
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      - YOLO_URL=http://yolo-detection:18060
+      - FACE_URL=http://face-service:18080
+      - REID_URL=http://reid:18090
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
+      - INGEST_EVENT_URL=${INGEST_EVENT_URL}
+      - VISION_WEBHOOK_SECRET=${VISION_WEBHOOK_SECRET}
+      - MULTI_TRACKER_URL=http://multi-tracker:8087
+      - CLIP_EXPORTER_URL=http://clip-exporter:8095
+      - T_FACE=0.65
+      - T_REID=0.86
+      - T_MOVE=4
+      - N_FRAMES=20
+      - MAX_PEOPLE=10
+      - MAX_IMAGE_MB=2
+      - REQUEST_TIMEOUT=0.150
+    depends_on:
+      - yolo-detection
+      - face-service
+      - reid
+      - multi-tracker
+
+  clip-exporter:
+    build: ./clip-exporter
+    container_name: clip-exporter
+    restart: unless-stopped
+    environment:
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
+      - NOTIFIER_URL=http://notifier:8085
+      - HLS_URL=http://localhost:8888/simulador/index.m3u8
+      - DURATION_SECONDS=10
+      - RECORDINGS_DIR=/recordings
+    volumes:
+      - ./recordings:/recordings:ro
+    ports:
+      - "8095:8095"
+
+  notifier:
+    build:
+      context: ./notifier
+      dockerfile: Dockerfile
+    container_name: notifier
+    restart: unless-stopped
+    environment:
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - TELEGRAM_CHAT_ID=auto
+      - STREAM_SNAPSHOT_URL=http://localhost:8888/simulador/index.m3u8
+      - NOTIFIER_TIMEOUT_MS=3000
+      - TELEGRAM_PARSE_MODE=HTML
+    ports:
+      - "8085:8085"
+
+  analytics:
+    build: ./analytics
+    container_name: analytics-service
+    restart: unless-stopped
+    ports:
+      - "8090:8090"
+
+  prometheus:
+    image: prom/prometheus:v2.53.0
+    container_name: prometheus
+    restart: unless-stopped
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--web.enable-lifecycle"
+    volumes:
+      - ./observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./observability/alerts.yml:/etc/prometheus/alerts.yml:ro
+      - ./observability/prom-data:/prometheus
+    ports:
+      - "9090:9090"
+    depends_on:
+      - fusion
+      - analytics
+
+  grafana:
+    image: grafana/grafana:11.1.0
+    container_name: grafana
+    restart: unless-stopped
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_DEFAULT_THEME=light
+    volumes:
+      - ./observability/grafana/provisioning:/etc/grafana/provisioning
+      - ./observability/grafana/dashboards:/var/lib/grafana/dashboards
+      - ./observability/grafana-data:/var/lib/grafana
+    ports:
+      - "3000:3000"
+    depends_on:
+      - prometheus
+
+  dcgm-exporter:
+    image: nvidia/dcgm-exporter:3.3.5-3.1.7-ubuntu22.04
+    container_name: dcgm-exporter
+    restart: unless-stopped
+    runtime: nvidia
+    ports:
+      - "9400:9400"
+
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:v0.47.2
+    container_name: cadvisor
+    restart: unless-stopped
+    ports:
+      - "8088:8080"
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+
+  backup:
+    build: ./backup
+    container_name: backup
+    restart: unless-stopped
+    environment:
+      - SUPABASE_DB_URL=${SUPABASE_DB_URL}
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
+      - BUCKETS=people,vehicles,evidence,event_clips
+      - BACKUP_INTERVAL_SECONDS=86400
+      - BACKUP_DIR=/backups
+    volumes:
+      - ./backups:/backups

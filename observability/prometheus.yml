@@ -20,3 +20,26 @@ scrape_configs:
     static_configs:
       - targets: ["analytics:8090"]
     metrics_path: /metrics
+
+  - job_name: multi_tracker
+    static_configs:
+      - targets: ["multi-tracker:8087"]
+    metrics_path: /metrics
+
+  - job_name: lpr_service
+    static_configs:
+      - targets: ["lpr-service:18070"]
+    metrics_path: /metrics
+
+  - job_name: clip_exporter
+    static_configs:
+      - targets: ["clip-exporter:8095"]
+    metrics_path: /metrics
+
+  # Cloud-only targets; will be DOWN locally
+  - job_name: dcgm_gpu
+    static_configs:
+      - targets: ["dcgm-exporter:9400"]
+  - job_name: cadvisor
+    static_configs:
+      - targets: ["cadvisor:8080"]
