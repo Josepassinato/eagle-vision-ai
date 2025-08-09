@@ -131,3 +131,22 @@ services:
       timeout: 10s
       retries: 3
       start_period: 30s
+
+  frame-puller:
+    build: ./frame-puller
+    container_name: frame-puller
+    restart: unless-stopped
+    environment:
+      - STREAM_URL=rtsp://mediamtx:8554/entrada
+      - FUSION_URL=http://fusion:8080
+      - CAMERA_ID=cam01
+      - PULLER_FPS=8
+      - MAX_IMAGE_MB=0.5
+      - MIN_FPS=3
+      - MAX_FPS=10
+      - LATENCY_THRESHOLD=0.5
+      - RECONNECT_DELAY=5
+    depends_on:
+      - mediamtx
+      - fusion
+    # No ports exposed - client only service
