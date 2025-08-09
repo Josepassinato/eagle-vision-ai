@@ -254,6 +254,7 @@ services:
       - EMA_ALPHA=0.30
       - STREAM_SNAPSHOT_URL=http://mediamtx:8888/simulador/index.m3u8
       - POLL_INTERVAL_SEC=1.0
+      - SUPABASE_REALTIME=true
       - ADMIN_API_KEY=${ADMIN_API_KEY}
     ports:
       - "8086:8086"
