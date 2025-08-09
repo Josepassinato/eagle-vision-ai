@@ -1,0 +1,2 @@
+# No additional Python packages required for basic FFmpeg streaming
+# All functionality uses built-in subprocess and OS modules

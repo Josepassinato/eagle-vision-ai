@@ -150,3 +150,32 @@ services:
       - mediamtx
       - fusion
     # No ports exposed - client only service
+
+  camera-sim:
+    build: ./camera-sim
+    container_name: camera-sim
+    restart: unless-stopped
+    environment:
+      - INPUT_MODE=netcam
+      - NETCAM_URL=${NETCAM_URL}
+      - USE_RTMP=true
+      - RTMP_URL=rtmp://mediamtx:1935/simulador?user=pub&pass=pub123
+      - RTSP_URL=rtsp://mediamtx:8554/simulador
+    depends_on:
+      - mediamtx
+    # No ports exposed - streams to MediaMTX
+
+  analytics:
+    build: ./analytics
+    container_name: analytics-service
+    restart: unless-stopped
+    ports:
+      - "8090:8090"
+    environment:
+      - PORT=8090
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8090/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
