@@ -48,12 +48,45 @@ class NotifyEventRequest(BaseModel):
     ts: str
     jpg_b64: Optional[str] = None
 
-def parse_chat_ids() -> List[str]:
-    """Parse TELEGRAM_CHAT_ID environment variable into list"""
-    if not TELEGRAM_CHAT_ID:
+def fetch_chat_ids_from_updates() -> List[str]:
+    """Fetch chat IDs from Telegram getUpdates when TELEGRAM_CHAT_ID=auto"""
+    if not TELEGRAM_BOT_TOKEN:
+        logger.error("TELEGRAM_BOT_TOKEN not configured")
         return []
-    return [chat_id.strip() for chat_id in TELEGRAM_CHAT_ID.split(",") if chat_id.strip()]
+    base_url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/getUpdates"
+    try:
+        resp = requests.get(base_url, timeout=NOTIFIER_TIMEOUT_MS/1000)
+        if resp.status_code != 200:
+            logger.error(f"getUpdates error {resp.status_code}: {resp.text}")
+            return []
+        data = resp.json()
+        chat_ids = set()
+        for update in data.get("result", []):
+            # Consider multiple update types that carry a chat object
+            for key in ("message", "edited_message", "channel_post", "edited_channel_post", "my_chat_member"):
+                if key in update:
+                    node = update[key]
+                    chat = node.get("chat") if isinstance(node, dict) else None
+                    if not chat and key == "my_chat_member":
+                        chat = node.get("chat", {})
+                    if chat and isinstance(chat, dict) and "id" in chat:
+                        chat_ids.add(str(chat["id"]))
+        discovered = list(chat_ids)
+        logger.info(f"Discovered chat IDs via getUpdates: {discovered}")
+        return discovered
+    except Exception as e:
+        logger.error(f"Failed to fetch chat IDs: {e}")
+        return []
 
+
+def parse_chat_ids() -> List[str]:
+    """Parse TELEGRAM_CHAT_ID env; support 'auto' discovery via getUpdates"""
+    cid = TELEGRAM_CHAT_ID.strip() if TELEGRAM_CHAT_ID else ""
+    if not cid:
+        return []
+    if cid.lower() == "auto":
+        return fetch_chat_ids_from_updates()
+    return [chat_id.strip() for chat_id in cid.split(",") if chat_id.strip()]
 def check_rate_limit(camera_id: str) -> bool:
     """Check if camera_id is within rate limit"""
     now = time.time()

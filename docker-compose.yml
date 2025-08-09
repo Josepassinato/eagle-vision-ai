@@ -225,8 +225,8 @@ services:
     container_name: notifier
     restart: unless-stopped
     environment:
-      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
-      - TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID}
+      - TELEGRAM_BOT_TOKEN=8311316357:AAFLDScgZk8qDVN7m5tLcsIm8byChy81o9k
+      - TELEGRAM_CHAT_ID=auto
       - STREAM_SNAPSHOT_URL=http://mediamtx:8888/simulador/index.m3u8
       - NOTIFIER_TIMEOUT_MS=3000
       - TELEGRAM_PARSE_MODE=HTML
