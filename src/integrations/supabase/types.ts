@@ -14,6 +14,74 @@ export type Database = {
   }
   public: {
     Tables: {
+      camera_configs: {
+        Row: {
+          camera_id: string
+          counting_lines: Json | null
+          created_at: string
+          id: string
+          person_threshold: number
+          updated_at: string
+          vehicle_threshold: number
+        }
+        Insert: {
+          camera_id: string
+          counting_lines?: Json | null
+          created_at?: string
+          id?: string
+          person_threshold?: number
+          updated_at?: string
+          vehicle_threshold?: number
+        }
+        Update: {
+          camera_id?: string
+          counting_lines?: Json | null
+          created_at?: string
+          id?: string
+          person_threshold?: number
+          updated_at?: string
+          vehicle_threshold?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "camera_configs_camera_id_fkey"
+            columns: ["camera_id"]
+            isOneToOne: true
+            referencedRelation: "cameras"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cameras: {
+        Row: {
+          created_at: string
+          id: string
+          last_seen: string | null
+          name: string | null
+          online: boolean
+          stream_url: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id: string
+          last_seen?: string | null
+          name?: string | null
+          online?: boolean
+          stream_url?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          last_seen?: string | null
+          name?: string | null
+          online?: boolean
+          stream_url?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       events: {
         Row: {
           camera_id: string | null
@@ -111,6 +179,95 @@ export type Database = {
           },
         ]
       }
+      user_roles: {
+        Row: {
+          created_at: string
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
+      vehicle_events: {
+        Row: {
+          bbox: Json | null
+          camera_id: string | null
+          confidence: number | null
+          event_id: number | null
+          id: number
+          person_id: string | null
+          plate: string | null
+          ts: string
+        }
+        Insert: {
+          bbox?: Json | null
+          camera_id?: string | null
+          confidence?: number | null
+          event_id?: number | null
+          id?: number
+          person_id?: string | null
+          plate?: string | null
+          ts?: string
+        }
+        Update: {
+          bbox?: Json | null
+          camera_id?: string | null
+          confidence?: number | null
+          event_id?: number | null
+          id?: number
+          person_id?: string | null
+          plate?: string | null
+          ts?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vehicle_events_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      vehicles: {
+        Row: {
+          created_at: string
+          id: string
+          label: string | null
+          notes: string | null
+          plate: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          label?: string | null
+          notes?: string | null
+          plate: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          label?: string | null
+          notes?: string | null
+          plate?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -135,6 +292,13 @@ export type Database = {
       halfvec_typmod_in: {
         Args: { "": unknown[] }
         Returns: number
+      }
+      has_role: {
+        Args: {
+          _user_id: string
+          _role: Database["public"]["Enums"]["app_role"]
+        }
+        Returns: boolean
       }
       hnsw_bit_support: {
         Args: { "": unknown }
@@ -226,7 +390,7 @@ export type Database = {
       }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "admin" | "operator" | "viewer"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -353,6 +517,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["admin", "operator", "viewer"],
+    },
   },
 } as const
