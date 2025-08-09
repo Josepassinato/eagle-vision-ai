@@ -1,19 +1,8 @@
 version: "3.9"
 
 services:
-  mediamtx:
-    image: bluenviron/mediamtx:latest
-    container_name: mediamtx
-    restart: unless-stopped
-    network_mode: "host"   # simplifica WebRTC/SRT (UDP)
-    volumes:
-      - ./mediamtx.yml:/mediamtx.yml:ro
-      - ./recordings:/recordings
-    environment:
-      - MTX_LOGLEVEL=info
-
   yolo-detection:
-    build: ./yolo-detection
+    build: .
     container_name: yolo-detection
     restart: unless-stopped
     ports:
@@ -21,7 +10,7 @@ services:
     environment:
       - YOLO_MODEL=yolov8x.pt
     volumes:
-      - ./yolo-detection/models:/app/models
+      - ./models:/app/models  # Cache de modelos
     deploy:
       resources:
         reservations:
@@ -30,7 +19,7 @@ services:
               count: 1
               capabilities: [gpu]
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:18060/health || exit 1"]
+      test: ["CMD", "curl", "-f", "http://localhost:18060/health"]
       interval: 30s
       timeout: 10s
       retries: 3
