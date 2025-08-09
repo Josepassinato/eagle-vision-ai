@@ -35,3 +35,38 @@ services:
       timeout: 10s
       retries: 3
       start_period: 60s
+
+  face-service:
+    image: ghcr.io/deepinsight/insightface:rest
+    container_name: face-service
+    restart: unless-stopped
+    ports:
+      - "18081:18080"
+    environment:
+      - PYTHONPATH=/insightface-rest/src
+      - LOG_LEVEL=INFO
+      - NUM_WORKERS=1
+      - INFERENCE_BACKEND=onnx
+      - FORCE_FP16=False
+      - DET_NAME=retinaface_r50_v1
+      - DET_THRESH=0.6
+      - REC_NAME=arcface_r100_v1
+      - REC_BATCH_SIZE=1
+      - GA_NAME=genderage_v1
+      - KEEP_ALL=True
+      - MAX_SIZE=640,640
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:18080/ || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 120s
+    volumes:
+      - ./face-service/models:/models
