@@ -289,3 +289,25 @@ services:
       timeout: 10s
       retries: 3
       start_period: 30s
+
+  clip-exporter:
+    build: ./clip-exporter
+    container_name: clip-exporter
+    restart: unless-stopped
+    environment:
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
+      - NOTIFIER_URL=http://notifier:8085
+      - HLS_URL=http://mediamtx:8888/simulador/index.m3u8
+      - DURATION_SECONDS=10
+    ports:
+      - "8095:8095"
+    depends_on:
+      - mediamtx
+      - notifier
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8095/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s

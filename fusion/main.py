@@ -52,6 +52,8 @@ N_FRAMES = int(os.getenv("N_FRAMES", "15"))
 
 # Multi-tracker
 MULTI_TRACKER_URL = os.getenv("MULTI_TRACKER_URL", "http://multi-tracker:8087")
+# Clip Exporter
+CLIP_EXPORTER_URL = os.getenv("CLIP_EXPORTER_URL", "http://clip-exporter:8095")
 
 # Limites
 MAX_PEOPLE = int(os.getenv("MAX_PEOPLE", "10"))
@@ -140,11 +142,11 @@ async def call_service_with_retry(url: str, payload: Dict, headers: Dict, servic
     logger.error(f"Failed to call {service_name} after retries")
     return None
 
-async def send_to_ingest_event(event_data: Dict) -> bool:
-    """Envia evento para Edge Function ingest_event"""
+async def send_to_ingest_event(event_data: Dict) -> Optional[int]:
+    """Envia evento para Edge Function ingest_event e retorna event_id"""
     if not INGEST_EVENT_URL or not VISION_WEBHOOK_SECRET:
         logger.error("Missing INGEST_EVENT_URL or VISION_WEBHOOK_SECRET")
-        return False
+        return None
     
     headers = {
         "Content-Type": "application/json",
@@ -154,14 +156,16 @@ async def send_to_ingest_event(event_data: Dict) -> bool:
     try:
         response = requests.post(INGEST_EVENT_URL, json=event_data, headers=headers, timeout=1.0)
         if response.status_code == 200:
-            logger.info(f"Event sent successfully to Supabase: {response.json()}")
-            return True
+            payload = response.json()
+            evt_id = payload.get("event_id")
+            logger.info(f"Event sent successfully to Supabase: id={evt_id}")
+            return evt_id
         else:
             logger.error(f"Failed to send event: {response.status_code} - {response.text}")
-            return False
+            return None
     except requests.exceptions.RequestException as e:
         logger.error(f"Error sending event to Supabase: {e}")
-        return False
+        return None
 
 async def send_to_notifier(event_data: Dict, jpg_b64: Optional[str] = None) -> bool:
     """Envia evento para o serviço Notifier (Telegram)"""
@@ -383,13 +387,26 @@ async def ingest_frame(request: IngestFrameRequest):
                 }
                 
                 # Enviar para Supabase
-                success = await send_to_ingest_event(event_data)
+                event_id = await send_to_ingest_event(event_data)
                 
-                if success:
+                if event_id:
                     events.append(EventResponse(**event_data))
                     
                     # Enviar para Notifier (Telegram) de forma assíncrona
                     asyncio.create_task(send_to_notifier(event_data, crop_b64))
+                    
+                    # Disparar exportação de clipe (assíncrono, melhor esforço)
+                    try:
+                        asyncio.create_task(
+                            call_service_with_retry(
+                                f"{CLIP_EXPORTER_URL}/export_clip",
+                                {"event_id": event_id},
+                                {"Content-Type": "application/json"},
+                                "clip-exporter",
+                            )
+                        )
+                    except Exception as e:
+                        logger.warning(f"clip-exporter trigger failed: {e}")
                     
                     logger.info(f"Event confirmed: track_id={track_id}, person_id={person_id}, "
                               f"reason={reason}, face_sim={face_sim}, reid_sim={reid_sim}, "

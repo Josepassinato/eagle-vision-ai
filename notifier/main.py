@@ -50,13 +50,15 @@ class NotifyEventRequest(BaseModel):
     camera_id: str
     person_id: Optional[str] = None
     person_name: Optional[str] = None
-    reason: str  # "face" or "reid+motion"
+    reason: str  # "face" or "reid+motion" or other
     face_similarity: Optional[float] = None
     reid_similarity: Optional[float] = None
     frames_confirmed: Optional[int] = None
     movement_px: Optional[float] = None
     ts: str
     jpg_b64: Optional[str] = None
+    plate: Optional[str] = None
+    clip_url: Optional[str] = None
 
 def fetch_chat_ids_from_updates() -> List[str]:
     """Fetch chat IDs from Telegram getUpdates when TELEGRAM_CHAT_ID=auto"""
@@ -178,6 +180,12 @@ def format_notification_text(event: NotifyEventRequest) -> str:
     reid_sim = f"{event.reid_similarity:.2f}" if event.reid_similarity else "N/A"
     frames = event.frames_confirmed or 0
     movement = f"{event.movement_px:.1f}" if event.movement_px else "N/A"
+
+    plate_line_html = f"\n<b>Placa:</b> {event.plate}" if event.plate else ""
+    plate_line_txt = f"\nPlaca: {event.plate}" if event.plate else ""
+
+    clip_line_html = f"\n<b>Clip:</b> <a href=\"{event.clip_url}\">download</a>" if event.clip_url else ""
+    clip_line_txt = f"\nClip: {event.clip_url}" if event.clip_url else ""
     
     if TELEGRAM_PARSE_MODE == "HTML":
         text = f"""<b>[Visão de Águia]</b>
@@ -185,14 +193,14 @@ def format_notification_text(event: NotifyEventRequest) -> str:
 <b>Motivo:</b> {event.reason}
 <b>Face:</b> {face_sim} | <b>ReID:</b> {reid_sim}
 <b>Pessoa:</b> {person_info}
-<b>Frames:</b> {frames} | <b>Move:</b> {movement}px"""
+<b>Frames:</b> {frames} | <b>Move:</b> {movement}px{plate_line_html}{clip_line_html}"""
     else:
         text = f"""[Visão de Águia]
 Câmera: {event.camera_id} | {time_str}
 Motivo: {event.reason}
 Face: {face_sim} | ReID: {reid_sim}
 Pessoa: {person_info}
-Frames: {frames} | Move: {movement}px"""
+Frames: {frames} | Move: {movement}px{plate_line_txt}{clip_line_txt}"""
     
     return text
 
@@ -322,6 +330,34 @@ async def notify_event(event: NotifyEventRequest):
         "total_chats": len(chat_ids),
         "latency_ms": round(latency_ms, 2)
     }
+
+@app.post("/notify_clip")
+async def notify_clip_endpoint(req: "NotifyClipRequest"):
+    """Send a simple clip link notification to all chats"""
+    if not req.clip_url:
+        raise HTTPException(status_code=400, detail="clip_url required")
+    if TELEGRAM_PARSE_MODE == "HTML":
+        text = f"""<b>[Visão de Águia]</b>
+<b>Replay disponível</b>
+<b>Clip:</b> <a href=\"{req.clip_url}\">download</a>"""
+    else:
+        text = f"""[Visão de Águia]
+Replay disponível
+Clip: {req.clip_url}"""
+    chat_ids = parse_chat_ids()
+    if not chat_ids:
+        raise HTTPException(status_code=500, detail="No chat IDs configured")
+    sent = 0
+    for cid in chat_ids:
+        if send_telegram_message(cid, text, image_data=None, retries=1):
+            sent += 1
+    return {"status": "ok", "sent_to_chats": sent, "total_chats": len(chat_ids)}
+
+class NotifyClipRequest(BaseModel):
+    event_id: int
+    camera_id: Optional[str] = None
+    ts: Optional[str] = None
+    clip_url: str
 
 @app.get("/health")
 async def health():
