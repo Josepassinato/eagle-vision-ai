@@ -139,7 +139,7 @@ class FramePuller:
             
             with puller_latency_seconds.time():
                 response = requests.post(
-                    f"{FUSION_URL}/ingest",
+                    f"{FUSION_URL}/ingest_frame",
                     json=payload,
                     timeout=5.0
                 )
