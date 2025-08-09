@@ -40,6 +40,10 @@ SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
 INGEST_EVENT_URL = os.getenv("INGEST_EVENT_URL")
 VISION_WEBHOOK_SECRET = os.getenv("VISION_WEBHOOK_SECRET")
 
+# Notifier configuration
+NOTIFIER_URL = os.getenv("NOTIFIER_URL", "http://notifier:8085/notify_event")
+ENABLE_NOTIFIER = os.getenv("ENABLE_NOTIFIER", "true").lower() == "true"
+
 # Thresholds
 T_FACE = float(os.getenv("T_FACE", "0.60"))
 T_REID = float(os.getenv("T_REID", "0.82"))
@@ -154,6 +158,48 @@ async def send_to_ingest_event(event_data: Dict) -> bool:
     except requests.exceptions.RequestException as e:
         logger.error(f"Error sending event to Supabase: {e}")
         return False
+
+async def send_to_notifier(event_data: Dict, jpg_b64: Optional[str] = None) -> bool:
+    """Envia evento para o serviço Notifier (Telegram)"""
+    if not ENABLE_NOTIFIER:
+        return True
+    
+    notifier_payload = {
+        "camera_id": event_data["camera_id"],
+        "person_id": event_data.get("person_id"),
+        "person_name": event_data.get("person_name"),
+        "reason": event_data["reason"],
+        "face_similarity": event_data.get("face_similarity") or 0.0,
+        "reid_similarity": event_data.get("reid_similarity") or 0.0,
+        "frames_confirmed": event_data["frames_confirmed"],
+        "movement_px": event_data["movement_px"],
+        "ts": event_data["ts"],
+        "jpg_b64": jpg_b64
+    }
+    
+    # Envio assíncrono com retry simples
+    for attempt in range(2):  # 1 retry
+        try:
+            response = requests.post(NOTIFIER_URL, json=notifier_payload, timeout=3.0)
+            if response.status_code == 200:
+                logger.info(f"Notifier OK: camera_id={event_data['camera_id']}, person_id={event_data.get('person_id')}")
+                return True
+            elif response.status_code >= 500:
+                logger.warning(f"Notifier 5xx error (attempt {attempt + 1}): {response.status_code}")
+                if attempt == 0:
+                    await asyncio.sleep(0.1)  # 100ms delay before retry
+                    continue
+            else:
+                logger.warning(f"Notifier error: {response.status_code} - {response.text}")
+                break
+        except requests.exceptions.RequestException as e:
+            logger.warning(f"Notifier request failed (attempt {attempt + 1}): {e}")
+            if attempt == 0:
+                await asyncio.sleep(0.1)
+                continue
+    
+    logger.error(f"Failed to notify after retries: camera_id={event_data['camera_id']}")
+    return False
 
 # Endpoints
 @app.get("/health", response_model=HealthResponse)
@@ -314,6 +360,10 @@ async def ingest_frame(request: IngestFrameRequest):
                 
                 if success:
                     events.append(EventResponse(**event_data))
+                    
+                    # Enviar para Notifier (Telegram) de forma assíncrona
+                    asyncio.create_task(send_to_notifier(event_data, crop_b64))
+                    
                     logger.info(f"Event confirmed: track_id={track_id}, person_id={person_id}, "
                               f"reason={reason}, face_sim={face_sim}, reid_sim={reid_sim}, "
                               f"frames={frames_confirmed}, move_px={move_px:.2f}")
@@ -330,6 +380,7 @@ async def ingest_frame(request: IngestFrameRequest):
 @app.get("/metrics")
 async def metrics():
     """Métricas Prometheus"""
+    from fastapi import Response
     return Response(generate_latest(), media_type=CONTENT_TYPE_LATEST)
 
 # Startup
@@ -339,6 +390,7 @@ async def startup_event():
     logger.info("Starting Fusion API...")
     logger.info(f"Configuration: T_FACE={T_FACE}, T_REID={T_REID}, T_MOVE={T_MOVE}, N_FRAMES={N_FRAMES}")
     logger.info(f"Services: YOLO={YOLO_URL}, FACE={FACE_URL}, REID={REID_URL}")
+    logger.info(f"Notifier: ENABLE_NOTIFIER={ENABLE_NOTIFIER}, NOTIFIER_URL={NOTIFIER_URL}")
 
 if __name__ == "__main__":
     uvicorn.run(
