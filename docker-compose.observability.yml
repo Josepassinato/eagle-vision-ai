@@ -1,0 +1,96 @@
+version: "3.8"
+
+services:
+  prometheus:
+    image: prom/prometheus:latest
+    restart: unless-stopped
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./observability/prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./observability/alerts.yml:/etc/prometheus/alerts.yml
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=200h'
+      - '--web.enable-lifecycle'
+      - '--web.enable-admin-api'
+    networks:
+      - monitoring
+
+  grafana:
+    image: grafana/grafana:latest
+    restart: unless-stopped
+    ports:
+      - "3001:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - ./observability/grafana/provisioning:/etc/grafana/provisioning
+      - ./observability/grafana/dashboards:/var/lib/grafana/dashboards
+      - grafana_data:/var/lib/grafana
+    networks:
+      - monitoring
+
+  loki:
+    image: grafana/loki:latest
+    restart: unless-stopped
+    ports:
+      - "3100:3100"
+    volumes:
+      - ./observability/loki-config.yml:/etc/loki/local-config.yaml
+      - loki_data:/loki
+    command: -config.file=/etc/loki/local-config.yaml
+    networks:
+      - monitoring
+
+  promtail:
+    image: grafana/promtail:latest
+    restart: unless-stopped
+    volumes:
+      - /var/log:/var/log:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - ./observability/promtail-config.yml:/etc/promtail/config.yml
+    command: -config.file=/etc/promtail/config.yml
+    networks:
+      - monitoring
+
+  alertmanager:
+    image: prom/alertmanager:latest
+    restart: unless-stopped
+    ports:
+      - "9093:9093"
+    volumes:
+      - ./observability/alertmanager.yml:/etc/alertmanager/alertmanager.yml
+      - alertmanager_data:/alertmanager
+    networks:
+      - monitoring
+
+  backup:
+    build: ./backup
+    restart: unless-stopped
+    environment:
+      - SUPABASE_DB_URL=${SUPABASE_DB_URL}
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
+      - BACKUP_INTERVAL_SECONDS=86400  # Daily backups
+      - BUCKETS=people,vehicles,evidence,event_clips,antitheft_clips
+    volumes:
+      - backup_data:/backups
+    networks:
+      - monitoring
+
+volumes:
+  prometheus_data:
+  grafana_data:
+  loki_data:
+  alertmanager_data:
+  backup_data:
+
+networks:
+  monitoring:
+    driver: bridge

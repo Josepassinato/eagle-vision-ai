@@ -1,6 +1,7 @@
 groups:
 - name: visao-aguia-alerts
   rules:
+  # Performance alerts
   - alert: FusionLatencyHigh
     expr: histogram_quantile(0.90, sum(rate(fusion_infer_seconds_bucket[5m])) by (le,stage)) > 1.5
     for: 5m
@@ -8,6 +9,7 @@ groups:
       severity: warning
     annotations:
       summary: "Latência alta na Fusion (p90 > 1.5s)"
+      description: "A latência do p90 da Fusion está acima de 1.5s por mais de 5 minutos"
       
   - alert: PullerErrorRateHigh
     expr: (sum(rate(puller_http_errors_total[5m])) / (sum(rate(puller_frames_sent_total[5m])) + sum(rate(puller_http_errors_total[5m])))) > 0.1
@@ -16,6 +18,8 @@ groups:
       severity: warning
     annotations:
       summary: "Erro HTTP no puller > 10% (5m)"
+      description: "Taxa de erro do frame puller está acima de 10% por 5 minutos"
+
   - alert: CircuitBreakerOpen
     expr: increase(circuit_breaker_open_total[1m]) > 0
     for: 1m
@@ -23,3 +27,79 @@ groups:
       severity: critical
     annotations:
       summary: "Circuit breaker opened for at least 1 minute"
+      description: "Circuit breaker foi aberto, indicando falhas no sistema"
+
+  # Camera and stream alerts
+  - alert: CameraOffline
+    expr: up{job=~"frame_puller|mediamtx"} == 0
+    for: 2m
+    labels:
+      severity: critical
+    annotations:
+      summary: "Câmera offline detectada"
+      description: "Câmera {{ $labels.instance }} está offline por mais de 2 minutos"
+
+  - alert: StreamBacklogHigh
+    expr: worker_queue_length > 50
+    for: 30s
+    labels:
+      severity: warning
+    annotations:
+      summary: "Backlog alto no worker"
+      description: "Worker {{ $labels.worker }} tem backlog de {{ $value }} itens"
+
+  - alert: ModelInferenceError
+    expr: increase(model_inference_errors_total[5m]) > 10
+    for: 1m
+    labels:
+      severity: warning
+    annotations:
+      summary: "Erros de inferência do modelo"
+      description: "Mais de 10 erros de inferência em 5 minutos para {{ $labels.model }}"
+
+  # Resource alerts
+  - alert: GPUUtilizationHigh
+    expr: dcgm_gpu_utilization > 90
+    for: 5m
+    labels:
+      severity: warning
+    annotations:
+      summary: "Utilização alta da GPU"
+      description: "GPU {{ $labels.gpu }} com utilização acima de 90% por 5 minutos"
+
+  - alert: MemoryUsageHigh
+    expr: (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100 > 90
+    for: 5m
+    labels:
+      severity: warning
+    annotations:
+      summary: "Uso alto de memória"
+      description: "Uso de memória acima de 90% por 5 minutos"
+
+  - alert: DiskSpaceLow
+    expr: (1 - (node_filesystem_avail_bytes / node_filesystem_size_bytes)) * 100 > 90
+    for: 5m
+    labels:
+      severity: critical
+    annotations:
+      summary: "Espaço em disco baixo"
+      description: "Espaço em disco abaixo de 10% disponível"
+
+  # Backup alerts
+  - alert: BackupFailed
+    expr: increase(backup_failures_total[24h]) > 0
+    for: 1m
+    labels:
+      severity: critical
+    annotations:
+      summary: "Falha no backup"
+      description: "Backup falhou nas últimas 24 horas"
+
+  - alert: BackupDelayed
+    expr: time() - backup_last_success_timestamp > 86400
+    for: 5m
+    labels:
+      severity: warning
+    annotations:
+      summary: "Backup atrasado"
+      description: "Último backup foi executado há mais de 24 horas"
