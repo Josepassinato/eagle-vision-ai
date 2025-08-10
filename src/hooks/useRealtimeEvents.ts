@@ -21,11 +21,23 @@ export function useRealtimeEvents(cameraId?: string) {
   const timersRef = useRef<Map<string, any>>(new Map());
 
   useEffect(() => {
+    // Reset state and timers when camera changes
+    setEvents([]);
+    timersRef.current.forEach((t) => clearTimeout(t));
+    timersRef.current.clear();
+    buffersRef.current.clear();
+
+    const channelName = `events-realtime-ui-${cameraId ?? 'all'}`;
     const channel = supabase
-      .channel("events-realtime-ui")
+      .channel(channelName)
       .on(
         "postgres_changes",
-        { event: "INSERT", schema: REALTIME_SCHEMA, table: REALTIME_TABLE },
+        {
+          event: "INSERT",
+          schema: REALTIME_SCHEMA,
+          table: REALTIME_TABLE,
+          ...(cameraId ? { filter: `camera_id=eq.${cameraId}` } : {}),
+        } as any,
         (payload) => {
           const newEv = (payload as any).new as RealtimeEvent;
           if (!newEv) return;
@@ -52,7 +64,7 @@ export function useRealtimeEvents(cameraId?: string) {
       timersRef.current.clear();
       buffersRef.current.clear();
     };
-  }, []);
+  }, [cameraId]);
 
   return useMemo(() => ({ events }), [events]);
 }

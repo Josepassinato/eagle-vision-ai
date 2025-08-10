@@ -8,8 +8,8 @@ import { toast } from "@/hooks/use-toast";
 
 const Live: React.FC = () => {
   const videoRef = useRef<HTMLVideoElement | null>(null);
-  const { events } = useRealtimeEvents();
   const [cameraId, setCameraId] = useState<string>("cam-sim");
+  const { events } = useRealtimeEvents(cameraId);
 
   useEffect(() => {
     const video = videoRef.current;
@@ -41,9 +41,8 @@ const Live: React.FC = () => {
 
   // Último evento para a câmera selecionada
   const lastForCam = useMemo(() => {
-    const filtered = events.filter((e) => e.camera_id === cameraId);
-    return filtered.length ? filtered[filtered.length - 1] : null;
-  }, [events, cameraId]);
+    return events.length ? events[events.length - 1] : null;
+  }, [events]);
 
   useEffect(() => {
     // Limpa overlay ao trocar câmera
@@ -60,7 +59,7 @@ const Live: React.FC = () => {
       <section className="mb-4 flex items-center gap-3">
         <label className="text-sm text-muted-foreground" htmlFor="camera">camera_id</label>
         <Input id="camera" value={cameraId} onChange={(e) => setCameraId(e.target.value)} className="w-[220px]" placeholder="cam-sim" />
-        <div className="text-xs text-muted-foreground">Eventos desta câmera: {events.filter(e=>e.camera_id===cameraId).length}</div>
+        <div className="text-xs text-muted-foreground">Eventos desta câmera: {events.length}</div>
       </section>
 
       <section className="relative w-full aspect-video rounded-lg overflow-hidden shadow-primary">
