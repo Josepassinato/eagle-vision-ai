@@ -4,9 +4,12 @@
 }
 
 {$DOMAIN} {
-  encode gzip
-  reverse_proxy /* frontend:8080
-  reverse_proxy /api/* fusion:8080
+  root * /srv/www
+  file_server
+
+  handle_path /api/* {
+    reverse_proxy fusion:8080
+  }
 
   header {
     Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"

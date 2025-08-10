@@ -15,6 +15,7 @@ services:
       - ./infra/reverse-proxy/Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy-data:/data
       - caddy-config:/config
+      - ./dist:/srv/www:ro
     depends_on:
       - fusion
     # networks: inherit default, can be extended
