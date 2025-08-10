@@ -41,3 +41,6 @@ verify_jwt = false
 
 [functions.stream-stop]
 verify_jwt = false
+
+[functions.device-link]
+verify_jwt = false

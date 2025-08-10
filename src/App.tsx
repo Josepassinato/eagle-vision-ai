@@ -26,6 +26,7 @@ import EventsPage from "./pages/EventsPage";
 import Analytics from "./pages/Analytics";
 import Onboarding from "./pages/Onboarding";
 import WorkspaceManager from "./pages/WorkspaceManager";
+import EdgeDeviceManager from "./pages/EdgeDeviceManager";
 import GlobalNavActions from "./components/GlobalNavActions";
 
 const queryClient = new QueryClient();
@@ -44,6 +45,7 @@ const App = () => (
           <Route path="/analytics" element={<Analytics />} />
           <Route path="/demo" element={<DemoPublic />} />
           <Route path="/workspace" element={<WorkspaceManager />} />
+          <Route path="/edge" element={<EdgeDeviceManager />} />
           <Route path="/onboarding" element={<ProtectedRoute><Onboarding /></ProtectedRoute>} />
           <Route path="/admin" element={<Navigate to="/app/dashboard" replace />} />
           <Route

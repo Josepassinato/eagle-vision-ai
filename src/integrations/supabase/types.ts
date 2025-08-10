@@ -412,6 +412,134 @@ export type Database = {
         }
         Relationships: []
       }
+      edge_clips: {
+        Row: {
+          camera_id: string | null
+          clip_path: string
+          clip_url: string | null
+          created_at: string
+          device_id: string
+          duration_seconds: number | null
+          end_time: string
+          file_size_bytes: number | null
+          id: string
+          metadata: Json | null
+          org_id: string
+          start_time: string
+          upload_requested_at: string
+          upload_status: string
+          uploaded_at: string | null
+        }
+        Insert: {
+          camera_id?: string | null
+          clip_path: string
+          clip_url?: string | null
+          created_at?: string
+          device_id: string
+          duration_seconds?: number | null
+          end_time: string
+          file_size_bytes?: number | null
+          id?: string
+          metadata?: Json | null
+          org_id: string
+          start_time: string
+          upload_requested_at?: string
+          upload_status?: string
+          uploaded_at?: string | null
+        }
+        Update: {
+          camera_id?: string | null
+          clip_path?: string
+          clip_url?: string | null
+          created_at?: string
+          device_id?: string
+          duration_seconds?: number | null
+          end_time?: string
+          file_size_bytes?: number | null
+          id?: string
+          metadata?: Json | null
+          org_id?: string
+          start_time?: string
+          upload_requested_at?: string
+          upload_status?: string
+          uploaded_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "edge_clips_device_id_fkey"
+            columns: ["device_id"]
+            isOneToOne: false
+            referencedRelation: "edge_devices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "edge_clips_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "orgs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      edge_devices: {
+        Row: {
+          created_at: string
+          device_id: string
+          device_name: string
+          device_type: string
+          id: string
+          ip_address: string | null
+          last_seen: string | null
+          linked_at: string | null
+          location: string | null
+          metadata: Json | null
+          org_id: string
+          status: string
+          updated_at: string
+          version: string | null
+        }
+        Insert: {
+          created_at?: string
+          device_id: string
+          device_name: string
+          device_type?: string
+          id?: string
+          ip_address?: string | null
+          last_seen?: string | null
+          linked_at?: string | null
+          location?: string | null
+          metadata?: Json | null
+          org_id: string
+          status?: string
+          updated_at?: string
+          version?: string | null
+        }
+        Update: {
+          created_at?: string
+          device_id?: string
+          device_name?: string
+          device_type?: string
+          id?: string
+          ip_address?: string | null
+          last_seen?: string | null
+          linked_at?: string | null
+          location?: string | null
+          metadata?: Json | null
+          org_id?: string
+          status?: string
+          updated_at?: string
+          version?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "edge_devices_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "orgs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       edu_classes: {
         Row: {
           created_at: string | null
