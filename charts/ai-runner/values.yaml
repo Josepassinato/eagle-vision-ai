@@ -1,0 +1,240 @@
+global:
+  imagePullPolicy: IfNotPresent
+  supabase:
+    url: "https://avbswnnywjyvqfxezgfl.supabase.co"
+    service_key: "${SUPABASE_SERVICE_ROLE}"
+  env:
+    REQUEST_LOG_LEVEL: info
+    
+nameOverride: ""
+fullnameOverride: ""
+
+# Fusion service - main orchestrator
+fusion:
+  image: yourrepo/fusion:latest
+  replicas: 2
+  resources:
+    limits:
+      cpu: "2"
+      memory: "2Gi"
+    requests:
+      cpu: "500m"
+      memory: "1Gi"
+  env:
+    - name: SUPABASE_URL
+      valueFrom:
+        secretKeyRef:
+          name: supabase
+          key: url
+    - name: SUPABASE_SERVICE_ROLE
+      valueFrom:
+        secretKeyRef:
+          name: supabase
+          key: service_key
+    - name: MEDIAMTX_HOST
+      value: "mediamtx-service"
+    - name: MEDIAMTX_PORT
+      value: "8554"
+  service:
+    type: ClusterIP
+    port: 8080
+    targetPort: 8080
+
+# MediaMTX - RTSP/HLS media server
+mediamtx:
+  image: bluenviron/mediamtx:latest
+  replicas: 1
+  resources:
+    limits:
+      cpu: "1"
+      memory: "1Gi"
+    requests:
+      cpu: "250m"
+      memory: "512Mi"
+  service:
+    type: ClusterIP
+    rtspPort: 8554
+    hlsPort: 8889
+    webrtcPort: 8189
+    apiPort: 9997
+  config:
+    logLevel: info
+    # Add MediaMTX configuration here
+    paths:
+      all:
+        readUser: "leitor"
+        readPass: "leitor123"
+
+# Worker services - AI analytics
+workers:
+  peoplevision:
+    image: yourrepo/peoplevision:latest
+    resources:
+      limits:
+        cpu: "1"
+        memory: "1Gi"
+      requests:
+        cpu: "250m"
+        memory: "512Mi"
+    env:
+      - name: ANALYTIC_TYPE
+        value: "people"
+      - name: CONFIDENCE_THRESHOLD
+        value: "0.5"
+        
+  vehiclevision:
+    image: yourrepo/vehiclevision:latest
+    resources:
+      limits:
+        cpu: "1"
+        memory: "1Gi"
+      requests:
+        cpu: "250m"
+        memory: "512Mi"
+    env:
+      - name: ANALYTIC_TYPE
+        value: "vehicle"
+      - name: CONFIDENCE_THRESHOLD
+        value: "0.5"
+        
+  safetyvision:
+    image: yourrepo/safetyvision:latest
+    resources:
+      limits:
+        cpu: "1"
+        memory: "1Gi"
+      requests:
+        cpu: "250m"
+        memory: "512Mi"
+    env:
+      - name: ANALYTIC_TYPE
+        value: "safety"
+      - name: CONFIDENCE_THRESHOLD
+        value: "0.6"
+        
+  edubehavior:
+    image: yourrepo/edubehavior:latest
+    resources:
+      limits:
+        cpu: "1"
+        memory: "2Gi"
+      requests:
+        cpu: "500m"
+        memory: "1Gi"
+    env:
+      - name: ANALYTIC_TYPE
+        value: "education"
+      - name: MODEL_PATH
+        value: "/models/edubehavior"
+        
+  alpr:
+    image: yourrepo/alpr:latest
+    resources:
+      limits:
+        cpu: "1"
+        memory: "1Gi"
+        nvidia.com/gpu: 1  # Optional GPU
+      requests:
+        cpu: "250m"
+        memory: "512Mi"
+    env:
+      - name: ANALYTIC_TYPE
+        value: "alpr"
+      - name: USE_GPU
+        value: "true"
+
+# Horizontal Pod Autoscaling
+hpa:
+  enabled: true
+  minReplicas: 1
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 70
+  targetMemoryUtilizationPercentage: 80
+  # Custom metrics for queue-based scaling
+  customMetrics:
+    enabled: false
+    queueLength:
+      targetValue: 100
+
+# Ingress configuration
+ingress:
+  enabled: true
+  className: nginx
+  annotations:
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/cors-allow-origin: "*"
+    nginx.ingress.kubernetes.io/cors-allow-methods: "GET, POST, PUT, DELETE, OPTIONS"
+    nginx.ingress.kubernetes.io/cors-allow-headers: "Authorization, Content-Type, X-API-Key, X-Org-ID"
+    nginx.ingress.kubernetes.io/rate-limit: "100"
+    nginx.ingress.kubernetes.io/rate-limit-window: "1m"
+  hosts:
+    - host: api.yourdomain.com
+      paths:
+        - path: /fusion
+          pathType: Prefix
+          service: fusion-service
+        - path: /hls
+          pathType: Prefix
+          service: mediamtx-service
+        - path: /rtsp
+          pathType: Prefix
+          service: mediamtx-service
+  tls:
+    - secretName: ai-runner-tls
+      hosts:
+        - api.yourdomain.com
+
+# Service configuration
+services:
+  fusion:
+    type: ClusterIP
+    port: 8080
+  mediamtx:
+    type: ClusterIP
+    ports:
+      rtsp: 8554
+      hls: 8889
+      webrtc: 8189
+      api: 9997
+  workers:
+    type: ClusterIP
+    port: 8080
+
+# Security
+security:
+  networkPolicies:
+    enabled: true
+  podSecurityPolicy:
+    enabled: true
+  serviceAccount:
+    create: true
+    annotations: {}
+    name: ""
+
+# Monitoring
+monitoring:
+  enabled: true
+  serviceMonitor:
+    enabled: true
+    namespace: monitoring
+  grafana:
+    dashboard:
+      enabled: true
+
+# Storage
+storage:
+  models:
+    storageClass: "fast-ssd"
+    size: "10Gi"
+  cache:
+    storageClass: "fast-ssd"
+    size: "5Gi"
+
+# Node affinity for GPU workloads
+nodeAffinity:
+  gpu:
+    enabled: true
+    nodeSelector:
+      accelerator: nvidia-tesla-v100

@@ -1,0 +1,62 @@
+# Models PVC - shared across all workers
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "ai-runner.fullname" . }}-models-pvc
+  labels:
+    {{- include "ai-runner.labels" . | nindent 4 }}
+spec:
+  accessModes:
+    - ReadOnlyMany
+  storageClassName: {{ .Values.storage.models.storageClass }}
+  resources:
+    requests:
+      storage: {{ .Values.storage.models.size }}
+
+---
+# Cache PVC - for temporary processing files
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "ai-runner.fullname" . }}-cache-pvc
+  labels:
+    {{- include "ai-runner.labels" . | nindent 4 }}
+spec:
+  accessModes:
+    - ReadWriteMany
+  storageClassName: {{ .Values.storage.cache.storageClass }}
+  resources:
+    requests:
+      storage: {{ .Values.storage.cache.size }}
+
+---
+# Recordings PVC - for MediaMTX recordings
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "ai-runner.fullname" . }}-recordings-pvc
+  labels:
+    {{- include "ai-runner.labels" . | nindent 4 }}
+spec:
+  accessModes:
+    - ReadWriteMany
+  storageClassName: {{ .Values.storage.cache.storageClass }}
+  resources:
+    requests:
+      storage: 20Gi
+
+---
+# Model cache PVC - specifically for ALPR models
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "ai-runner.fullname" . }}-model-cache-pvc
+  labels:
+    {{- include "ai-runner.labels" . | nindent 4 }}
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: {{ .Values.storage.models.storageClass }}
+  resources:
+    requests:
+      storage: 5Gi

@@ -1,0 +1,62 @@
+{{- if .Values.hpa.enabled }}
+{{- range $workerName, $workerConfig := .Values.workers }}
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ include "ai-runner.fullname" $ }}-{{ $workerName }}-hpa
+  labels:
+    {{- include "ai-runner.labels" $ | nindent 4 }}
+    app.kubernetes.io/component: {{ $workerName }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ include "ai-runner.fullname" $ }}-{{ $workerName }}
+  minReplicas: {{ $.Values.hpa.minReplicas }}
+  maxReplicas: {{ $.Values.hpa.maxReplicas }}
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: {{ $.Values.hpa.targetCPUUtilizationPercentage }}
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: {{ $.Values.hpa.targetMemoryUtilizationPercentage }}
+  {{- if $.Values.hpa.customMetrics.enabled }}
+  - type: Pods
+    pods:
+      metric:
+        name: worker_queue_length
+      target:
+        type: AverageValue
+        averageValue: {{ $.Values.hpa.customMetrics.queueLength.targetValue | quote }}
+  {{- end }}
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+      - type: Pods
+        value: 1
+        periodSeconds: 60
+      - type: Percent
+        value: 10
+        periodSeconds: 60
+      selectPolicy: Min
+    scaleUp:
+      stabilizationWindowSeconds: 60
+      policies:
+      - type: Pods
+        value: 2
+        periodSeconds: 60
+      - type: Percent
+        value: 50
+        periodSeconds: 60
+      selectPolicy: Max
+{{- end }}
+{{- end }}

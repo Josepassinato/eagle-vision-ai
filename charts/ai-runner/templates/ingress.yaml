@@ -1,0 +1,102 @@
+{{- if .Values.ingress.enabled -}}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "ai-runner.fullname" . }}-ingress
+  labels:
+    {{- include "ai-runner.labels" . | nindent 4 }}
+  {{- with .Values.ingress.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- if .Values.ingress.className }}
+  ingressClassName: {{ .Values.ingress.className }}
+  {{- end }}
+  {{- if .Values.ingress.tls }}
+  tls:
+    {{- range .Values.ingress.tls }}
+    - hosts:
+        {{- range .hosts }}
+        - {{ . | quote }}
+        {{- end }}
+      secretName: {{ .secretName }}
+    {{- end }}
+  {{- end }}
+  rules:
+    {{- range .Values.ingress.hosts }}
+    - host: {{ .host | quote }}
+      http:
+        paths:
+          {{- range .paths }}
+          - path: {{ .path }}
+            {{- if .pathType }}
+            pathType: {{ .pathType }}
+            {{- end }}
+            backend:
+              service:
+                name: {{ include "ai-runner.fullname" $ }}-{{ .service }}
+                port:
+                  number: 8080
+          {{- end }}
+    {{- end }}
+{{- end }}
+
+---
+{{- if .Values.ingress.enabled }}
+# Additional ingress for MediaMTX HLS/WebRTC endpoints
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "ai-runner.fullname" . }}-media-ingress
+  labels:
+    {{- include "ai-runner.labels" . | nindent 4 }}
+  annotations:
+    {{- with .Values.ingress.annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+    nginx.ingress.kubernetes.io/websocket-services: "{{ include "ai-runner.fullname" . }}-mediamtx-service"
+spec:
+  {{- if .Values.ingress.className }}
+  ingressClassName: {{ .Values.ingress.className }}
+  {{- end }}
+  {{- if .Values.ingress.tls }}
+  tls:
+    {{- range .Values.ingress.tls }}
+    - hosts:
+        {{- range .hosts }}
+        - {{ . | quote }}
+        {{- end }}
+      secretName: {{ .secretName }}
+    {{- end }}
+  {{- end }}
+  rules:
+    {{- range .Values.ingress.hosts }}
+    - host: {{ .host | quote }}
+      http:
+        paths:
+        - path: /hls
+          pathType: Prefix
+          backend:
+            service:
+              name: {{ include "ai-runner.fullname" $ }}-mediamtx-service
+              port:
+                number: {{ $.Values.services.mediamtx.ports.hls }}
+        - path: /webrtc
+          pathType: Prefix
+          backend:
+            service:
+              name: {{ include "ai-runner.fullname" $ }}-mediamtx-service
+              port:
+                number: {{ $.Values.services.mediamtx.ports.webrtc }}
+        - path: /api/mediamtx
+          pathType: Prefix
+          backend:
+            service:
+              name: {{ include "ai-runner.fullname" $ }}-mediamtx-service
+              port:
+                number: {{ $.Values.services.mediamtx.ports.api }}
+    {{- end }}
+{{- end }}

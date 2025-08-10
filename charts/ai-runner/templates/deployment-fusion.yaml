@@ -1,0 +1,83 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "ai-runner.fullname" . }}-fusion
+  labels:
+    {{- include "ai-runner.labels" . | nindent 4 }}
+    app.kubernetes.io/component: fusion
+spec:
+  replicas: {{ .Values.fusion.replicas }}
+  selector:
+    matchLabels:
+      {{- include "ai-runner.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: fusion
+  template:
+    metadata:
+      labels:
+        {{- include "ai-runner.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: fusion
+    spec:
+      serviceAccountName: {{ include "ai-runner.serviceAccountName" . }}
+      containers:
+      - name: fusion
+        image: "{{ .Values.fusion.image }}"
+        imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+        ports:
+        - name: http
+          containerPort: 8080
+          protocol: TCP
+        - name: metrics
+          containerPort: 9090
+          protocol: TCP
+        env:
+        {{- range .Values.fusion.env }}
+        - name: {{ .name }}
+          {{- if .value }}
+          value: {{ .value | quote }}
+          {{- else if .valueFrom }}
+          valueFrom:
+            {{- toYaml .valueFrom | nindent 12 }}
+          {{- end }}
+        {{- end }}
+        - name: REQUEST_LOG_LEVEL
+          value: {{ .Values.global.env.REQUEST_LOG_LEVEL }}
+        - name: WORKER_ENDPOINTS
+          value: "peoplevision:8080,vehiclevision:8080,safetyvision:8080,edubehavior:8080,alpr:8080"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: http
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: http
+          initialDelaySeconds: 5
+          periodSeconds: 5
+        resources:
+          {{- toYaml .Values.fusion.resources | nindent 10 }}
+        volumeMounts:
+        - name: config
+          mountPath: /app/config
+        - name: models-cache
+          mountPath: /models
+      volumes:
+      - name: config
+        configMap:
+          name: {{ include "ai-runner.fullname" . }}-fusion-config
+      - name: models-cache
+        persistentVolumeClaim:
+          claimName: {{ include "ai-runner.fullname" . }}-models-pvc
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

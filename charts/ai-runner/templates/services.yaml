@@ -1,0 +1,82 @@
+# Fusion Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "ai-runner.fullname" . }}-fusion-service
+  labels:
+    {{- include "ai-runner.labels" . | nindent 4 }}
+    app.kubernetes.io/component: fusion
+spec:
+  type: {{ .Values.services.fusion.type }}
+  ports:
+  - port: {{ .Values.services.fusion.port }}
+    targetPort: http
+    protocol: TCP
+    name: http
+  - port: 9090
+    targetPort: metrics
+    protocol: TCP
+    name: metrics
+  selector:
+    {{- include "ai-runner.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: fusion
+
+---
+# MediaMTX Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "ai-runner.fullname" . }}-mediamtx-service
+  labels:
+    {{- include "ai-runner.labels" . | nindent 4 }}
+    app.kubernetes.io/component: mediamtx
+spec:
+  type: {{ .Values.services.mediamtx.type }}
+  ports:
+  - port: {{ .Values.services.mediamtx.ports.rtsp }}
+    targetPort: rtsp
+    protocol: TCP
+    name: rtsp
+  - port: {{ .Values.services.mediamtx.ports.hls }}
+    targetPort: hls
+    protocol: TCP
+    name: hls
+  - port: {{ .Values.services.mediamtx.ports.webrtc }}
+    targetPort: webrtc
+    protocol: TCP
+    name: webrtc
+  - port: {{ .Values.services.mediamtx.ports.api }}
+    targetPort: api
+    protocol: TCP
+    name: api
+  selector:
+    {{- include "ai-runner.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: mediamtx
+
+---
+# Worker Services
+{{- range $workerName, $workerConfig := .Values.workers }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "ai-runner.fullname" $ }}-{{ $workerName }}-service
+  labels:
+    {{- include "ai-runner.labels" $ | nindent 4 }}
+    app.kubernetes.io/component: {{ $workerName }}
+spec:
+  type: {{ $.Values.services.workers.type }}
+  ports:
+  - port: {{ $.Values.services.workers.port }}
+    targetPort: http
+    protocol: TCP
+    name: http
+  - port: 9090
+    targetPort: metrics
+    protocol: TCP
+    name: metrics
+  selector:
+    {{- include "ai-runner.selectorLabels" $ | nindent 4 }}
+    app.kubernetes.io/component: {{ $workerName }}
+
+---
+{{- end }}

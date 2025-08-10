@@ -1,0 +1,112 @@
+# Fusion ConfigMap
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "ai-runner.fullname" . }}-fusion-config
+  labels:
+    {{- include "ai-runner.labels" . | nindent 4 }}
+data:
+  config.yaml: |
+    server:
+      port: 8080
+      metrics_port: 9090
+    workers:
+      peoplevision:
+        endpoint: "http://{{ include "ai-runner.fullname" . }}-peoplevision-service:8080"
+        timeout: 30s
+        max_retries: 3
+      vehiclevision:
+        endpoint: "http://{{ include "ai-runner.fullname" . }}-vehiclevision-service:8080"
+        timeout: 30s
+        max_retries: 3
+      safetyvision:
+        endpoint: "http://{{ include "ai-runner.fullname" . }}-safetyvision-service:8080"
+        timeout: 30s
+        max_retries: 3
+      edubehavior:
+        endpoint: "http://{{ include "ai-runner.fullname" . }}-edubehavior-service:8080"
+        timeout: 60s
+        max_retries: 2
+      alpr:
+        endpoint: "http://{{ include "ai-runner.fullname" . }}-alpr-service:8080"
+        timeout: 45s
+        max_retries: 3
+    mediamtx:
+      rtsp_endpoint: "rtsp://{{ include "ai-runner.fullname" . }}-mediamtx-service:8554"
+      api_endpoint: "http://{{ include "ai-runner.fullname" . }}-mediamtx-service:9997"
+    processing:
+      max_concurrent_streams: 50
+      frame_buffer_size: 100
+      processing_timeout: 300s
+    metrics:
+      enabled: true
+      port: 9090
+      path: "/metrics"
+
+---
+# MediaMTX ConfigMap
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "ai-runner.fullname" . }}-mediamtx-config
+  labels:
+    {{- include "ai-runner.labels" . | nindent 4 }}
+data:
+  mediamtx.yml: |
+    logLevel: {{ .Values.mediamtx.config.logLevel }}
+    logDestinations: [stdout]
+    logFile: ""
+    
+    # API
+    api: yes
+    apiAddress: :{{ .Values.mediamtx.service.apiPort }}
+    
+    # Metrics
+    metrics: yes
+    metricsAddress: :9998
+    
+    # RTSP
+    rtspAddress: :{{ .Values.mediamtx.service.rtspPort }}
+    protocols: [tcp]
+    encryption: "no"
+    
+    # HLS
+    hls: yes
+    hlsAddress: :{{ .Values.mediamtx.service.hlsPort }}
+    hlsEncryption: no
+    hlsAllowOrigin: "*"
+    hlsSegmentCount: 7
+    hlsSegmentDuration: 2s
+    hlsPartDuration: 1s
+    
+    # WebRTC
+    webrtc: yes
+    webrtcAddress: :{{ .Values.mediamtx.service.webrtcPort }}
+    webrtcAllowOrigin: "*"
+    
+    # Recording
+    record: no
+    recordPath: /recordings/%Y/%m/%d/%H-%M-%S-%f
+    
+    # Path defaults
+    pathDefaults:
+      # Authentication
+      readUser: {{ .Values.mediamtx.config.paths.all.readUser }}
+      readPass: {{ .Values.mediamtx.config.paths.all.readPass }}
+      
+      # Recording
+      record: no
+      recordOnStart: no
+      recordOnDemand: no
+      
+      # Publishers
+      publishUser: ""
+      publishPass: ""
+      publishIPs: []
+      
+      # Readers
+      readIPs: []
+      
+    # Paths
+    paths:
+      all: {}

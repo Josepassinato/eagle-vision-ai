@@ -1,0 +1,17 @@
+apiVersion: v2
+name: ai-runner
+description: AI Video Analytics Runner - Multi-tenant SaaS deployment
+type: application
+version: 0.1.0
+appVersion: "1.0.0"
+keywords:
+  - ai
+  - video-analytics
+  - computer-vision
+  - multi-tenant
+home: https://github.com/yourorg/ai-runner
+sources:
+  - https://github.com/yourorg/ai-runner
+maintainers:
+  - name: Your Team
+    email: team@yourorg.com

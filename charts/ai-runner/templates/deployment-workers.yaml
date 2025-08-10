@@ -1,0 +1,109 @@
+{{- range $workerName, $workerConfig := .Values.workers }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "ai-runner.fullname" $ }}-{{ $workerName }}
+  labels:
+    {{- include "ai-runner.labels" $ | nindent 4 }}
+    app.kubernetes.io/component: {{ $workerName }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "ai-runner.selectorLabels" $ | nindent 6 }}
+      app.kubernetes.io/component: {{ $workerName }}
+  template:
+    metadata:
+      labels:
+        {{- include "ai-runner.selectorLabels" $ | nindent 8 }}
+        app.kubernetes.io/component: {{ $workerName }}
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9090"
+        prometheus.io/path: "/metrics"
+    spec:
+      serviceAccountName: {{ include "ai-runner.serviceAccountName" $ }}
+      containers:
+      - name: {{ $workerName }}
+        image: "{{ $workerConfig.image }}"
+        imagePullPolicy: {{ $.Values.global.imagePullPolicy }}
+        ports:
+        - name: http
+          containerPort: 8080
+          protocol: TCP
+        - name: metrics
+          containerPort: 9090
+          protocol: TCP
+        env:
+        {{- range $workerConfig.env }}
+        - name: {{ .name }}
+          value: {{ .value | quote }}
+        {{- end }}
+        - name: SUPABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: supabase
+              key: url
+        - name: SUPABASE_SERVICE_ROLE
+          valueFrom:
+            secretKeyRef:
+              name: supabase
+              key: service_key
+        - name: REQUEST_LOG_LEVEL
+          value: {{ $.Values.global.env.REQUEST_LOG_LEVEL }}
+        - name: WORKER_ID
+          value: {{ $workerName }}
+        - name: PROMETHEUS_PORT
+          value: "9090"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: http
+          initialDelaySeconds: 60
+          periodSeconds: 30
+          timeoutSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: http
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 5
+        resources:
+          {{- toYaml $workerConfig.resources | nindent 10 }}
+        volumeMounts:
+        - name: models
+          mountPath: /models
+          readOnly: true
+        - name: temp
+          mountPath: /tmp
+        {{- if eq $workerName "alpr" }}
+        - name: model-cache
+          mountPath: /model-cache
+        {{- end }}
+      volumes:
+      - name: models
+        persistentVolumeClaim:
+          claimName: {{ include "ai-runner.fullname" $ }}-models-pvc
+      - name: temp
+        emptyDir:
+          sizeLimit: 1Gi
+      {{- if eq $workerName "alpr" }}
+      - name: model-cache
+        persistentVolumeClaim:
+          claimName: {{ include "ai-runner.fullname" $ }}-model-cache-pvc
+      {{- end }}
+      {{- if and (eq $workerName "alpr") $.Values.nodeAffinity.gpu.enabled }}
+      nodeSelector:
+        {{- toYaml $.Values.nodeAffinity.gpu.nodeSelector | nindent 8 }}
+      {{- end }}
+      {{- with $.Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with $.Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+{{- end }}

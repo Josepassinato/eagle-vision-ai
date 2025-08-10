@@ -1,0 +1,93 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "ai-runner.fullname" . }}-mediamtx
+  labels:
+    {{- include "ai-runner.labels" . | nindent 4 }}
+    app.kubernetes.io/component: mediamtx
+spec:
+  replicas: {{ .Values.mediamtx.replicas }}
+  selector:
+    matchLabels:
+      {{- include "ai-runner.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: mediamtx
+  template:
+    metadata:
+      labels:
+        {{- include "ai-runner.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: mediamtx
+    spec:
+      serviceAccountName: {{ include "ai-runner.serviceAccountName" . }}
+      containers:
+      - name: mediamtx
+        image: "{{ .Values.mediamtx.image }}"
+        imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+        ports:
+        - name: rtsp
+          containerPort: {{ .Values.mediamtx.service.rtspPort }}
+          protocol: TCP
+        - name: hls
+          containerPort: {{ .Values.mediamtx.service.hlsPort }}
+          protocol: TCP
+        - name: webrtc
+          containerPort: {{ .Values.mediamtx.service.webrtcPort }}
+          protocol: TCP
+        - name: api
+          containerPort: {{ .Values.mediamtx.service.apiPort }}
+          protocol: TCP
+        env:
+        - name: MTX_PROTOCOLS
+          value: "tcp"
+        - name: MTX_LOGLEVEL
+          value: {{ .Values.mediamtx.config.logLevel }}
+        - name: MTX_API
+          value: "yes"
+        - name: MTX_APIADDRESS
+          value: ":{{ .Values.mediamtx.service.apiPort }}"
+        - name: MTX_HLS
+          value: "yes"
+        - name: MTX_HLSADDRESS
+          value: ":{{ .Values.mediamtx.service.hlsPort }}"
+        - name: MTX_WEBRTC
+          value: "yes"
+        - name: MTX_WEBRTCADDRESS
+          value: ":{{ .Values.mediamtx.service.webrtcPort }}"
+        livenessProbe:
+          httpGet:
+            path: /v3/config/global/get
+            port: api
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /v3/config/global/get
+            port: api
+          initialDelaySeconds: 5
+          periodSeconds: 5
+        resources:
+          {{- toYaml .Values.mediamtx.resources | nindent 10 }}
+        volumeMounts:
+        - name: config
+          mountPath: /mediamtx.yml
+          subPath: mediamtx.yml
+        - name: recordings
+          mountPath: /recordings
+      volumes:
+      - name: config
+        configMap:
+          name: {{ include "ai-runner.fullname" . }}-mediamtx-config
+      - name: recordings
+        persistentVolumeClaim:
+          claimName: {{ include "ai-runner.fullname" . }}-recordings-pvc
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

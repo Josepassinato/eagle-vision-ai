@@ -1,0 +1,90 @@
+{{- if .Values.security.networkPolicies.enabled }}
+# Default deny all ingress traffic
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "ai-runner.fullname" . }}-default-deny
+  labels:
+    {{- include "ai-runner.labels" . | nindent 4 }}
+spec:
+  podSelector: {}
+  policyTypes:
+  - Ingress
+
+---
+# Allow ingress traffic from ingress controller
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "ai-runner.fullname" . }}-allow-ingress
+  labels:
+    {{- include "ai-runner.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "ai-runner.selectorLabels" . | nindent 6 }}
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: ingress-nginx
+    ports:
+    - protocol: TCP
+      port: 8080
+
+---
+# Allow inter-service communication
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "ai-runner.fullname" . }}-allow-internal
+  labels:
+    {{- include "ai-runner.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "ai-runner.selectorLabels" . | nindent 6 }}
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          {{- include "ai-runner.selectorLabels" . | nindent 10 }}
+    ports:
+    - protocol: TCP
+      port: 8080
+    - protocol: TCP
+      port: 8554
+    - protocol: TCP
+      port: 8889
+    - protocol: TCP
+      port: 9997
+
+---
+# Allow monitoring scraping
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "ai-runner.fullname" . }}-allow-monitoring
+  labels:
+    {{- include "ai-runner.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "ai-runner.selectorLabels" . | nindent 6 }}
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: monitoring
+    ports:
+    - protocol: TCP
+      port: 9090
+    - protocol: TCP
+      port: 9998
+{{- end }}
