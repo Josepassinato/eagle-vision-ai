@@ -17,3 +17,6 @@ verify_jwt = true
 
 [functions.simulate-demo]
 verify_jwt = true
+
+[functions.demo-router]
+verify_jwt = true
