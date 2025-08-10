@@ -1350,6 +1350,7 @@ export type Database = {
           created_at: string | null
           frames: number | null
           id: number
+          metadata: Json | null
           minutes: number
           org_id: string | null
           storage_mb: number | null
@@ -1362,6 +1363,7 @@ export type Database = {
           created_at?: string | null
           frames?: number | null
           id?: number
+          metadata?: Json | null
           minutes: number
           org_id?: string | null
           storage_mb?: number | null
@@ -1374,6 +1376,7 @@ export type Database = {
           created_at?: string | null
           frames?: number | null
           id?: number
+          metadata?: Json | null
           minutes?: number
           org_id?: string | null
           storage_mb?: number | null
@@ -1594,6 +1597,10 @@ export type Database = {
           name: string
           similarity: number
         }[]
+      }
+      set_config: {
+        Args: { parameter: string; value: string }
+        Returns: string
       }
       sparsevec_out: {
         Args: { "": unknown }
