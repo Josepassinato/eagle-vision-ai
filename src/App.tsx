@@ -2,7 +2,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import AdminLayout from "./layouts/AdminLayout";
@@ -14,6 +14,9 @@ import People from "./pages/admin/People";
 import Config from "./pages/admin/Config";
 import Metrics from "./pages/admin/Metrics";
 import MapView from "./pages/admin/MapView";
+import Live from "./pages/Live";
+import EventsPage from "./pages/EventsPage";
+import Analytics from "./pages/Analytics";
 
 const queryClient = new QueryClient();
 
@@ -25,6 +28,10 @@ const App = () => (
       <BrowserRouter>
         <Routes>
           <Route path="/auth" element={<AuthPage />} />
+          <Route path="/live" element={<Live />} />
+          <Route path="/events" element={<EventsPage />} />
+          <Route path="/analytics" element={<Analytics />} />
+          <Route path="/admin" element={<Navigate to="/app/dashboard" replace />} />
           <Route
             path="/app"
             element={

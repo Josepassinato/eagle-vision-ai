@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Eye, Menu, X } from "lucide-react";
 import { useState } from "react";
+import { NavLink } from "react-router-dom";
 
 const Navbar = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -12,28 +13,28 @@ const Navbar = () => {
           {/* Logo */}
           <div className="flex items-center space-x-3">
             <div className="p-2 bg-gradient-primary rounded-lg">
-              <Eye className="w-6 h-6 text-primary-foreground" />
+              <Eye className="w-6 h-6 text-primary-foreground" aria-hidden="true" />
             </div>
-            <span className="text-2xl font-bold bg-gradient-to-r from-foreground to-accent bg-clip-text text-transparent">
+            <span className="text-2xl font-display font-bold bg-gradient-to-r from-foreground to-accent bg-clip-text text-transparent">
               Visão de Águia
             </span>
           </div>
 
           {/* Desktop Navigation */}
-          <div className="hidden md:flex items-center space-x-8">
-            <NavLink href="#inicio">Início</NavLink>
-            <NavLink href="#sistema">Sistema</NavLink>
-            <NavLink href="#recursos">Recursos</NavLink>
-            <NavLink href="#contato">Contato</NavLink>
+          <div className="hidden md:flex items-center space-x-6">
+            <TopNavLink to="/live">Live</TopNavLink>
+            <TopNavLink to="/events">Events</TopNavLink>
+            <TopNavLink to="/analytics">Analytics</TopNavLink>
+            <TopNavLink to="/app/dashboard">Admin</TopNavLink>
           </div>
 
           {/* Action Buttons */}
           <div className="hidden md:flex items-center space-x-4">
-            <Button variant="ghost" size="sm">
-              Login
+            <Button variant="ghost" size="sm" asChild>
+              <NavLink to="/auth" aria-label="Login">Login</NavLink>
             </Button>
-            <Button variant="accent" size="sm">
-              Começar Agora
+            <Button variant="accent" size="sm" asChild>
+              <NavLink to="/auth" aria-label="Começar Agora">Começar Agora</NavLink>
             </Button>
           </div>
 
@@ -43,6 +44,7 @@ const Navbar = () => {
             size="icon"
             className="md:hidden"
             onClick={() => setIsMenuOpen(!isMenuOpen)}
+            aria-label="Toggle menu"
           >
             {isMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
           </Button>
@@ -52,16 +54,16 @@ const Navbar = () => {
         {isMenuOpen && (
           <div className="md:hidden mt-4 py-4 border-t border-border/50">
             <div className="flex flex-col space-y-4">
-              <NavLink href="#inicio" mobile>Início</NavLink>
-              <NavLink href="#sistema" mobile>Sistema</NavLink>
-              <NavLink href="#recursos" mobile>Recursos</NavLink>
-              <NavLink href="#contato" mobile>Contato</NavLink>
+              <TopNavLink to="/live" mobile>Live</TopNavLink>
+              <TopNavLink to="/events" mobile>Events</TopNavLink>
+              <TopNavLink to="/analytics" mobile>Analytics</TopNavLink>
+              <TopNavLink to="/app/dashboard" mobile>Admin</TopNavLink>
               <div className="flex flex-col space-y-2 pt-4">
-                <Button variant="ghost" size="sm" className="justify-start">
-                  Login
+                <Button variant="ghost" size="sm" className="justify-start" asChild>
+                  <NavLink to="/auth">Login</NavLink>
                 </Button>
-                <Button variant="accent" size="sm">
-                  Começar Agora
+                <Button variant="accent" size="sm" asChild>
+                  <NavLink to="/auth">Começar Agora</NavLink>
                 </Button>
               </div>
             </div>
@@ -72,22 +74,21 @@ const Navbar = () => {
   );
 };
 
-interface NavLinkProps {
-  href: string;
+interface TopNavLinkProps {
+  to: string;
   children: React.ReactNode;
   mobile?: boolean;
 }
 
-const NavLink = ({ href, children, mobile = false }: NavLinkProps) => {
+const TopNavLink = ({ to, children, mobile = false }: TopNavLinkProps) => {
   return (
-    <a
-      href={href}
-      className={`transition-colors duration-300 hover:text-accent ${
-        mobile ? "text-foreground py-2" : "text-muted-foreground hover:text-foreground"
-      }`}
+    <NavLink
+      to={to}
+      className={({ isActive }) => `transition-colors duration-300 ${isActive ? "text-foreground" : "text-muted-foreground hover:text-foreground"} ${mobile ? "py-2" : ""}`}
+      aria-label={`Ir para ${typeof children === 'string' ? children : 'página'}`}
     >
       {children}
-    </a>
+    </NavLink>
   );
 };
 
