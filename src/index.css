@@ -8,36 +8,39 @@ All colors MUST be HSL.
 
 @layer base {
   :root {
-    /* Visão de Águia Design System */
-    --background: 210 30% 8%;
-    --foreground: 210 40% 98%;
+    /* Visão de Águia Design System (cores da identidade) */
+    --background: 210 30% 8%; /* fundo geral escuro */
+    --foreground: 210 40% 98%; /* texto sobre escuro */
 
-    --card: 210 25% 12%;
+    --card: 220 40% 17%; /* #1B263B grafite */
     --card-foreground: 210 40% 98%;
 
-    --popover: 210 25% 12%;
+    --popover: 220 40% 17%;
     --popover-foreground: 210 40% 98%;
 
-    --primary: 220 70% 25%;
+    --primary: 210 64% 15%; /* #0D1B2A azul profundo */
     --primary-foreground: 210 40% 98%;
-    --primary-glow: 220 80% 35%;
+    --primary-glow: 210 70% 25%;
 
     --secondary: 210 20% 20%;
     --secondary-foreground: 210 40% 98%;
 
     --muted: 210 20% 15%;
-    --muted-foreground: 210 20% 65%;
+    --muted-foreground: 210 18% 78%; /* #E0E1DD aproximado */
 
-    --accent: 45 95% 55%;
+    --accent: 33 100% 49%; /* #F77F00 laranja */
     --accent-foreground: 210 30% 8%;
-    --accent-glow: 45 100% 65%;
+    --accent-glow: 33 100% 60%;
 
-    --destructive: 0 84% 60%;
+    --destructive: 6 78% 57%; /* #E74C3C */
     --destructive-foreground: 210 40% 98%;
+
+    --success: 145 63% 49%; /* #2ECC71 */
+    --success-foreground: 210 40% 98%;
 
     --border: 210 20% 25%;
     --input: 210 20% 20%;
-    --ring: 220 70% 50%;
+    --ring: 210 64% 40%;
 
     /* Gradients */
     --gradient-primary: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary-glow)));
