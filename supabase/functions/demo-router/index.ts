@@ -109,6 +109,19 @@ serve(async (req) => {
         requires_proxy: source.protocol === "HLS" || source.url.includes("youtube.com"),
       };
 
+      // Compute 3-minute expiry and cleanup expired bindings
+      const now = new Date();
+      const expires_at = new Date(now.getTime() + 3 * 60 * 1000).toISOString();
+      const clientForMaintenance = supabaseAdmin ?? supabase;
+      try {
+        await clientForMaintenance
+          .from("demo_bindings")
+          .delete()
+          .lt("params->>expires_at", now.toISOString());
+      } catch (_) {
+        // best-effort cleanup
+      }
+
       // Persist binding (use service role to bypass RLS)
       const clientForInsert = supabaseAdmin ?? supabase;
       const { error: insertErr } = await clientForInsert.from("demo_bindings").insert({
@@ -120,6 +133,8 @@ serve(async (req) => {
           protocol: source.protocol,
           url: source.url,
           ui_hint,
+          expires_at,
+          analytic: source.analytic,
         },
       });
       if (insertErr) throw insertErr;
@@ -131,6 +146,7 @@ serve(async (req) => {
         protocol: source.protocol,
         source,
         ui_hint,
+        expires_at,
       };
       console.log("demo-router start:", payload);
       return new Response(JSON.stringify(payload), {

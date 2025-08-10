@@ -13,6 +13,8 @@ export default function Demo() {
   const [demoId, setDemoId] = useState<string | null>(null);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [expiresAt, setExpiresAt] = useState<string | null>(null);
+  const [remaining, setRemaining] = useState(0);
 
   const call = async (action: "start" | "reset") => {
     const { data, error } = await supabase.functions.invoke("simulate-demo", { body: { action } });
@@ -50,6 +52,23 @@ export default function Demo() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [analytic]);
 
+  // 3-minute time limit countdown
+  useEffect(() => {
+    if (!sessionId || !expiresAt) return;
+    const tick = () => {
+      const ms = new Date(expiresAt).getTime() - Date.now();
+      setRemaining(Math.max(0, Math.ceil(ms / 1000)));
+      if (ms <= 0) {
+        stopDemo();
+        toast({ title: "Tempo de demonstração encerrado", description: "Limite de 3 minutos atingido." });
+      }
+    };
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sessionId, expiresAt]);
+
   const startDemo = async () => {
     setLoading(true);
     const { data, error } = await supabase.functions.invoke("demo-router", {
@@ -62,6 +81,7 @@ export default function Demo() {
     }
     const d = data as any;
     setSessionId(d.session_id);
+    setExpiresAt(d.expires_at ?? new Date(Date.now() + 3 * 60 * 1000).toISOString());
     toast({
       title: "Fonte iniciada",
       description: `Protocolo: ${d.protocol} | URL: ${d.stream_url}${d.ui_hint?.requires_proxy ? " (requer proxy)" : ""}`,
@@ -81,6 +101,8 @@ export default function Demo() {
     }
     toast({ title: "Fonte parada", description: "Sessão encerrada." });
     setSessionId(null);
+    setExpiresAt(null);
+    setRemaining(0);
   };
 
   return (
@@ -143,13 +165,20 @@ export default function Demo() {
               </Select>
             </div>
           </div>
-          <div className="flex gap-3 flex-wrap">
-            <Button onClick={startDemo} disabled={!demoId || loading}>
-              {loading ? "Iniciando..." : sessionId ? "Reiniciar" : "Iniciar fonte"}
-            </Button>
-            <Button variant="secondary" onClick={stopDemo} disabled={!sessionId || loading}>
-              Parar fonte
-            </Button>
+          <div className="flex flex-col gap-2">
+            <div className="flex gap-3 flex-wrap">
+              <Button onClick={startDemo} disabled={!demoId || loading}>
+                {loading ? "Iniciando..." : sessionId ? "Reiniciar" : "Iniciar fonte"}
+              </Button>
+              <Button variant="secondary" onClick={stopDemo} disabled={!sessionId || loading}>
+                Parar fonte
+              </Button>
+            </div>
+            {sessionId && (
+              <p className="text-sm text-muted-foreground">
+                Tempo restante: {String(Math.floor(remaining / 60)).padStart(2, '0')}:{String(remaining % 60).padStart(2, '0')}
+              </p>
+            )}
           </div>
           <p className="text-xs text-muted-foreground">
             Dica: fontes HLS/YouTube podem requerer proxy (FFmpeg/MediaMTX) para RTSP/HLS interno.

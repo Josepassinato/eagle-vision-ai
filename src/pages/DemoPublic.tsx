@@ -15,6 +15,8 @@ export default function DemoPublic() {
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [streamInfo, setStreamInfo] = useState<{ url: string; protocol: string; ui_hint?: any } | null>(null);
+  const [expiresAt, setExpiresAt] = useState<string | null>(null);
+  const [remaining, setRemaining] = useState<number>(0);
   const videoRef = useRef<HTMLVideoElement | null>(null);
 
   useEffect(() => {
@@ -44,6 +46,23 @@ export default function DemoPublic() {
       }
     };
   }, [streamInfo]);
+
+  // 3-minute time limit countdown
+  useEffect(() => {
+    if (!sessionId || !expiresAt) return;
+    const tick = () => {
+      const ms = new Date(expiresAt).getTime() - Date.now();
+      setRemaining(Math.max(0, Math.ceil(ms / 1000)));
+      if (ms <= 0) {
+        stopDemo();
+        toast({ title: "Tempo de demonstração encerrado", description: "Limite de 3 minutos atingido." });
+      }
+    };
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sessionId, expiresAt]);
 
   const fetchSources = async () => {
     const { data, error } = await supabase
@@ -79,6 +98,7 @@ export default function DemoPublic() {
     const d = data as any;
     setSessionId(d.session_id);
     setStreamInfo({ url: d.stream_url, protocol: d.protocol, ui_hint: d.ui_hint });
+    setExpiresAt(d.expires_at ?? new Date(Date.now() + 3 * 60 * 1000).toISOString());
     toast({
       title: "Fonte iniciada",
       description: `Protocolo: ${d.protocol} | URL: ${d.stream_url}${d.ui_hint?.requires_proxy ? " (pode requerer proxy)" : ""}`,
@@ -99,6 +119,8 @@ export default function DemoPublic() {
     toast({ title: "Fonte parada", description: "Sessão encerrada." });
     setSessionId(null);
     setStreamInfo(null);
+    setExpiresAt(null);
+    setRemaining(0);
   };
 
   return (
@@ -151,13 +173,20 @@ export default function DemoPublic() {
             </div>
           </section>
 
-          <section className="flex gap-3 flex-wrap">
-            <Button onClick={startDemo} disabled={!demoId || loading}>
-              {loading ? "Iniciando..." : sessionId ? "Reiniciar" : "Iniciar fonte"}
-            </Button>
-            <Button variant="secondary" onClick={stopDemo} disabled={!sessionId || loading}>
-              Parar fonte
-            </Button>
+          <section className="flex flex-col gap-2">
+            <div className="flex gap-3 flex-wrap">
+              <Button onClick={startDemo} disabled={!demoId || loading}>
+                {loading ? "Iniciando..." : sessionId ? "Reiniciar" : "Iniciar fonte"}
+              </Button>
+              <Button variant="secondary" onClick={stopDemo} disabled={!sessionId || loading}>
+                Parar fonte
+              </Button>
+            </div>
+            {sessionId && (
+              <p className="text-sm text-muted-foreground">
+                Tempo restante: {String(Math.floor(remaining / 60)).padStart(2, '0')}:{String(remaining % 60).padStart(2, '0')}
+              </p>
+            )}
           </section>
 
           {streamInfo && (
