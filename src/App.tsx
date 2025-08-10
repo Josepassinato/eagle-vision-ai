@@ -18,6 +18,7 @@ import Antitheft from "./pages/admin/Antitheft";
 import Credits from "./pages/admin/Credits";
 import CreditSuccess from "./pages/admin/CreditSuccess";
 import Demo from "./pages/admin/Demo";
+import DemoPublic from "./pages/DemoPublic";
 import Safety from "./pages/admin/Safety";
 import EduBehavior from "./pages/admin/EduBehavior";
 import Live from "./pages/Live";
@@ -38,6 +39,7 @@ const App = () => (
           <Route path="/live" element={<Live />} />
           <Route path="/events" element={<EventsPage />} />
           <Route path="/analytics" element={<Analytics />} />
+          <Route path="/demo" element={<DemoPublic />} />
           <Route path="/onboarding" element={<ProtectedRoute><Onboarding /></ProtectedRoute>} />
           <Route path="/admin" element={<Navigate to="/app/dashboard" replace />} />
           <Route
