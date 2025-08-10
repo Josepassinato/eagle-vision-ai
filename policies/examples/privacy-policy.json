@@ -1,0 +1,11 @@
+{
+  "policy_type": "privacy",
+  "face_blur_enabled": true,
+  "license_plate_blur_enabled": false,
+  "blur_strength": 0.8,
+  "clip_retention_days": 30,
+  "analytics_retention_days": 90,
+  "gdpr_enabled": true,
+  "ccpa_enabled": false,
+  "data_minimization": true
+}

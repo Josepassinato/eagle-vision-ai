@@ -1645,6 +1645,56 @@ export type Database = {
           },
         ]
       }
+      service_policies: {
+        Row: {
+          camera_id: string | null
+          class_id: string | null
+          config: Json
+          created_at: string
+          id: string
+          org_id: string | null
+          policy_type: string
+          service_name: string
+          site_id: string | null
+          updated_at: string
+          version: number
+        }
+        Insert: {
+          camera_id?: string | null
+          class_id?: string | null
+          config?: Json
+          created_at?: string
+          id?: string
+          org_id?: string | null
+          policy_type: string
+          service_name: string
+          site_id?: string | null
+          updated_at?: string
+          version?: number
+        }
+        Update: {
+          camera_id?: string | null
+          class_id?: string | null
+          config?: Json
+          created_at?: string
+          id?: string
+          org_id?: string | null
+          policy_type?: string
+          service_name?: string
+          site_id?: string | null
+          updated_at?: string
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "service_policies_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "orgs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       signals: {
         Row: {
           details: Json | null

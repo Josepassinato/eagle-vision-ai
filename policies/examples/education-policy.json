@@ -1,0 +1,12 @@
+{
+  "policy_type": "education",
+  "emotion_confidence_threshold": 0.65,
+  "attention_threshold": 0.55,
+  "aggression_threshold": 0.85,
+  "distress_threshold": 0.75,
+  "disengagement_threshold": 0.25,
+  "incident_window_minutes": 6,
+  "min_signals_for_incident": 4,
+  "notify_min_severity": "HIGH",
+  "notify_enabled": true
+}

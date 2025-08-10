@@ -1,0 +1,10 @@
+{
+  "policy_type": "safety",
+  "helmet_confidence": 0.85,
+  "vest_confidence": 0.75,
+  "glasses_confidence": 0.65,
+  "restricted_zone_enabled": true,
+  "zone_dwell_threshold": 45.0,
+  "missing_ppe_notify": true,
+  "zone_violation_notify": true
+}
