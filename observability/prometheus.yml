@@ -36,6 +36,11 @@ scrape_configs:
       - targets: ["clip-exporter:8095"]
     metrics_path: /metrics
 
+  - job_name: media_cleaner
+    static_configs:
+      - targets: ["media-cleaner:8097"]
+    metrics_path: /metrics
+
   # Cloud-only targets; will be DOWN locally
   - job_name: dcgm_gpu
     static_configs:
