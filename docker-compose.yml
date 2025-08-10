@@ -19,7 +19,8 @@ services:
     ports:
       - "18060:18060"
     environment:
-      - YOLO_MODEL=yolov8x.pt
+      - YOLO_MODEL=/app/models/yolov8x.pt
+      - YOLO_DEVICE=cuda
     volumes:
       - ./yolo-detection/models:/app/models
     deploy:

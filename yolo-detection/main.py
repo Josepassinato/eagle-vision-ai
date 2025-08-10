@@ -19,7 +19,9 @@ from ultralytics import YOLO
 import uvicorn
 
 # Configuração
-YOLO_MODEL = os.getenv("YOLO_MODEL", "yolov8x.pt")
+YOLO_MODEL = os.getenv("YOLO_MODEL", "/app/models/yolov8x.pt")
+YOLO_MODEL_URL = os.getenv("YOLO_MODEL_URL")
+YOLO_DEVICE = os.getenv("YOLO_DEVICE", "auto")  # auto|cuda|cpu
 MAX_IMAGE_SIZE_MB = 2
 INFERENCE_TIMEOUT = 2.0
 
@@ -31,6 +33,7 @@ app = FastAPI(
 
 # Modelo global
 model = None
+
 
 class DetectionRequest(BaseModel):
     jpg_b64: str = Field(..., description="Imagem JPEG em base64")
@@ -48,23 +51,46 @@ class DetectionResponse(BaseModel):
 async def startup_event():
     """Inicializa o modelo YOLO e faz warm-up"""
     global model
-    
-    print(f"Carregando modelo YOLO: {YOLO_MODEL}")
-    model = YOLO(YOLO_MODEL)
-    
-    # Verificar se GPU está disponível
-    device = "cuda" if torch.cuda.is_available() else "cpu"
+
+    # Garantir diretório de modelos
+    os.makedirs(os.path.dirname(YOLO_MODEL), exist_ok=True)
+
+    # Baixar pesos se não existir e URL fornecida
+    if not os.path.exists(YOLO_MODEL) and YOLO_MODEL_URL:
+        try:
+            import urllib.request
+            print(f"Baixando pesos YOLO de {YOLO_MODEL_URL} para {YOLO_MODEL}")
+            urllib.request.urlretrieve(YOLO_MODEL_URL, YOLO_MODEL)
+        except Exception as e:
+            print(f"Falha ao baixar pesos: {e}. Usando fallback do Ultralytics.")
+
+    # Carregar modelo (usa fallback do Ultralytics se caminho não existir)
+    load_id = YOLO_MODEL if os.path.exists(YOLO_MODEL) else "yolov8x.pt"
+    print(f"Carregando modelo YOLO: {load_id}")
+    model = YOLO(load_id)
+
+    # Seleção de device
+    device = "cpu"
+    if YOLO_DEVICE == "cuda" and torch.cuda.is_available():
+        device = "cuda"
+    elif YOLO_DEVICE == "auto":
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+
     print(f"Dispositivo: {device}")
-    
-    if torch.cuda.is_available():
-        print(f"GPU: {torch.cuda.get_device_name()}")
+    if device == "cuda":
+        try:
+            torch.backends.cudnn.benchmark = True
+            print(f"GPU: {torch.cuda.get_device_name(0)}")
+        except Exception:
+            pass
         model.to(device)
-    
+
     # Warm-up com imagem dummy
     print("Fazendo warm-up...")
     dummy_img = np.random.randint(0, 255, (640, 480, 3), dtype=np.uint8)
     _ = model(dummy_img, verbose=False)
     print("Warm-up concluído!")
+
 
 @app.get("/health")
 async def health_check():

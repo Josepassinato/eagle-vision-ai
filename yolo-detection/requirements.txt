@@ -4,8 +4,8 @@ uvicorn[standard]==0.24.0
 pydantic==2.5.0
 numpy==1.24.3
 opencv-python-headless==4.8.1.78
-torch==2.1.0
-torchvision==0.16.0
+# torch installed via CUDA wheels in Dockerfile
+# torchvision installed via CUDA wheels in Dockerfile
 ultralytics==8.0.200
 Pillow==10.0.1
 python-multipart==0.0.6

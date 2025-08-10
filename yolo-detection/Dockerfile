@@ -25,8 +25,10 @@ WORKDIR /app
 # Copiar requirements primeiro (cache layer)
 COPY requirements.txt .
 
-# Instalar dependências Python
-RUN pip3 install --no-cache-dir -r requirements.txt
+# Instalar PyTorch com CUDA 12.1 e, em seguida, as demais dependências
+RUN pip3 install --no-cache-dir --index-url https://download.pytorch.org/whl/cu121 \
+    torch torchvision torchaudio && \
+    pip3 install --no-cache-dir -r requirements.txt
 
 # Copiar código da aplicação
 COPY . .
@@ -34,8 +36,15 @@ COPY . .
 # Criar diretório para modelos
 RUN mkdir -p /app/models
 
-# Baixar modelo YOLO (opcional - pode ser feito em runtime)
-# RUN python3 -c "from ultralytics import YOLO; YOLO('yolov8x.pt')"
+# Opção de baixar o peso no build (informe ARG YOLO_MODEL_URL)
+ARG YOLO_MODEL_URL
+ENV YOLO_MODEL=/app/models/yolov8x.pt
+RUN if [ -n "$YOLO_MODEL_URL" ]; then \
+      echo "Baixando YOLO weights de $YOLO_MODEL_URL" && \
+      wget -O /app/models/yolov8x.pt "$YOLO_MODEL_URL"; \
+    else \
+      echo "YOLO_MODEL_URL não definido, pesos serão obtidos em runtime"; \
+    fi
 
 # Expor porta
 EXPOSE 18060

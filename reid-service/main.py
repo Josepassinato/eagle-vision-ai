@@ -21,6 +21,7 @@ import json
 
 # Configuração
 REID_MODEL_PATH = os.getenv("REID_MODEL_PATH", "/models/osnet_x0_75.onnx")
+REID_MODEL_URL = os.getenv("REID_MODEL_URL")
 REID_INPUT_FORMAT = os.getenv("REID_INPUT_FORMAT", "RGB")
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
@@ -64,16 +65,30 @@ async def startup_event():
     
     print(f"Carregando modelo OSNet: {REID_MODEL_PATH}")
     
+    # Baixar modelo se não existir e URL fornecida
+    if not os.path.exists(REID_MODEL_PATH) and REID_MODEL_URL:
+        try:
+            import urllib.request
+            os.makedirs(os.path.dirname(REID_MODEL_PATH), exist_ok=True)
+            print(f"Baixando OSNet de {REID_MODEL_URL} para {REID_MODEL_PATH}")
+            urllib.request.urlretrieve(REID_MODEL_URL, REID_MODEL_PATH)
+        except Exception as e:
+            print(f"❌ Falha ao baixar modelo: {e}")
+    
     if not os.path.exists(REID_MODEL_PATH):
         print(f"❌ Modelo não encontrado: {REID_MODEL_PATH}")
-        print("Por favor, baixe osnet_x0_75.onnx e coloque em /models/")
-        # Não falhar startup para permitir debug
+        print("Por favor, defina REID_MODEL_URL ou monte /models com o arquivo onnx")
         return
     
     # Configurar providers ONNX
-    providers = ['CPUExecutionProvider']
-    if ort.get_device() == 'GPU':
-        providers.insert(0, 'CUDAExecutionProvider')
+    available = ort.get_available_providers()
+    providers = []
+    # Preferir TensorRT se disponível, depois CUDA, por fim CPU
+    if 'TensorrtExecutionProvider' in available:
+        providers.append('TensorrtExecutionProvider')
+    if 'CUDAExecutionProvider' in available:
+        providers.append('CUDAExecutionProvider')
+    providers.append('CPUExecutionProvider')
     
     try:
         ort_session = ort.InferenceSession(REID_MODEL_PATH, providers=providers)
