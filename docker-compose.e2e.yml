@@ -1,0 +1,21 @@
+version: "3.9"
+
+# E2E smoke test overrides to run on CI runners (no host network)
+services:
+  mediamtx:
+    network_mode: ""   # override host network
+    ports:
+      - "8554:8554"  # RTSP
+      - "1935:1935"  # RTMP
+      - "8888:8888"  # HLS
+
+  camera-sim:
+    environment:
+      - NETCAM_URL=${NETCAM_URL:-https://itsstreamingno.dotd.la.gov/public/nor-cam-115.streams/playlist.m3u8}
+
+  notifier:
+    environment:
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN:-}
+      - TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID:-auto}
+    ports:
+      - "8085:8085"

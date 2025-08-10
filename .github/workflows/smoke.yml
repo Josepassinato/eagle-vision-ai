@@ -1,0 +1,31 @@
+name: E2E Smoke Test
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Compose
+        run: docker compose version
+
+      - name: Run E2E smoke test
+        env:
+          NETCAM_URL: https://itsstreamingno.dotd.la.gov/public/nor-cam-115.streams/playlist.m3u8
+        run: |
+          chmod +x tools/e2e_smoke.sh
+          bash tools/e2e_smoke.sh
+
+      - name: Upload artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-artifacts
+          path: /tmp/e2e-artifacts
