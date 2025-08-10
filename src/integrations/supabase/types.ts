@@ -134,6 +134,110 @@ export type Database = {
         }
         Relationships: []
       }
+      billing_jobs: {
+        Row: {
+          created_at: string | null
+          error_message: string | null
+          id: string
+          job_type: string
+          last_run: string | null
+          metadata: Json | null
+          next_run: string | null
+          status: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          error_message?: string | null
+          id?: string
+          job_type: string
+          last_run?: string | null
+          metadata?: Json | null
+          next_run?: string | null
+          status?: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          error_message?: string | null
+          id?: string
+          job_type?: string
+          last_run?: string | null
+          metadata?: Json | null
+          next_run?: string | null
+          status?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      billing_periods: {
+        Row: {
+          created_at: string | null
+          id: string
+          org_id: string | null
+          period_end: string
+          period_start: string
+          status: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          org_id?: string | null
+          period_end: string
+          period_start: string
+          status?: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          org_id?: string | null
+          period_end?: string
+          period_start?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "billing_periods_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "orgs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      billing_rates: {
+        Row: {
+          created_at: string | null
+          currency: string
+          effective_from: string
+          effective_until: string | null
+          id: string
+          metric_type: string
+          stripe_price_id: string | null
+          unit_price: number
+        }
+        Insert: {
+          created_at?: string | null
+          currency?: string
+          effective_from?: string
+          effective_until?: string | null
+          id?: string
+          metric_type: string
+          stripe_price_id?: string | null
+          unit_price: number
+        }
+        Update: {
+          created_at?: string | null
+          currency?: string
+          effective_from?: string
+          effective_until?: string | null
+          id?: string
+          metric_type?: string
+          stripe_price_id?: string | null
+          unit_price?: number
+        }
+        Relationships: []
+      }
       camera_configs: {
         Row: {
           camera_id: string
@@ -630,6 +734,131 @@ export type Database = {
             columns: ["stream_id"]
             isOneToOne: false
             referencedRelation: "streams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      invoice_line_items: {
+        Row: {
+          amount: number
+          created_at: string | null
+          description: string
+          id: string
+          invoice_id: string | null
+          metric_type: string
+          quantity: number
+          stripe_price_id: string | null
+          unit_price: number
+        }
+        Insert: {
+          amount: number
+          created_at?: string | null
+          description: string
+          id?: string
+          invoice_id?: string | null
+          metric_type: string
+          quantity: number
+          stripe_price_id?: string | null
+          unit_price: number
+        }
+        Update: {
+          amount?: number
+          created_at?: string | null
+          description?: string
+          id?: string
+          invoice_id?: string | null
+          metric_type?: string
+          quantity?: number
+          stripe_price_id?: string | null
+          unit_price?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoice_line_items_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "invoices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      invoices: {
+        Row: {
+          billing_period_id: string | null
+          created_at: string | null
+          currency: string
+          due_date: string | null
+          id: string
+          invoice_number: string | null
+          org_id: string | null
+          paid_at: string | null
+          period_end: string
+          period_start: string
+          status: string
+          stripe_invoice_id: string | null
+          subtotal_amount: number
+          tax_amount: number | null
+          total_amount: number
+          total_analytics: number | null
+          total_minutes: number | null
+          total_storage_gb: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          billing_period_id?: string | null
+          created_at?: string | null
+          currency?: string
+          due_date?: string | null
+          id?: string
+          invoice_number?: string | null
+          org_id?: string | null
+          paid_at?: string | null
+          period_end: string
+          period_start: string
+          status?: string
+          stripe_invoice_id?: string | null
+          subtotal_amount?: number
+          tax_amount?: number | null
+          total_amount?: number
+          total_analytics?: number | null
+          total_minutes?: number | null
+          total_storage_gb?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          billing_period_id?: string | null
+          created_at?: string | null
+          currency?: string
+          due_date?: string | null
+          id?: string
+          invoice_number?: string | null
+          org_id?: string | null
+          paid_at?: string | null
+          period_end?: string
+          period_start?: string
+          status?: string
+          stripe_invoice_id?: string | null
+          subtotal_amount?: number
+          tax_amount?: number | null
+          total_amount?: number
+          total_analytics?: number | null
+          total_minutes?: number | null
+          total_storage_gb?: number | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoices_billing_period_id_fkey"
+            columns: ["billing_period_id"]
+            isOneToOne: false
+            referencedRelation: "billing_periods"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoices_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "orgs"
             referencedColumns: ["id"]
           },
         ]
