@@ -18,6 +18,76 @@ export default function DemoPublic() {
   const [expiresAt, setExpiresAt] = useState<string | null>(null);
   const [remaining, setRemaining] = useState<number>(0);
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const autoRef = useRef<{ inProgress: boolean; index: number }>({ inProgress: false, index: 0 });
+  const seededRef = useRef(false);
+
+  // Seed curated demo sources once
+  useEffect(() => {
+    if (seededRef.current) return;
+    seededRef.current = true;
+    supabase.functions.invoke("seed-demo-sources").catch(() => {});
+    // no deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const stopDemoSilently = async () => {
+    if (!sessionId) return;
+    try {
+      await supabase.functions.invoke("demo-router", {
+        body: { action: "stop", session_id: sessionId },
+      });
+    } catch (_) {}
+    setSessionId(null);
+    setStreamInfo(null);
+    setExpiresAt(null);
+    setRemaining(0);
+  };
+
+  const doStartFor = async (id: string) => {
+    setLoading(true);
+    const { data, error } = await supabase.functions.invoke("demo-router", {
+      body: { action: "start", analytic, demo_id: id },
+    });
+    setLoading(false);
+    if (error) {
+      return { ok: false } as const;
+    }
+    const d = data as any;
+    setSessionId(d.session_id);
+    setStreamInfo({ url: d.stream_url, protocol: d.protocol, ui_hint: d.ui_hint });
+    setExpiresAt(d.expires_at ?? new Date(Date.now() + 3 * 60 * 1000).toISOString());
+    return { ok: true } as const;
+  };
+
+  const tryStartAt = async (idx: number) => {
+    if (!sources.length || idx >= sources.length) {
+      autoRef.current.inProgress = false;
+      toast({ title: "Nenhuma fonte válida encontrada", description: "Tente outro analítico.", variant: "destructive" });
+      return;
+    }
+    autoRef.current.inProgress = true;
+    autoRef.current.index = idx;
+    setDemoId(sources[idx].id);
+    const res = await doStartFor(sources[idx].id);
+    if (!res.ok) {
+      // tenta próxima
+      tryStartAt(idx + 1);
+    } else {
+      toast({ title: "Fonte iniciada", description: `${sources[idx].name} (${sources[idx].protocol})` });
+    }
+  };
+
+  const handlePlaybackError = async () => {
+    if (!autoRef.current.inProgress) return;
+    const next = autoRef.current.index + 1;
+    if (next >= sources.length) {
+      autoRef.current.inProgress = false;
+      toast({ title: "Falha na reprodução", description: "Sem fontes alternativas disponíveis.", variant: "destructive" });
+      return;
+    }
+    await stopDemoSilently();
+    tryStartAt(next);
+  };
 
   useEffect(() => {
     if (!streamInfo || streamInfo.protocol !== "HLS") return;
@@ -78,30 +148,36 @@ export default function DemoPublic() {
     }
     setSources(data || []);
     setDemoId(data && data.length ? data[0].id : null);
+    if ((data?.length ?? 0) > 0 && !sessionId) {
+      tryStartAt(0);
+    }
   };
 
   useEffect(() => {
+    if (sessionId) {
+      // parar sessão anterior ao trocar de analítico
+      stopDemoSilently();
+    }
+    setDemoId(null);
+    setStreamInfo(null);
+    setExpiresAt(null);
+    setRemaining(0);
     fetchSources();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [analytic]);
 
   const startDemo = async () => {
-    setLoading(true);
-    const { data, error } = await supabase.functions.invoke("demo-router", {
-      body: { action: "start", analytic, demo_id: demoId },
-    });
-    setLoading(false);
-    if (error) {
-      toast({ title: "Erro ao iniciar", description: error.message, variant: "destructive" });
+    if (!demoId) return;
+    autoRef.current.inProgress = false; // execução manual desativa fallback automático
+    const res = await doStartFor(demoId);
+    if (!res.ok) {
+      toast({ title: "Erro ao iniciar", description: "Não foi possível iniciar a fonte selecionada.", variant: "destructive" });
       return;
     }
-    const d = data as any;
-    setSessionId(d.session_id);
-    setStreamInfo({ url: d.stream_url, protocol: d.protocol, ui_hint: d.ui_hint });
-    setExpiresAt(d.expires_at ?? new Date(Date.now() + 3 * 60 * 1000).toISOString());
+    const s = sources.find((s) => s.id === demoId);
     toast({
       title: "Fonte iniciada",
-      description: `Protocolo: ${d.protocol} | URL: ${d.stream_url}${d.ui_hint?.requires_proxy ? " (pode requerer proxy)" : ""}`,
+      description: s ? `${s.name} (${s.protocol})` : "Fonte em execução",
     });
   };
 
@@ -205,6 +281,7 @@ export default function DemoPublic() {
                   ref={videoRef}
                   controls
                   playsInline
+                  onError={handlePlaybackError}
                   className="w-full max-h-[60vh] rounded-lg border border-border bg-background"
                   aria-label="Stream HLS de demonstração"
                 />
@@ -214,6 +291,7 @@ export default function DemoPublic() {
                   src={streamInfo.url}
                   alt="Stream MJPEG de demonstração"
                   loading="lazy"
+                  onError={handlePlaybackError}
                   className="w-full max-h-[60vh] rounded-lg border border-border object-contain bg-background"
                 />
               )}
