@@ -362,6 +362,198 @@ export type Database = {
           },
         ]
       }
+      safety_incidents: {
+        Row: {
+          aggregation_key: string | null
+          clip_url: string | null
+          created_at: string | null
+          first_ts: string | null
+          id: string
+          last_ts: string | null
+          report_url: string | null
+          severity: string
+          signals_count: number | null
+          site_id: string | null
+          status: string
+          updated_at: string | null
+        }
+        Insert: {
+          aggregation_key?: string | null
+          clip_url?: string | null
+          created_at?: string | null
+          first_ts?: string | null
+          id?: string
+          last_ts?: string | null
+          report_url?: string | null
+          severity: string
+          signals_count?: number | null
+          site_id?: string | null
+          status?: string
+          updated_at?: string | null
+        }
+        Update: {
+          aggregation_key?: string | null
+          clip_url?: string | null
+          created_at?: string | null
+          first_ts?: string | null
+          id?: string
+          last_ts?: string | null
+          report_url?: string | null
+          severity?: string
+          signals_count?: number | null
+          site_id?: string | null
+          status?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "safety_incidents_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "safety_sites"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      safety_policies: {
+        Row: {
+          created_at: string | null
+          id: string
+          required_epis: Json
+          site_id: string | null
+          thresholds: Json
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          required_epis: Json
+          site_id?: string | null
+          thresholds: Json
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          required_epis?: Json
+          site_id?: string | null
+          thresholds?: Json
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "safety_policies_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "safety_sites"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      safety_signals: {
+        Row: {
+          camera_id: string | null
+          details: Json | null
+          frame_url: string | null
+          id: string
+          site_id: string | null
+          ts: string
+          type: string
+          zone_id: string | null
+        }
+        Insert: {
+          camera_id?: string | null
+          details?: Json | null
+          frame_url?: string | null
+          id?: string
+          site_id?: string | null
+          ts?: string
+          type: string
+          zone_id?: string | null
+        }
+        Update: {
+          camera_id?: string | null
+          details?: Json | null
+          frame_url?: string | null
+          id?: string
+          site_id?: string | null
+          ts?: string
+          type?: string
+          zone_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "safety_signals_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "safety_sites"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "safety_signals_zone_id_fkey"
+            columns: ["zone_id"]
+            isOneToOne: false
+            referencedRelation: "safety_zones"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      safety_sites: {
+        Row: {
+          created_at: string | null
+          id: string
+          name: string
+          timezone: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          name: string
+          timezone?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          name?: string
+          timezone?: string | null
+        }
+        Relationships: []
+      }
+      safety_zones: {
+        Row: {
+          created_at: string | null
+          id: string
+          label: string
+          polygon: Json
+          site_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          label: string
+          polygon: Json
+          site_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          label?: string
+          polygon?: Json
+          site_id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "safety_zones_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "safety_sites"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           created_at: string
