@@ -9,6 +9,7 @@ import { toast } from "@/hooks/use-toast";
 import { Send } from "lucide-react";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { Helmet } from "react-helmet-async";
 
 const Index = () => {
   const [diag, setDiag] = useState<string>("");
@@ -47,7 +48,17 @@ const Index = () => {
   }; 
 
   return (
-    <div className="min-h-screen bg-background">
+    <>
+      <Helmet>
+        <title>Visão de Águia – Visão Computacional com IA | Inigrai.com</title>
+        <meta name="description" content="Plataforma de visão computacional com IA da Inigrai. Detecção, análise e monitoramento em tempo real." />
+        <link rel="canonical" href="https://inigrai.com/" />
+        <meta property="og:url" content="https://inigrai.com/" />
+        <meta property="og:title" content="Visão de Águia – Visão Computacional com IA | Inigrai.com" />
+        <meta property="og:description" content="Plataforma de visão computacional com IA da Inigrai. Detecção, análise e monitoramento em tempo real." />
+        <meta name="robots" content="index,follow" />
+      </Helmet>
+      <div className="min-h-screen bg-background">
       <Navbar />
       <HeroSection />
       <MediaGatewayCard />
@@ -76,6 +87,7 @@ const Index = () => {
         </Card>
       </section>
     </div>
+    </>
   );
 };
 
