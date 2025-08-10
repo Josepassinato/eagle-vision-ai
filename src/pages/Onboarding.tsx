@@ -141,21 +141,21 @@ export default function Onboarding() {
                   description="Detecta furtos e evasões com IA e envia alertas."
                   icon={<Shield className="h-6 w-6" />}
                   active={product === "antitheft"}
-                  onSelect={() => setProduct("antitheft")}
+                  onSelect={() => { setProduct("antitheft"); setStep(2); }}
                 />
                 <ProductCard
                   title="Leitura de Placas (LPR)"
                   description="Identifica placas de veículos para controle de acesso."
                   icon={<Car className="h-6 w-6" />}
                   active={product === "lpr"}
-                  onSelect={() => setProduct("lpr")}
+                  onSelect={() => { setProduct("lpr"); setStep(2); }}
                 />
                 <ProductCard
                   title="Contagem de Pessoas"
                   description="Conta entradas/saídas para métricas de fluxo."
                   icon={<Users className="h-6 w-6" />}
                   active={product === "people_count"}
-                  onSelect={() => setProduct("people_count")}
+                  onSelect={() => { setProduct("people_count"); setStep(2); }}
                 />
               </CardContent>
             </Card>

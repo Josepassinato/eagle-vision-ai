@@ -36,7 +36,7 @@ const App = () => (
           <Route path="/live" element={<Live />} />
           <Route path="/events" element={<EventsPage />} />
           <Route path="/analytics" element={<Analytics />} />
-          <Route path="/onboarding" element={<Onboarding />} />
+          <Route path="/onboarding" element={<ProtectedRoute><Onboarding /></ProtectedRoute>} />
           <Route path="/admin" element={<Navigate to="/app/dashboard" replace />} />
           <Route
             path="/app"
