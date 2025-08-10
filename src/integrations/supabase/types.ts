@@ -229,6 +229,234 @@ export type Database = {
         }
         Relationships: []
       }
+      edu_classes: {
+        Row: {
+          created_at: string | null
+          id: string
+          name: string
+          timezone: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          name: string
+          timezone?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          name?: string
+          timezone?: string | null
+        }
+        Relationships: []
+      }
+      edu_incidents: {
+        Row: {
+          aggregation_key: string | null
+          class_id: string | null
+          clip_url: string | null
+          first_ts: string | null
+          id: string
+          last_ts: string | null
+          notes: string | null
+          severity: string
+          signals_count: number | null
+          status: string
+          student_id: string | null
+        }
+        Insert: {
+          aggregation_key?: string | null
+          class_id?: string | null
+          clip_url?: string | null
+          first_ts?: string | null
+          id?: string
+          last_ts?: string | null
+          notes?: string | null
+          severity: string
+          signals_count?: number | null
+          status?: string
+          student_id?: string | null
+        }
+        Update: {
+          aggregation_key?: string | null
+          class_id?: string | null
+          clip_url?: string | null
+          first_ts?: string | null
+          id?: string
+          last_ts?: string | null
+          notes?: string | null
+          severity?: string
+          signals_count?: number | null
+          status?: string
+          student_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "edu_incidents_class_id_fkey"
+            columns: ["class_id"]
+            isOneToOne: false
+            referencedRelation: "edu_classes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "edu_incidents_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "edu_roster"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      edu_policies: {
+        Row: {
+          class_id: string | null
+          id: string
+          notify_min_severity: string | null
+          thresholds: Json
+        }
+        Insert: {
+          class_id?: string | null
+          id?: string
+          notify_min_severity?: string | null
+          thresholds: Json
+        }
+        Update: {
+          class_id?: string | null
+          id?: string
+          notify_min_severity?: string | null
+          thresholds?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "edu_policies_class_id_fkey"
+            columns: ["class_id"]
+            isOneToOne: false
+            referencedRelation: "edu_classes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      edu_reviews: {
+        Row: {
+          decision: string
+          id: string
+          incident_id: string | null
+          notes: string | null
+          reviewed_at: string | null
+          reviewer_user_id: string | null
+        }
+        Insert: {
+          decision: string
+          id?: string
+          incident_id?: string | null
+          notes?: string | null
+          reviewed_at?: string | null
+          reviewer_user_id?: string | null
+        }
+        Update: {
+          decision?: string
+          id?: string
+          incident_id?: string | null
+          notes?: string | null
+          reviewed_at?: string | null
+          reviewer_user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "edu_reviews_incident_id_fkey"
+            columns: ["incident_id"]
+            isOneToOne: false
+            referencedRelation: "edu_incidents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      edu_roster: {
+        Row: {
+          class_id: string | null
+          id: string
+          metadata: Json | null
+          student_code: string
+        }
+        Insert: {
+          class_id?: string | null
+          id?: string
+          metadata?: Json | null
+          student_code: string
+        }
+        Update: {
+          class_id?: string | null
+          id?: string
+          metadata?: Json | null
+          student_code?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "edu_roster_class_id_fkey"
+            columns: ["class_id"]
+            isOneToOne: false
+            referencedRelation: "edu_classes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      edu_signals: {
+        Row: {
+          affect_probs: Json | null
+          affect_state: string | null
+          camera_id: string | null
+          class_id: string | null
+          details: Json | null
+          frame_url: string | null
+          id: string
+          severity: string
+          student_id: string | null
+          ts: string | null
+          type: string
+        }
+        Insert: {
+          affect_probs?: Json | null
+          affect_state?: string | null
+          camera_id?: string | null
+          class_id?: string | null
+          details?: Json | null
+          frame_url?: string | null
+          id?: string
+          severity: string
+          student_id?: string | null
+          ts?: string | null
+          type: string
+        }
+        Update: {
+          affect_probs?: Json | null
+          affect_state?: string | null
+          camera_id?: string | null
+          class_id?: string | null
+          details?: Json | null
+          frame_url?: string | null
+          id?: string
+          severity?: string
+          student_id?: string | null
+          ts?: string | null
+          type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "edu_signals_class_id_fkey"
+            columns: ["class_id"]
+            isOneToOne: false
+            referencedRelation: "edu_classes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "edu_signals_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "edu_roster"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       events: {
         Row: {
           camera_id: string | null
