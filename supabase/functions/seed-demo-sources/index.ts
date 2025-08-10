@@ -138,6 +138,7 @@ serve(async (req) => {
 
     let inserted = 0;
     let updated = 0;
+    const hasPublicBase = Boolean(Deno.env.get("MEDIAMTX_PUBLIC_BASE"));
 
     for (const s of curated) {
       const { data: existing } = await admin
@@ -155,7 +156,7 @@ serve(async (req) => {
             protocol: s.protocol,
             location: s.location,
             confidence: s.confidence,
-            active: true,
+            active: s.protocol === "RTSP" ? hasPublicBase : true,
           })
           .eq("id", existing.id);
         if (!upErr) updated += 1;
@@ -167,7 +168,7 @@ serve(async (req) => {
           protocol: s.protocol,
           location: s.location,
           confidence: s.confidence,
-          active: true,
+          active: s.protocol === "RTSP" ? hasPublicBase : true,
         });
         if (!insErr) inserted += 1;
       }

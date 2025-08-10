@@ -151,19 +151,21 @@ export default function DemoPublic() {
       setSources([]);
       return;
     }
-    setSources(data || []);
-    const firstId = data && data.length ? data[0].id : null;
+    // Filtra protocolos não tocáveis no navegador quando não há proxy (RTSP)
+    const playable = (data || []).filter((s: any) => s.protocol !== "RTSP");
+    setSources(playable);
+    const firstId = playable.length ? playable[0].id : null;
     setDemoId(firstId);
-    if ((data?.length ?? 0) > 0 && !sessionId) {
+    if ((playable.length ?? 0) > 0 && !sessionId) {
       const startFrom = async (idx: number) => {
-        if (!data || idx >= data.length) {
+        if (!playable || idx >= playable.length) {
           autoRef.current.inProgress = false;
           toast({ title: "Nenhuma fonte válida encontrada", description: "Tente outro analítico.", variant: "destructive" });
           return;
         }
         autoRef.current.inProgress = true;
         autoRef.current.index = idx;
-        const chosen = data[idx];
+        const chosen = playable[idx];
         setDemoId(chosen.id);
         const res = await doStartFor(chosen.id);
         if (!res.ok) return startFrom(idx + 1);
