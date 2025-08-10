@@ -10,6 +10,8 @@ services:
       - QUEUE_DIR=/queues/fusion
       - ANTITHEFT_URL=http://antitheft:8088
       - ANTITHEFT_ENABLED=true
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS}
+      - VISION_WEBHOOK_SECRET=${VISION_WEBHOOK_SECRET}
     volumes:
       - ./queues/fusion:/queues/fusion
 
@@ -20,6 +22,8 @@ services:
       - CIRCUIT_BREAKER_FAIL_THRESHOLD=0.5
       - CIRCUIT_BREAKER_OPEN_SECONDS=20
       - QUEUE_DIR=/queues/enricher
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS}
+      - VISION_WEBHOOK_SECRET=${VISION_WEBHOOK_SECRET}
     volumes:
       - ./queues/enricher:/queues/enricher
 
@@ -33,6 +37,8 @@ services:
   notifier:
     environment:
       - NOTIFIER_TIMEOUT_MS=4000
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS}
+      - VISION_WEBHOOK_SECRET=${VISION_WEBHOOK_SECRET}
 
   antitheft:
     build: ./antitheft
@@ -48,6 +54,8 @@ services:
       - EXIT_GRACE_MIN=${EXIT_GRACE_MIN}
       - CART_PUSHOUT_DIFF=${CART_PUSHOUT_DIFF}
       - HIGH_VALUE_DWELL_S=${HIGH_VALUE_DWELL_S}
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS}
+      - VISION_WEBHOOK_SECRET=${VISION_WEBHOOK_SECRET}
     ports:
       - "8088:8088"
     depends_on:

@@ -1,0 +1,27 @@
+{
+  email {$ACME_EMAIL}
+  # acme_ca https://acme-staging-v02.api.letsencrypt.org/directory
+}
+
+{$DOMAIN} {
+  encode gzip
+  reverse_proxy /* frontend:8080
+  reverse_proxy /api/* fusion:8080
+
+  header {
+    Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+    X-Frame-Options "DENY"
+    X-Content-Type-Options "nosniff"
+    Referrer-Policy "same-origin"
+    Permissions-Policy "camera=(), microphone=(), geolocation()"
+  }
+
+  @cors_preflight method OPTIONS
+  handle @cors_preflight {
+    header Access-Control-Allow-Origin "https://{$DOMAIN}"
+    header Access-Control-Allow-Methods "GET,POST,PUT,PATCH,DELETE,OPTIONS"
+    header Access-Control-Allow-Headers "authorization, content-type, x-vision-auth"
+    header Access-Control-Max-Age "86400"
+    respond "" 204
+  }
+}

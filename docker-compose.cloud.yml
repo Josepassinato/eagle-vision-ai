@@ -119,6 +119,7 @@ services:
       - MAX_PEOPLE=10
       - MAX_IMAGE_MB=2
       - REQUEST_TIMEOUT=0.150
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS}
     depends_on:
       - yolo-detection
       - face-service
@@ -136,6 +137,7 @@ services:
       - HLS_URL=http://localhost:8888/simulador/index.m3u8
       - DURATION_SECONDS=10
       - RECORDINGS_DIR=/recordings
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS}
     volumes:
       - ./recordings:/recordings:ro
     ports:
@@ -153,6 +155,7 @@ services:
       - STREAM_SNAPSHOT_URL=http://localhost:8888/simulador/index.m3u8
       - NOTIFIER_TIMEOUT_MS=3000
       - TELEGRAM_PARSE_MODE=HTML
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS}
     ports:
       - "8085:8085"
 
