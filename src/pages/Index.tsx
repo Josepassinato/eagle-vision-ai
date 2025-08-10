@@ -7,12 +7,13 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { toast } from "@/hooks/use-toast";
 import { Send, Shield, Car, Users } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Helmet } from "react-helmet-async";
 
 const Index = () => {
   const [diag, setDiag] = useState<string>("");
+  const [isAuthed, setAuthed] = useState(false);
 
 
 
@@ -46,6 +47,16 @@ const Index = () => {
       });
     }
   }; 
+
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setAuthed(!!session);
+    });
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setAuthed(!!session);
+    });
+    return () => subscription.unsubscribe();
+  }, []);
 
   return (
     <>
@@ -247,29 +258,31 @@ const Index = () => {
 
       <MediaGatewayCard />
 
-      <section className="container mx-auto px-4 py-8">
-        <Card>
-          <CardHeader>
-            <CardTitle>Teste de Notificação Telegram (Supabase)</CardTitle>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-4">
-            <p className="text-sm text-muted-foreground md:max-w-xl">
-              Envie um teste via função Edge do Supabase (não precisa configurar URL).
-            </p>
+      {isAuthed && (
+        <section className="container mx-auto px-4 py-8">
+          <Card>
+            <CardHeader>
+              <CardTitle>Teste de Notificação Telegram (Supabase)</CardTitle>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-4">
+              <p className="text-sm text-muted-foreground md:max-w-xl">
+                Envie um teste via função Edge do Supabase (não precisa configurar URL).
+              </p>
 
-            <div className="flex flex-wrap gap-2">
-              <Button onClick={handleTestSupabase} variant="accent">
-                <Send className="mr-2 h-4 w-4" /> Testar via Supabase
-              </Button>
-            </div>
+              <div className="flex flex-wrap gap-2">
+                <Button onClick={handleTestSupabase} variant="accent">
+                  <Send className="mr-2 h-4 w-4" /> Testar via Supabase
+                </Button>
+              </div>
 
-            <div className="rounded-md bg-muted/30 p-3 w-full md:max-w-xl">
-              <Label>Diagnóstico</Label>
-              <pre className="mt-2 max-h-64 overflow-auto text-xs whitespace-pre-wrap">{diag || "Sem dados ainda. Clique em “Testar via Supabase”."}</pre>
-            </div>
-          </CardContent>
-        </Card>
-      </section>
+              <div className="rounded-md bg-muted/30 p-3 w-full md:max-w-xl">
+                <Label>Diagnóstico</Label>
+                <pre className="mt-2 max-h-64 overflow-auto text-xs whitespace-pre-wrap">{diag || "Sem dados ainda. Clique em “Testar via Supabase”."}</pre>
+              </div>
+            </CardContent>
+          </Card>
+        </section>
+      )}
     </div>
     </>
   );
