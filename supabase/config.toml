@@ -14,3 +14,6 @@ verify_jwt = true
 
 [functions.verify-payment]
 verify_jwt = true
+
+[functions.simulate-demo]
+verify_jwt = true

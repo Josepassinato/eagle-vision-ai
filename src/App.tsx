@@ -17,6 +17,7 @@ import MapView from "./pages/admin/MapView";
 import Antitheft from "./pages/admin/Antitheft";
 import Credits from "./pages/admin/Credits";
 import CreditSuccess from "./pages/admin/CreditSuccess";
+import Demo from "./pages/admin/Demo";
 import Live from "./pages/Live";
 import EventsPage from "./pages/EventsPage";
 import Analytics from "./pages/Analytics";
@@ -54,6 +55,7 @@ const App = () => (
             <Route path="antitheft" element={<Antitheft />} />
             <Route path="credits" element={<Credits />} />
             <Route path="credits/success" element={<CreditSuccess />} />
+            <Route path="demo" element={<Demo />} />
           </Route>
           <Route path="/" element={<Index />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

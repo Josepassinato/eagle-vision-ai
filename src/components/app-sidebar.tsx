@@ -1,5 +1,5 @@
 import { NavLink, useLocation } from "react-router-dom";
-import { Users, Map, Settings, LayoutDashboard, List, Gauge, Shield, CreditCard } from "lucide-react";
+import { Users, Map, Settings, LayoutDashboard, List, Gauge, Shield, CreditCard, PlayCircle } from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
@@ -18,6 +18,7 @@ const items = [
   { title: "Eventos", url: "/app/events", icon: List },
   { title: "Antitheft", url: "/app/antitheft", icon: Shield },
   { title: "Créditos", url: "/app/credits", icon: CreditCard },
+  { title: "Demonstração", url: "/app/demo", icon: PlayCircle },
   { title: "Pessoas", url: "/app/people", icon: Users },
   { title: "Config", url: "/app/config", icon: Settings },
   { title: "Métricas", url: "/app/metrics", icon: Gauge },
