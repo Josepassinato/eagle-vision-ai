@@ -101,7 +101,7 @@ const Index = () => {
               <p className="text-sm text-muted-foreground">Detecta comportamentos suspeitos e envia alertas imediatos por Telegram, e-mail ou webhook.</p>
               <div className="mt-4">
                 <Button variant="accent" asChild>
-                  <a href="/auth">Saiba mais / Começar</a>
+                  <a href="#antifurto">Saiba mais</a>
                 </Button>
               </div>
             </CardContent>
@@ -118,7 +118,7 @@ const Index = () => {
               <p className="text-sm text-muted-foreground">Identificação de placas para controle de acesso, auditoria e integração com ERPs.</p>
               <div className="mt-4">
                 <Button variant="accent" asChild>
-                  <a href="/auth">Saiba mais / Começar</a>
+                  <a href="#lpr">Saiba mais</a>
                 </Button>
               </div>
             </CardContent>
@@ -135,12 +135,33 @@ const Index = () => {
               <p className="text-sm text-muted-foreground">Métricas de fluxo em tempo real para otimizar operação, marketing e segurança.</p>
               <div className="mt-4">
                 <Button variant="accent" asChild>
-                  <a href="/auth">Saiba mais / Começar</a>
+                  <a href="#contagem">Saiba mais</a>
                 </Button>
               </div>
             </CardContent>
           </Card>
         </div>
+      </section>
+
+      <section id="antifurto" className="scroll-mt-24 container mx-auto px-4 py-12">
+        <header className="mb-6">
+          <h2 className="text-2xl md:text-3xl font-semibold">Antifurto & Evasão — Como funciona</h2>
+          <p className="text-muted-foreground mt-2 md:max-w-3xl">Detecta suspeitas de furto, não pagamento e comportamentos anômalos em tempo real. Envia alertas via Telegram, e-mail ou integrações.</p>
+        </header>
+      </section>
+
+      <section id="lpr" className="scroll-mt-24 container mx-auto px-4 py-12">
+        <header className="mb-6">
+          <h2 className="text-2xl md:text-3xl font-semibold">Leitura de Placas (LPR) — Como funciona</h2>
+          <p className="text-muted-foreground mt-2 md:max-w-3xl">Reconhece placas de veículos para controle de acesso, auditoria e automações. Integra com ERPs e portarias.</p>
+        </header>
+      </section>
+
+      <section id="contagem" className="scroll-mt-24 container mx-auto px-4 py-12">
+        <header className="mb-6">
+          <h2 className="text-2xl md:text-3xl font-semibold">Contagem de Pessoas — Como funciona</h2>
+          <p className="text-muted-foreground mt-2 md:max-w-3xl">Mede fluxo e permanência em áreas específicas, gerando métricas para operação, marketing e segurança em tempo real.</p>
+        </header>
       </section>
 
       <section id="precos" className="scroll-mt-24 container mx-auto px-4 py-16">
