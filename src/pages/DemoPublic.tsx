@@ -3,8 +3,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
+import Hls from "hls.js";
 
 export default function DemoPublic() {
   const { toast } = useToast();
@@ -14,6 +15,35 @@ export default function DemoPublic() {
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [streamInfo, setStreamInfo] = useState<{ url: string; protocol: string; ui_hint?: any } | null>(null);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+
+  useEffect(() => {
+    if (!streamInfo || streamInfo.protocol !== "HLS") return;
+    const video = videoRef.current;
+    if (!video) return;
+
+    let hls: Hls | null = null;
+
+    if (video.canPlayType("application/vnd.apple.mpegurl")) {
+      video.src = streamInfo.url;
+      video.play().catch(() => {});
+    } else if (Hls.isSupported()) {
+      hls = new Hls({ lowLatencyMode: true, backBufferLength: 90 });
+      hls.loadSource(streamInfo.url);
+      hls.attachMedia(video);
+    }
+
+    return () => {
+      if (hls) {
+        hls.detachMedia();
+        hls.destroy();
+      }
+      if (video) {
+        video.removeAttribute("src");
+        video.load();
+      }
+    };
+  }, [streamInfo]);
 
   const fetchSources = async () => {
     const { data, error } = await supabase
@@ -141,6 +171,15 @@ export default function DemoPublic() {
                   <span> • Pode requerer proxy para tocar embutido.</span>
                 )}
               </div>
+              {streamInfo.protocol === "HLS" && (
+                <video
+                  ref={videoRef}
+                  controls
+                  playsInline
+                  className="w-full max-h-[60vh] rounded-lg border border-border bg-background"
+                  aria-label="Stream HLS de demonstração"
+                />
+              )}
               {streamInfo.protocol === "MJPEG" && (
                 <img
                   src={streamInfo.url}
