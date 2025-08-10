@@ -46,6 +46,9 @@ VISION_WEBHOOK_SECRET = os.getenv("VISION_WEBHOOK_SECRET")
 # Notifier configuration
 NOTIFIER_URL = os.getenv("NOTIFIER_URL", "http://notifier:8085/notify_event")
 ENABLE_NOTIFIER = os.getenv("ENABLE_NOTIFIER", "true").lower() == "true"
+# Antitheft integration
+ANTITHEFT_URL = os.getenv("ANTITHEFT_URL", "http://antitheft:8088")
+ANTITHEFT_ENABLED = os.getenv("ANTITHEFT_ENABLED", "true").lower() == "true"
 
 # Thresholds
 T_FACE = float(os.getenv("T_FACE", "0.60"))
@@ -308,6 +311,29 @@ async def send_to_notifier(event_data: Dict, jpg_b64: Optional[str] = None) -> b
     res = await call_service_with_retry(NOTIFIER_URL, notifier_payload, {"Content-Type": "application/json"}, "notifier", timeout=4.0)
     return bool(res)
 
+async def send_antitheft_track_update(camera_id: str, track_id: int, ts: float, bbox: List[float], move_px: float, frames_confirmed: int) -> None:
+    """Envia atualização de tracking para o serviço Antitheft (melhor-esforço)."""
+    if not ANTITHEFT_ENABLED:
+        return
+    try:
+        payload = {
+            "camera_id": camera_id,
+            "track_id": int(track_id),
+            "ts": float(ts),
+            "bbox": [float(b) for b in bbox],
+            "movement_px": float(move_px),
+            "frames_confirmed": int(frames_confirmed),
+        }
+        await call_service_with_retry(
+            f"{ANTITHEFT_URL}/track_update",
+            payload,
+            {"Content-Type": "application/json"},
+            "antitheft",
+            timeout=0.2,
+        )
+    except Exception:
+        pass
+
 # Endpoints
 @app.get("/health", response_model=HealthResponse)
 async def health_check():
@@ -386,10 +412,25 @@ async def ingest_frame(request: IngestFrameRequest):
             move_px = motion_analyzer.update_and_displacement(request.camera_id, track_id, bbox)
             frames_confirmed = vision_tracker.frames_confirmed(request.camera_id, track_id)
             
+            # Enviar atualização para Antitheft (melhor-esforço)
+            try:
+                asyncio.create_task(
+                    send_antitheft_track_update(
+                        request.camera_id,
+                        int(track_id),
+                        float(request.ts),
+                        bbox,
+                        float(move_px),
+                        int(frames_confirmed),
+                    )
+                )
+            except Exception:
+                pass
+            
             # Crop do corpo
             crop_body = crop_image(img, bbox)
             crop_b64 = encode_image_b64(crop_body)
-            
+
             # Variáveis para decisão
             face_sim = None
             reid_sim = None

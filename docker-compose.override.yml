@@ -8,6 +8,8 @@ services:
       - CIRCUIT_BREAKER_FAIL_THRESHOLD=0.5
       - CIRCUIT_BREAKER_OPEN_SECONDS=20
       - QUEUE_DIR=/queues/fusion
+      - ANTITHEFT_URL=http://antitheft:8088
+      - ANTITHEFT_ENABLED=true
     volumes:
       - ./queues/fusion:/queues/fusion
 
@@ -31,3 +33,25 @@ services:
   notifier:
     environment:
       - NOTIFIER_TIMEOUT_MS=4000
+
+  antitheft:
+    build: ./antitheft
+    environment:
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
+      - NOTIFIER_URL=http://notifier:8085
+      - HLS_URL=http://mediamtx:8888/simulador/index.m3u8
+      - ANTITHEFT_BUCKET=event_clips
+      - ANTITHEFT_PREFIX=antitheft
+      - ANTITHEFT_EXPORT_DURATION=10
+      - SHELF_OUT_DELTA=${SHELF_OUT_DELTA}
+      - CONCEALMENT_DWELL_S=${CONCEALMENT_DWELL_S}
+      - EXIT_GRACE_MIN=${EXIT_GRACE_MIN}
+      - CART_PUSHOUT_DIFF=${CART_PUSHOUT_DIFF}
+      - HIGH_VALUE_DWELL_S=${HIGH_VALUE_DWELL_S}
+    ports:
+      - "8088:8088"
+    depends_on:
+      - notifier
+      - clip-exporter
+      - mediamtx
