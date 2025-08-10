@@ -214,19 +214,31 @@ const Index = () => {
       <section id="sobre" className="scroll-mt-24 container mx-auto px-4 py-16">
         <header className="mb-8">
           <h2 className="text-2xl md:text-3xl font-semibold">Quem somos</h2>
-          <p className="text-muted-foreground mt-2 md:max-w-2xl">A Inigrai desenvolve soluções de visão computacional com IA para varejo, indústria e segurança, focando em resultados práticos e implantação rápida.</p>
+          <p className="text-muted-foreground mt-2 md:max-w-3xl">A Inigrai é uma equipe de engenheiros e cientistas de dados focada em transformar vídeo em decisões. Construímos soluções de visão computacional com IA para varejo, indústria e segurança — com implantação rápida, privacidade por padrão e resultados mensuráveis.</p>
         </header>
         <div className="grid gap-6 md:grid-cols-2">
           <Card>
             <CardContent className="pt-6">
-              <p className="text-sm">Nossa missão é transformar vídeo em dados acionáveis, com privacidade e confiabilidade. Trabalhamos com pipelines escaláveis e integrações simples.</p>
+              <p className="text-sm">
+                Nossa missão é tornar a visão computacional acessível e útil no dia a dia das operações.
+                Unimos modelos de IA de ponta a uma arquitetura simples de operar, com monitoramento e alta confiabilidade.
+              </p>
+              <p className="text-sm mt-3">
+                Operamos com segurança e privacidade: dados minimizados, criptografia em trânsito e retenção configurável.
+              </p>
             </CardContent>
           </Card>
           <Card>
             <CardContent className="pt-6">
-              <p className="text-sm">Tem interesse em um piloto? Entre em contato e lhe ajudamos a validar o ROI em poucos dias.</p>
+              <p className="text-sm font-medium">O que entregamos:</p>
+              <ul className="text-sm text-muted-foreground mt-2 list-disc pl-5 space-y-1">
+                <li>Implantação rápida em câmeras IP e NVRs existentes</li>
+                <li>Alertas em tempo real (Telegram, e-mail, webhooks)</li>
+                <li>Integrações simples com ERPs e sistemas de acesso</li>
+                <li>Métricas e painéis para tomada de decisão</li>
+              </ul>
               <Button className="mt-4" variant="accent" asChild>
-                <a href="/auth">Entrar / Criar conta</a>
+                <a href="/auth">Fale com a equipe</a>
               </Button>
             </CardContent>
           </Card>
