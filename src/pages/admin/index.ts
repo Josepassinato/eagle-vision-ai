@@ -1,1 +1,13 @@
-export {};
+export { default as Dashboard } from "./Dashboard";
+export { default as Events } from "./Events";
+export { default as People } from "./People";
+export { default as Config } from "./Config";
+export { default as Metrics } from "./Metrics";
+export { default as MapView } from "./MapView";
+export { default as Antitheft } from "./Antitheft";
+export { default as Credits } from "./Credits";
+export { default as CreditSuccess } from "./CreditSuccess";
+export { default as Demo } from "./Demo";
+export { default as Safety } from "./Safety";
+export { default as EduBehavior } from "./EduBehavior";
+export { default as PrivacyCompliance } from "./PrivacyCompliance";

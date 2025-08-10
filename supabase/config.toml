@@ -36,6 +36,15 @@ verify_jwt = false
 [functions.org-create]
 verify_jwt = false
 
+[functions.camera-add]
+verify_jwt = false
+
+[functions.stream-start]
+verify_jwt = false
+
+[functions.stream-stop]
+verify_jwt = false
+
 [functions.apikey-rotate]
 verify_jwt = true
 

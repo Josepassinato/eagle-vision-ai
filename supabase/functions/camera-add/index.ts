@@ -1,118 +1,76 @@
-import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-api-key, x-org-id",
-};
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-org-id',
+}
 
-async function validateOrgAccess(supabase: any, orgId: string, authHeader: string | null) {
-  // Check if using API key
-  const apiKey = authHeader?.startsWith('Bearer ak_') ? authHeader.replace('Bearer ', '') : null;
-  
-  if (apiKey) {
-    const { data: keyData, error: keyError } = await supabase
-      .from('org_api_keys')
-      .select('org_id')
-      .eq('secret', apiKey)
-      .single();
-    
-    if (keyError || !keyData || keyData.org_id !== orgId) {
-      return { valid: false, error: "Invalid API key or organization access" };
-    }
-    
-    return { valid: true, orgId: keyData.org_id };
-  }
-
-  // Check user authentication
-  if (!authHeader) {
-    return { valid: false, error: "Authorization required" };
-  }
-
-  const token = authHeader.replace('Bearer ', '');
-  const { data: userData, error: userError } = await supabase.auth.getUser(token);
-  if (userError || !userData.user) {
-    return { valid: false, error: "Invalid authentication" };
-  }
-
-  // Check user belongs to org
-  const { data: orgUser, error: orgError } = await supabase
-    .from('org_users')
-    .select('org_id')
-    .eq('user_id', userData.user.id)
-    .eq('org_id', orgId)
-    .single();
-
-  if (orgError || !orgUser) {
-    return { valid: false, error: "Access denied to organization" };
-  }
-
-  return { valid: true, orgId };
+interface AddCameraRequest {
+  name: string;
+  stream_url: string;
+  location?: string;
 }
 
 serve(async (req) => {
-  if (req.method === "OPTIONS") {
+  // Handle CORS preflight requests
+  if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    console.log("[CAMERA-ADD] Starting camera addition");
-    
     const supabase = createClient(
-      Deno.env.get("SUPABASE_URL") ?? "",
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
-      { auth: { persistSession: false } }
-    );
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    )
 
-    const { org_id, name, source_url } = await req.json();
-
-    if (!org_id || !name || !source_url) {
-      return new Response(JSON.stringify({ error: "org_id, name, and source_url are required" }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 400,
-      });
+    if (req.method !== 'POST') {
+      return new Response(
+        JSON.stringify({ error: 'Method not allowed' }),
+        { status: 405, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
     }
 
-    // Validate organization access
-    const authHeader = req.headers.get("Authorization");
-    const access = await validateOrgAccess(supabase, org_id, authHeader);
-    if (!access.valid) {
-      return new Response(JSON.stringify({ error: access.error }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 403,
-      });
+    // Get org_id from header (would be set by middleware)
+    const orgId = req.headers.get('x-org-id')
+    if (!orgId) {
+      return new Response(
+        JSON.stringify({ error: 'Organization ID required' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
     }
 
-    // Set org context for RLS
-    await supabase.rpc('set_config', {
-      parameter: 'request.org_id',
-      value: org_id
-    });
+    const { name, stream_url, location }: AddCameraRequest = await req.json()
 
-    console.log(`[CAMERA-ADD] Adding camera for org: ${org_id}`);
+    if (!name || !stream_url) {
+      return new Response(
+        JSON.stringify({ error: 'Name and stream_url are required' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
 
     // Generate camera ID
-    const cameraId = `cam_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const cameraId = `cam_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
 
-    // Create camera
+    // Add camera
     const { data: camera, error: cameraError } = await supabase
       .from('cameras')
       .insert({
         id: cameraId,
         name,
-        stream_url: source_url,
-        org_id,
+        stream_url,
+        org_id: orgId,
         online: false
       })
       .select()
-      .single();
+      .single()
 
     if (cameraError) {
-      console.error("[CAMERA-ADD] Failed to create camera:", cameraError);
-      return new Response(JSON.stringify({ error: "Failed to create camera" }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 500,
-      });
+      console.error('Error adding camera:', cameraError)
+      return new Response(
+        JSON.stringify({ error: 'Failed to add camera' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
     }
 
     // Create default camera config
@@ -122,32 +80,45 @@ serve(async (req) => {
         camera_id: cameraId,
         person_threshold: 0.5,
         vehicle_threshold: 0.5,
-        counting_lines: null
-      });
+        counting_lines: []
+      })
 
     if (configError) {
-      console.error("[CAMERA-ADD] Failed to create camera config:", configError);
+      console.error('Error creating camera config:', configError)
     }
 
-    console.log(`[CAMERA-ADD] Camera created successfully: ${cameraId}`);
+    // Log audit event
+    const { error: auditError } = await supabase
+      .from('audit_logs')
+      .insert({
+        org_id: orgId,
+        action: 'create',
+        resource_type: 'camera',
+        resource_id: cameraId,
+        metadata: { name, stream_url, location }
+      })
 
-    return new Response(JSON.stringify({
-      success: true,
-      camera_id: cameraId,
-      name: camera.name,
-      source_url: camera.stream_url,
-      status: 'offline',
-      created_at: camera.created_at
-    }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-      status: 201,
-    });
+    if (auditError) {
+      console.error('Error logging audit event:', auditError)
+    }
+
+    return new Response(
+      JSON.stringify({ 
+        success: true, 
+        camera,
+        message: 'Camera added successfully'
+      }),
+      { 
+        status: 201, 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+      }
+    )
 
   } catch (error) {
-    console.error("[CAMERA-ADD] Error:", error);
-    return new Response(JSON.stringify({ error: error.message }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-      status: 500,
-    });
+    console.error('Unexpected error:', error)
+    return new Response(
+      JSON.stringify({ error: 'Internal server error' }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    )
   }
-});
+})
