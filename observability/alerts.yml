@@ -16,3 +16,10 @@ groups:
       severity: warning
     annotations:
       summary: "Erro HTTP no puller > 10% (5m)"
+  - alert: CircuitBreakerOpen
+    expr: increase(circuit_breaker_open_total[1m]) > 0
+    for: 1m
+    labels:
+      severity: critical
+    annotations:
+      summary: "Circuit breaker opened for at least 1 minute"

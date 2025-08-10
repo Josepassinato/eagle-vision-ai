@@ -1,0 +1,33 @@
+version: "3.9"
+
+services:
+  fusion:
+    environment:
+      - RETRY_MAX_ATTEMPTS=5
+      - RETRY_BASE_DELAY_MS=500
+      - CIRCUIT_BREAKER_FAIL_THRESHOLD=0.5
+      - CIRCUIT_BREAKER_OPEN_SECONDS=20
+      - QUEUE_DIR=/queues/fusion
+    volumes:
+      - ./queues/fusion:/queues/fusion
+
+  enricher:
+    environment:
+      - RETRY_MAX_ATTEMPTS=5
+      - RETRY_BASE_DELAY_MS=500
+      - CIRCUIT_BREAKER_FAIL_THRESHOLD=0.5
+      - CIRCUIT_BREAKER_OPEN_SECONDS=20
+      - QUEUE_DIR=/queues/enricher
+    volumes:
+      - ./queues/enricher:/queues/enricher
+
+  frame-puller:
+    environment:
+      - RETRY_MAX_ATTEMPTS=5
+      - RETRY_BASE_DELAY_MS=500
+      - CIRCUIT_BREAKER_FAIL_THRESHOLD=0.5
+      - CIRCUIT_BREAKER_OPEN_SECONDS=20
+
+  notifier:
+    environment:
+      - NOTIFIER_TIMEOUT_MS=4000

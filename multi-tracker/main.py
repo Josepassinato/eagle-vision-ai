@@ -8,6 +8,8 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from prometheus_client import Histogram, Counter, generate_latest, CONTENT_TYPE_LATEST
 from supabase import create_client, Client
+import signal
+from contextlib import contextmanager
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("multi-tracker")
@@ -43,7 +45,17 @@ class ResolveResponse(BaseModel):
     global_person_id: str
     source: str
     similarity: float
-
+@contextmanager
+def time_limit(seconds: int):
+    def handler(signum, frame):
+        raise TimeoutError("operation timed out")
+    old = signal.signal(signal.SIGALRM, handler)
+    signal.alarm(seconds)
+    try:
+        yield
+    finally:
+        signal.alarm(0)
+        signal.signal(signal.SIGALRM, old)
 
 def get_face_embedding_from_image(jpg_b64: str) -> Optional[List[float]]:
     try:
@@ -76,7 +88,12 @@ def ema_update(old: Optional[List[float]], new: List[float], alpha: float) -> Li
 def resolve_identity(face_emb: Optional[List[float]], body_emb: Optional[List[float]], prelim_person_id: Optional[str], face_sim: Optional[float], reid_sim: Optional[float]) -> Dict[str, Any]:
     # Prefer face matching when embedding available
     if face_emb is not None:
-        res = supabase.rpc('match_face', { 'query': face_emb, 'k': 1 }).execute()
+        try:
+            with time_limit(3):
+                res = supabase.rpc('match_face', { 'query': face_emb, 'k': 1 }).execute()
+        except TimeoutError:
+            logger.warning("match_face RPC timed out (3s)")
+            res = type('obj', (), {'data': []})()
         if res.data:
             cand = res.data[0]
             sim = float(cand['similarity'])
@@ -84,7 +101,12 @@ def resolve_identity(face_emb: Optional[List[float]], body_emb: Optional[List[fl
                 return { 'person_id': cand['id'], 'source': 'face', 'similarity': sim, 'update_face': True }
     # Fallback to body
     if body_emb is not None:
-        res = supabase.rpc('match_body', { 'query': body_emb, 'k': 1 }).execute()
+        try:
+            with time_limit(3):
+                res = supabase.rpc('match_body', { 'query': body_emb, 'k': 1 }).execute()
+        except TimeoutError:
+            logger.warning("match_body RPC timed out (3s)")
+            res = type('obj', (), {'data': []})()
         if res.data:
             cand = res.data[0]
             sim = float(cand['similarity'])

@@ -38,7 +38,7 @@ app.add_middleware(
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "")
 STREAM_SNAPSHOT_URL = os.getenv("STREAM_SNAPSHOT_URL", "http://mediamtx:8888/simulador/index.m3u8")
-NOTIFIER_TIMEOUT_MS = int(os.getenv("NOTIFIER_TIMEOUT_MS", "3000"))
+NOTIFIER_TIMEOUT_MS = int(os.getenv("NOTIFIER_TIMEOUT_MS", "4000"))
 TELEGRAM_PARSE_MODE = os.getenv("TELEGRAM_PARSE_MODE", "HTML")
 
 # Rate limiting: max 10 messages per minute per camera

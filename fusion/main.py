@@ -13,6 +13,9 @@ import base64
 from datetime import datetime, timezone
 from typing import List, Dict, Optional, Any, Tuple
 from io import BytesIO
+import random
+import threading
+from collections import deque
 
 import uvicorn
 import requests
@@ -59,7 +62,12 @@ CLIP_EXPORTER_URL = os.getenv("CLIP_EXPORTER_URL", "http://clip-exporter:8095")
 MAX_PEOPLE = int(os.getenv("MAX_PEOPLE", "10"))
 MAX_IMAGE_MB = int(os.getenv("MAX_IMAGE_MB", "2"))
 REQUEST_TIMEOUT = float(os.getenv("REQUEST_TIMEOUT", "0.150"))  # 150ms
-
+# Resilience configuration
+RETRY_MAX_ATTEMPTS = int(os.getenv("RETRY_MAX_ATTEMPTS", "5"))
+RETRY_BASE_DELAY_MS = int(os.getenv("RETRY_BASE_DELAY_MS", "500"))
+CIRCUIT_BREAKER_FAIL_THRESHOLD = float(os.getenv("CIRCUIT_BREAKER_FAIL_THRESHOLD", "0.5"))
+CIRCUIT_BREAKER_OPEN_SECONDS = int(os.getenv("CIRCUIT_BREAKER_OPEN_SECONDS", "20"))
+QUEUE_DIR = os.getenv("QUEUE_DIR", "/queues/fusion")
 
 # Instâncias globais
 app = FastAPI(title="Fusion API", description="Visão de Águia - Person Identification Fusion", version="1.0.0")
@@ -71,6 +79,10 @@ fusion_infer_seconds = Histogram('fusion_infer_seconds', 'Time spent in fusion i
 fusion_decisions_total = Counter('fusion_decisions_total', 'Total decisions made', ['reason'])
 fusion_similarity_face = Histogram('fusion_similarity_face', 'Face similarity scores')
 fusion_similarity_reid = Histogram('fusion_similarity_reid', 'ReID similarity scores')
+# Resilience metrics
+service_http_failures_total = Counter('service_http_failures_total', 'HTTP failures to dependencies', ['service'])
+service_http_retries_total = Counter('service_http_retries_total', 'HTTP retries to dependencies', ['service'])
+circuit_breaker_open_total = Counter('circuit_breaker_open_total', 'Circuit breaker opened', ['service'])
 
 # Modelos de dados
 class IngestFrameRequest(BaseModel):
@@ -124,54 +136,162 @@ def encode_image_b64(img: np.ndarray) -> str:
     pil_img.save(buffer, format="JPEG", quality=85)
     return base64.b64encode(buffer.getvalue()).decode()
 
-async def call_service_with_retry(url: str, payload: Dict, headers: Dict, service_name: str) -> Optional[Dict]:
-    """Chama serviço com retry e circuit breaker simples"""
-    for attempt in range(2):  # 1 retry
+class CircuitBreaker:
+    def __init__(self, fail_threshold: float, open_seconds: int):
+        self.fail_threshold = fail_threshold
+        self.open_seconds = open_seconds
+        self.failures: deque = deque()  # (ts, is_error)
+        self.state = 'closed'
+        self.open_until = 0.0
+
+    def allow(self) -> bool:
+        now = time.time()
+        if self.state == 'open':
+            if now >= self.open_until:
+                self.state = 'half-open'
+                return True
+            return False
+        return True
+
+    def record(self, ok: bool):
+        now = time.time()
+        # purge entries older than 30s
+        horizon = now - 30
+        while self.failures and self.failures[0][0] < horizon:
+            self.failures.popleft()
+        self.failures.append((now, 0 if ok else 1))
+        # compute failure rate
+        if self.failures:
+            errs = sum(v for _, v in self.failures)
+            rate = errs / len(self.failures)
+            if rate >= CIRCUIT_BREAKER_FAIL_THRESHOLD and len(self.failures) >= 4:
+                self.state = 'open'
+                self.open_until = now + CIRCUIT_BREAKER_OPEN_SECONDS
+
+    def on_success(self):
+        if self.state == 'half-open':
+            self.state = 'closed'
+        # also record success
+        self.record(True)
+
+    def on_failure(self):
+        if self.state == 'half-open':
+            # re-open immediately
+            self.state = 'open'
+            self.open_until = time.time() + CIRCUIT_BREAKER_OPEN_SECONDS
+        self.record(False)
+
+_breakers: Dict[str, CircuitBreaker] = {}
+
+def _get_breaker(service: str) -> CircuitBreaker:
+    if service not in _breakers:
+        _breakers[service] = CircuitBreaker(CIRCUIT_BREAKER_FAIL_THRESHOLD, CIRCUIT_BREAKER_OPEN_SECONDS)
+    return _get_breaker.cache.setdefault(service, _breakers[service])
+_get_breaker.cache = {}
+
+def _exp_backoff_sleep(attempt: int):
+    base = RETRY_BASE_DELAY_MS / 1000.0
+    delay = base * (2 ** attempt)
+    jitter = random.uniform(0, base)
+    time.sleep(min(5.0, delay + jitter))
+
+async def call_service_with_retry(url: str, payload: Dict, headers: Dict, service_name: str, timeout: Optional[float] = None) -> Optional[Dict]:
+    """HTTP POST with retries, exponential backoff + jitter, and circuit breaker"""
+    br = _get_breaker(service_name)
+    if not br.allow():
+        circuit_breaker_open_total.labels(service=service_name).inc()
+        logger.warning(f"Circuit open for {service_name}, skipping request")
+        return None
+
+    max_attempts = RETRY_MAX_ATTEMPTS
+    timeout = timeout or REQUEST_TIMEOUT
+
+    for attempt in range(max_attempts):
         try:
             with fusion_infer_seconds.labels(stage=service_name).time():
-                response = requests.post(url, json=payload, headers=headers, timeout=REQUEST_TIMEOUT)
-                if response.status_code == 200:
-                    return response.json()
-                else:
-                    logger.warning(f"{service_name} returned {response.status_code}: {response.text}")
+                resp = requests.post(url, json=payload, headers=headers, timeout=timeout)
+            if resp.status_code == 200:
+                br.on_success()
+                if attempt > 0:
+                    service_http_retries_total.labels(service=service_name).inc()
+                return resp.json()
+            elif 500 <= resp.status_code < 600:
+                service_http_failures_total.labels(service=service_name).inc()
+                br.on_failure()
+            else:
+                # 4xx do not retry
+                logger.warning(f"{service_name} returned {resp.status_code}: {resp.text[:200]}")
+                br.on_failure()
+                break
         except requests.exceptions.RequestException as e:
-            logger.warning(f"{service_name} request failed (attempt {attempt + 1}): {e}")
-            if attempt == 0:
-                await asyncio.sleep(0.01)  # 10ms delay before retry
-    
-    logger.error(f"Failed to call {service_name} after retries")
+            service_http_failures_total.labels(service=service_name).inc()
+            logger.warning(f"{service_name} request error (attempt {attempt+1}/{max_attempts}): {e}")
+            br.on_failure()
+        if attempt < max_attempts - 1:
+            _exp_backoff_sleep(attempt)
+
+    logger.error(f"Failed to call {service_name} after {max_attempts} attempts")
     return None
+
+# Persistent queue utilities for failed Supabase event posts
+os.makedirs(QUEUE_DIR, exist_ok=True)
+QUEUE_EVENTS_DIR = os.path.join(QUEUE_DIR, 'events')
+os.makedirs(QUEUE_EVENTS_DIR, exist_ok=True)
+
+def _enqueue_event(event: Dict[str, Any]):
+    try:
+        fname = f"{int(time.time())}-{random.randint(1000,9999)}.json"
+        path = os.path.join(QUEUE_EVENTS_DIR, fname)
+        with open(path, 'w') as f:
+            json.dump(event, f)
+        logger.warning(f"Enqueued event for retry: {path}")
+    except Exception as e:
+        logger.error(f"Failed to enqueue event: {e}")
+
+def _queue_worker():
+    while True:
+        try:
+            for fname in list(os.listdir(QUEUE_EVENTS_DIR)):
+                if not fname.endswith('.json'):
+                    continue
+                path = os.path.join(QUEUE_EVENTS_DIR, fname)
+                try:
+                    with open(path, 'r') as f:
+                        event = json.load(f)
+                    # Try send again
+                    res = requests.post(INGEST_EVENT_URL, json=event, headers={"Content-Type": "application/json", "x-vision-auth": VISION_WEBHOOK_SECRET}, timeout=3.0)
+                    if res.status_code == 200:
+                        os.remove(path)
+                        logger.info(f"Retried and sent queued event: {fname}")
+                    else:
+                        logger.warning(f"Retry failed ({res.status_code}), will keep: {fname}")
+                except Exception as e:
+                    logger.warning(f"Error processing queued event {fname}: {e}")
+            time.sleep(5)
+        except Exception:
+            time.sleep(5)
 
 async def send_to_ingest_event(event_data: Dict) -> Optional[int]:
     """Envia evento para Edge Function ingest_event e retorna event_id"""
     if not INGEST_EVENT_URL or not VISION_WEBHOOK_SECRET:
         logger.error("Missing INGEST_EVENT_URL or VISION_WEBHOOK_SECRET")
         return None
-    
-    headers = {
-        "Content-Type": "application/json",
-        "x-vision-auth": VISION_WEBHOOK_SECRET
-    }
-    
-    try:
-        response = requests.post(INGEST_EVENT_URL, json=event_data, headers=headers, timeout=1.0)
-        if response.status_code == 200:
-            payload = response.json()
-            evt_id = payload.get("event_id")
+    headers = {"Content-Type": "application/json", "x-vision-auth": VISION_WEBHOOK_SECRET}
+
+    result = await call_service_with_retry(INGEST_EVENT_URL, event_data, headers, "supabase-ingest", timeout=3.0)
+    if result and isinstance(result, dict):
+        evt_id = result.get("event_id")
+        if evt_id:
             logger.info(f"Event sent successfully to Supabase: id={evt_id}")
             return evt_id
-        else:
-            logger.error(f"Failed to send event: {response.status_code} - {response.text}")
-            return None
-    except requests.exceptions.RequestException as e:
-        logger.error(f"Error sending event to Supabase: {e}")
-        return None
+    # Failure path → enqueue for retry
+    _enqueue_event(event_data)
+    return None
 
 async def send_to_notifier(event_data: Dict, jpg_b64: Optional[str] = None) -> bool:
     """Envia evento para o serviço Notifier (Telegram)"""
     if not ENABLE_NOTIFIER:
         return True
-    
     notifier_payload = {
         "camera_id": event_data["camera_id"],
         "person_id": event_data.get("person_id"),
@@ -184,30 +304,9 @@ async def send_to_notifier(event_data: Dict, jpg_b64: Optional[str] = None) -> b
         "ts": event_data["ts"],
         "jpg_b64": jpg_b64
     }
-    
-    # Envio assíncrono com retry simples
-    for attempt in range(2):  # 1 retry
-        try:
-            response = requests.post(NOTIFIER_URL, json=notifier_payload, timeout=3.0)
-            if response.status_code == 200:
-                logger.info(f"Notifier OK: camera_id={event_data['camera_id']}, person_id={event_data.get('person_id')}")
-                return True
-            elif response.status_code >= 500:
-                logger.warning(f"Notifier 5xx error (attempt {attempt + 1}): {response.status_code}")
-                if attempt == 0:
-                    await asyncio.sleep(0.1)  # 100ms delay before retry
-                    continue
-            else:
-                logger.warning(f"Notifier error: {response.status_code} - {response.text}")
-                break
-        except requests.exceptions.RequestException as e:
-            logger.warning(f"Notifier request failed (attempt {attempt + 1}): {e}")
-            if attempt == 0:
-                await asyncio.sleep(0.1)
-                continue
-    
-    logger.error(f"Failed to notify after retries: camera_id={event_data['camera_id']}")
-    return False
+
+    res = await call_service_with_retry(NOTIFIER_URL, notifier_payload, {"Content-Type": "application/json"}, "notifier", timeout=4.0)
+    return bool(res)
 
 # Endpoints
 @app.get("/health", response_model=HealthResponse)
@@ -434,6 +533,8 @@ async def startup_event():
     logger.info("Starting Fusion API...")
     logger.info(f"Configuration: T_FACE={T_FACE}, T_REID={T_REID}, T_MOVE={T_MOVE}, N_FRAMES={N_FRAMES}")
     logger.info(f"Services: YOLO={YOLO_URL}, FACE={FACE_URL}, REID={REID_URL}")
+    # Start queue worker
+    threading.Thread(target=_queue_worker, daemon=True).start()
     logger.info(f"Notifier: ENABLE_NOTIFIER={ENABLE_NOTIFIER}, NOTIFIER_URL={NOTIFIER_URL}")
 
 if __name__ == "__main__":

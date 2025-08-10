@@ -39,6 +39,11 @@ MAX_FPS = int(os.getenv("MAX_FPS", "10"))
 LATENCY_THRESHOLD = float(os.getenv("LATENCY_THRESHOLD", "0.5"))  # 500ms
 RECONNECT_DELAY = int(os.getenv("RECONNECT_DELAY", "5"))  # 5 segundos
 METRICS_PORT = int(os.getenv("METRICS_PORT", "9100"))
+# Resilience config
+RETRY_MAX_ATTEMPTS = int(os.getenv("RETRY_MAX_ATTEMPTS", "5"))
+RETRY_BASE_DELAY_MS = int(os.getenv("RETRY_BASE_DELAY_MS", "500"))
+CIRCUIT_BREAKER_FAIL_THRESHOLD = float(os.getenv("CIRCUIT_BREAKER_FAIL_THRESHOLD", "0.5"))
+CIRCUIT_BREAKER_OPEN_SECONDS = int(os.getenv("CIRCUIT_BREAKER_OPEN_SECONDS", "20"))
 
 # Prometheus metrics
 puller_frames_sent_total = Counter('puller_frames_sent_total', 'Total frames sent to fusion')
@@ -46,6 +51,10 @@ puller_http_errors_total = Counter('puller_http_errors_total', 'Total HTTP error
 puller_latency_seconds = Histogram('puller_latency_seconds', 'Latency of fusion requests')
 puller_backpressure_fps = Gauge('puller_backpressure_fps', 'Current FPS after backpressure adjustment')
 puller_connection_failures_total = Counter('puller_connection_failures_total', 'Total stream connection failures')
+# Resilience metrics
+service_http_failures_total = Counter('service_http_failures_total', 'HTTP failures to dependencies', ['service'])
+service_http_retries_total = Counter('service_http_retries_total', 'HTTP retries to dependencies', ['service'])
+circuit_breaker_open_total = Counter('circuit_breaker_open_total', 'Circuit breaker opened', ['service'])
 
 class FramePuller:
     """Serviço de captura e envio de frames"""
@@ -127,36 +136,92 @@ class FramePuller:
             logger.error(f"Error encoding frame: {e}")
             return None
     
-    def send_frame_to_fusion(self, frame_b64: str, timestamp: float) -> bool:
-        """Envia frame para Fusion API"""
+def _exp_backoff_sleep(attempt: int):
+    base = RETRY_BASE_DELAY_MS / 1000.0
+    delay = base * (2 ** attempt)
+    jitter = np.random.uniform(0, base)
+    time.sleep(min(5.0, delay + jitter))
+
+class SimpleBreaker:
+    def __init__(self):
+        self.state = 'closed'
+        self.failures: deque = deque()
+        self.open_until = 0.0
+
+    def allow(self) -> bool:
+        now = time.time()
+        if self.state == 'open':
+            if now >= self.open_until:
+                self.state = 'half-open'
+                return True
+            return False
+        return True
+
+    def record(self, ok: bool):
+        now = time.time()
+        horizon = now - 30
+        while self.failures and self.failures[0] < horizon:
+            self.failures.popleft()
+        self.failures.append(now if not ok else horizon)  # store timestamp only for failures
+        # Compute failure rate ~ fraction of failures in window
+        total = len(self.failures)
+        errs = sum(1 for t in self.failures if t >= horizon)
+        if total >= 4 and (errs / total) >= CIRCUIT_BREAKER_FAIL_THRESHOLD:
+            self.state = 'open'
+            self.open_until = now + CIRCUIT_BREAKER_OPEN_SECONDS
+
+    def on_success(self):
+        if self.state == 'half-open':
+            self.state = 'closed'
+        self.record(True)
+
+    def on_failure(self):
+        if self.state == 'half-open':
+            self.state = 'open'
+            self.open_until = time.time() + CIRCUIT_BREAKER_OPEN_SECONDS
+        self.record(False)
+
+_breaker = SimpleBreaker()
+
+def send_frame_to_fusion(self, frame_b64: str, timestamp: float) -> bool:
+    """Envia frame para Fusion API com retries e circuito"""
+    service = 'fusion-ingest'
+    if not _breaker.allow():
+        circuit_breaker_open_total.labels(service=service).inc()
+        logger.warning("Circuit open for fusion, skipping send")
+        return False
+    payload = {
+        "camera_id": CAMERA_ID,
+        "ts": timestamp,
+        "jpg_b64": frame_b64,
+        "max_people": 10
+    }
+    max_attempts = RETRY_MAX_ATTEMPTS
+    for attempt in range(max_attempts):
         try:
-            payload = {
-                "camera_id": CAMERA_ID,
-                "ts": timestamp,
-                "jpg_b64": frame_b64,
-                "max_people": 10
-            }
-            
             with puller_latency_seconds.time():
-                response = requests.post(
-                    f"{FUSION_URL}/ingest_frame",
-                    json=payload,
-                    timeout=5.0
-                )
-            
+                response = requests.post(f"{FUSION_URL}/ingest_frame", json=payload, timeout=5.0)
             if response.status_code == 200:
-                logger.debug(f"Frame sent successfully: {response.status_code}")
+                _breaker.on_success()
+                if attempt > 0:
+                    service_http_retries_total.labels(service=service).inc()
+                logger.debug("Frame sent successfully")
                 puller_frames_sent_total.inc()
                 return True
+            elif 500 <= response.status_code < 600:
+                service_http_failures_total.labels(service=service).inc()
+                _breaker.on_failure()
             else:
-                logger.warning(f"Fusion API error: {response.status_code}")
                 puller_http_errors_total.labels(status_code=str(response.status_code)).inc()
-                return False
-                
+                _breaker.on_failure()
+                break
         except requests.exceptions.RequestException as e:
-            logger.error(f"Error sending frame to fusion: {e}")
-            puller_http_errors_total.labels(status_code="timeout").inc()
-            return False
+            service_http_failures_total.labels(service=service).inc()
+            logger.warning(f"Error sending frame to fusion (attempt {attempt+1}/{max_attempts}): {e}")
+            _breaker.on_failure()
+        if attempt < max_attempts - 1:
+            _exp_backoff_sleep(attempt)
+    return False
     
     def handle_backpressure(self, latency: float):
         """Gerencia backpressure ajustando FPS"""
