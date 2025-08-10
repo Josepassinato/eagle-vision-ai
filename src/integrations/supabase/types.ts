@@ -179,6 +179,7 @@ export type Database = {
           last_seen: string | null
           name: string | null
           online: boolean
+          org_id: string | null
           stream_url: string | null
           updated_at: string
         }
@@ -188,6 +189,7 @@ export type Database = {
           last_seen?: string | null
           name?: string | null
           online?: boolean
+          org_id?: string | null
           stream_url?: string | null
           updated_at?: string
         }
@@ -197,10 +199,19 @@ export type Database = {
           last_seen?: string | null
           name?: string | null
           online?: boolean
+          org_id?: string | null
           stream_url?: string | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "cameras_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "orgs"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       credit_ledger: {
         Row: {
@@ -569,6 +580,145 @@ export type Database = {
           },
         ]
       }
+      incidents: {
+        Row: {
+          clip_url: string | null
+          first_ts: string | null
+          id: string
+          last_ts: string | null
+          org_id: string | null
+          report_url: string | null
+          severity: string
+          signals_count: number | null
+          status: string
+          stream_id: string | null
+        }
+        Insert: {
+          clip_url?: string | null
+          first_ts?: string | null
+          id?: string
+          last_ts?: string | null
+          org_id?: string | null
+          report_url?: string | null
+          severity: string
+          signals_count?: number | null
+          status?: string
+          stream_id?: string | null
+        }
+        Update: {
+          clip_url?: string | null
+          first_ts?: string | null
+          id?: string
+          last_ts?: string | null
+          org_id?: string | null
+          report_url?: string | null
+          severity?: string
+          signals_count?: number | null
+          status?: string
+          stream_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "incidents_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "orgs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "incidents_stream_id_fkey"
+            columns: ["stream_id"]
+            isOneToOne: false
+            referencedRelation: "streams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      org_api_keys: {
+        Row: {
+          created_at: string | null
+          id: string
+          last_used_at: string | null
+          name: string
+          org_id: string | null
+          secret: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          last_used_at?: string | null
+          name: string
+          org_id?: string | null
+          secret: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          last_used_at?: string | null
+          name?: string
+          org_id?: string | null
+          secret?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "org_api_keys_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "orgs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      org_users: {
+        Row: {
+          created_at: string | null
+          org_id: string
+          role: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          org_id: string
+          role?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          org_id?: string
+          role?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "org_users_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "orgs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      orgs: {
+        Row: {
+          created_at: string | null
+          id: string
+          name: string
+          plan: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          name: string
+          plan?: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          name?: string
+          plan?: string
+        }
+        Relationships: []
+      }
       payment_sessions: {
         Row: {
           amount: number
@@ -654,6 +804,38 @@ export type Database = {
             columns: ["person_id"]
             isOneToOne: false
             referencedRelation: "people"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      quotas: {
+        Row: {
+          max_minutes_month: number
+          max_storage_gb: number
+          max_streams: number
+          org_id: string
+          overage_allowed: boolean | null
+        }
+        Insert: {
+          max_minutes_month?: number
+          max_storage_gb?: number
+          max_streams?: number
+          org_id: string
+          overage_allowed?: boolean | null
+        }
+        Update: {
+          max_minutes_month?: number
+          max_storage_gb?: number
+          max_streams?: number
+          org_id?: string
+          overage_allowed?: boolean | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quotas_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: true
+            referencedRelation: "orgs"
             referencedColumns: ["id"]
           },
         ]
@@ -850,6 +1032,143 @@ export type Database = {
           },
         ]
       }
+      signals: {
+        Row: {
+          details: Json | null
+          frame_url: string | null
+          id: string
+          org_id: string | null
+          severity: string
+          stream_id: string | null
+          ts: string | null
+          type: string
+        }
+        Insert: {
+          details?: Json | null
+          frame_url?: string | null
+          id?: string
+          org_id?: string | null
+          severity: string
+          stream_id?: string | null
+          ts?: string | null
+          type: string
+        }
+        Update: {
+          details?: Json | null
+          frame_url?: string | null
+          id?: string
+          org_id?: string | null
+          severity?: string
+          stream_id?: string | null
+          ts?: string | null
+          type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "signals_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "orgs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "signals_stream_id_fkey"
+            columns: ["stream_id"]
+            isOneToOne: false
+            referencedRelation: "streams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      streams: {
+        Row: {
+          analytic: string
+          camera_id: string
+          created_at: string | null
+          id: string
+          org_id: string | null
+          status: string
+        }
+        Insert: {
+          analytic: string
+          camera_id: string
+          created_at?: string | null
+          id?: string
+          org_id?: string | null
+          status?: string
+        }
+        Update: {
+          analytic?: string
+          camera_id?: string
+          created_at?: string | null
+          id?: string
+          org_id?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "streams_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "orgs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      usage_events: {
+        Row: {
+          analytic: string
+          created_at: string | null
+          frames: number | null
+          id: number
+          minutes: number
+          org_id: string | null
+          storage_mb: number | null
+          stream_id: string | null
+          ts_end: string
+          ts_start: string
+        }
+        Insert: {
+          analytic: string
+          created_at?: string | null
+          frames?: number | null
+          id?: number
+          minutes: number
+          org_id?: string | null
+          storage_mb?: number | null
+          stream_id?: string | null
+          ts_end: string
+          ts_start: string
+        }
+        Update: {
+          analytic?: string
+          created_at?: string | null
+          frames?: number | null
+          id?: number
+          minutes?: number
+          org_id?: string | null
+          storage_mb?: number | null
+          stream_id?: string | null
+          ts_end?: string
+          ts_start?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "usage_events_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "orgs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "usage_events_stream_id_fkey"
+            columns: ["stream_id"]
+            isOneToOne: false
+            referencedRelation: "streams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           created_at: string
@@ -947,6 +1266,10 @@ export type Database = {
       binary_quantize: {
         Args: { "": string } | { "": unknown }
         Returns: unknown
+      }
+      current_org: {
+        Args: Record<PropertyKey, never>
+        Returns: string
       }
       get_antitheft_incidents: {
         Args: {
@@ -1054,6 +1377,10 @@ export type Database = {
       sparsevec_typmod_in: {
         Args: { "": unknown[] }
         Returns: number
+      }
+      user_belongs_to_org: {
+        Args: { user_id: string; org_id: string }
+        Returns: boolean
       }
       vector_avg: {
         Args: { "": number[] }
