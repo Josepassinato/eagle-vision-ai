@@ -8,38 +8,59 @@ const corsHeaders = {
 
 // Curated public demo sources (stable samples and public cams)
 const curated = [
+  // Pessoas / Ocupação
   {
     analytic: "people_count",
     name: "LPL Library",
     url: "https://webcam1.lpl.org/mjpg/video.mjpg",
     protocol: "MJPEG",
-    location: "Lobby público",
+    location: "Lobby de biblioteca",
     confidence: 85,
   },
   {
     analytic: "people_count",
-    name: "Shaka Angel One (HLS)",
-    url: "https://storage.googleapis.com/shaka-demo-assets/angel-one-hls/hls.m3u8",
-    protocol: "HLS",
-    location: "HLS de teste",
-    confidence: 55,
+    name: "Sparkassenplatz",
+    url: "https://webcam.sparkassenplatz.info/cgi-bin/faststream.jpg?stream=full&fps=25",
+    protocol: "JPEG_STREAM",
+    location: "Praça urbana",
+    confidence: 80,
   },
+  {
+    analytic: "people_count",
+    name: "MVCC RomeCam",
+    url: "https://romecam.mvcc.edu/mjpg/video.mjpg",
+    protocol: "MJPEG",
+    location: "Campus/Hall",
+    confidence: 70,
+  },
+
+  // Veículos / Tráfego
   {
     analytic: "vehicle_count",
     name: "Anklam City",
-    url: "http://webcam.anklam.de/axis-cgi/mjpg/video.cgi",
+    url: "https://webcam.anklam.de/axis-cgi/mjpg/video.cgi?resolution=CIF&clock=1&date=1",
     protocol: "MJPEG",
     location: "Centro urbano",
     confidence: 70,
   },
   {
     analytic: "vehicle_count",
-    name: "Sintel (HLS)",
-    url: "https://bitdash-a.akamaihd.net/content/sintel/hls/playlist.m3u8",
-    protocol: "HLS",
-    location: "HLS de teste",
-    confidence: 55,
+    name: "Vliegveld Zeeland",
+    url: "https://webcam.vliegveldzeeland.nl:7171/axis-cgi/mjpg/video.cgi",
+    protocol: "MJPEG",
+    location: "Aeródromo",
+    confidence: 65,
   },
+  {
+    analytic: "vehicle_count",
+    name: "Larimer Lot",
+    url: "https://htadmcam01.larimer.org/mjpg/video.mjpg",
+    protocol: "MJPEG",
+    location: "Estacionamento/via",
+    confidence: 65,
+  },
+
+  // Pátio industrial / Obra
   {
     analytic: "safety",
     name: "Lafarge Yard",
@@ -48,6 +69,8 @@ const curated = [
     location: "Pátio industrial",
     confidence: 60,
   },
+
+  // HLS de teste para transporte/airport (útil para validar HLS)
   {
     analytic: "airport",
     name: "Mux Test (HLS)",

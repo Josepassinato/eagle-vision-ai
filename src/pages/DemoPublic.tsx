@@ -254,7 +254,7 @@ export default function DemoPublic() {
             </div>
             <div className="w-full md:w-2/3">
               <label className="text-sm text-muted-foreground">Fonte</label>
-              <Select value={demoId ?? ""} onValueChange={(v) => setDemoId(v)}>
+              <Select value={demoId ?? undefined} onValueChange={(v) => setDemoId(v)}>
                 <SelectTrigger>
                   <SelectValue placeholder={sources.length ? "Escolha uma fonte" : "Carregando..."} />
                 </SelectTrigger>
