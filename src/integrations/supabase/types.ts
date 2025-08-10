@@ -229,6 +229,74 @@ export type Database = {
         }
         Relationships: []
       }
+      demo_bindings: {
+        Row: {
+          created_at: string
+          demo_id: string | null
+          id: string
+          params: Json | null
+          service: string
+        }
+        Insert: {
+          created_at?: string
+          demo_id?: string | null
+          id?: string
+          params?: Json | null
+          service: string
+        }
+        Update: {
+          created_at?: string
+          demo_id?: string | null
+          id?: string
+          params?: Json | null
+          service?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "demo_bindings_demo_id_fkey"
+            columns: ["demo_id"]
+            isOneToOne: false
+            referencedRelation: "demo_sources"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      demo_sources: {
+        Row: {
+          active: boolean | null
+          analytic: string
+          confidence: number | null
+          created_at: string
+          id: string
+          location: string | null
+          name: string
+          protocol: string
+          url: string
+        }
+        Insert: {
+          active?: boolean | null
+          analytic: string
+          confidence?: number | null
+          created_at?: string
+          id?: string
+          location?: string | null
+          name: string
+          protocol: string
+          url: string
+        }
+        Update: {
+          active?: boolean | null
+          analytic?: string
+          confidence?: number | null
+          created_at?: string
+          id?: string
+          location?: string | null
+          name?: string
+          protocol?: string
+          url?: string
+        }
+        Relationships: []
+      }
       edu_classes: {
         Row: {
           created_at: string | null
