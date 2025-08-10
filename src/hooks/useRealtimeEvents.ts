@@ -15,7 +15,7 @@ export type RealtimeEvent = {
   thumb_path?: string;
 };
 
-export function useRealtimeEvents() {
+export function useRealtimeEvents(cameraId?: string) {
   const [events, setEvents] = useState<RealtimeEvent[]>([]);
   const buffersRef = useRef<Map<string, RealtimeEvent[]>>(new Map());
   const timersRef = useRef<Map<string, any>>(new Map());
