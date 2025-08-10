@@ -1,0 +1,179 @@
+version: "3.8"
+
+services:
+  # Main orchestrator service
+  fusion:
+    image: yourrepo/fusion:latest
+    restart: unless-stopped
+    environment:
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_SERVICE_ROLE=${SUPABASE_SERVICE_ROLE}
+      - ORG_API_KEY=${ORG_API_KEY}
+      - DEVICE_ID=${DEVICE_ID}
+      - EDGE_MODE=true
+      - METADATA_ONLY=true
+      - LOCAL_STORAGE_PATH=/data/storage
+      - MAX_LOCAL_STORAGE_GB=100
+      - CLIP_UPLOAD_POLICY=on_demand
+    volumes:
+      - fusion_data:/data
+      - ./config:/app/config
+    ports:
+      - "8080:8080"
+    depends_on:
+      - mediamtx
+    networks:
+      - edge_network
+
+  # Media server for RTSP/HLS streams
+  mediamtx:
+    image: bluenviron/mediamtx:latest
+    restart: unless-stopped
+    ports:
+      - "8554:8554"  # RTSP
+      - "8889:8889"  # HLS
+      - "8189:8189"  # WebRTC
+      - "9997:9997"  # API
+    volumes:
+      - mediamtx_config:/config
+      - mediamtx_recordings:/recordings
+    environment:
+      - MTX_LOGLEVEL=info
+      - MTX_API=yes
+      - MTX_HLS=yes
+      - MTX_WEBRTC=yes
+    networks:
+      - edge_network
+
+  # AI Analytics Workers
+  peoplevision:
+    image: yourrepo/peoplevision:latest
+    restart: unless-stopped
+    environment:
+      - EDGE_MODE=true
+      - METADATA_ONLY=true
+      - CONFIDENCE_THRESHOLD=0.6
+      - MAX_DETECTIONS_PER_FRAME=50
+    volumes:
+      - models_cache:/models
+    networks:
+      - edge_network
+
+  vehiclevision:
+    image: yourrepo/vehiclevision:latest
+    restart: unless-stopped
+    environment:
+      - EDGE_MODE=true
+      - METADATA_ONLY=true
+      - CONFIDENCE_THRESHOLD=0.7
+    volumes:
+      - models_cache:/models
+    networks:
+      - edge_network
+
+  safetyvision:
+    image: yourrepo/safetyvision:latest
+    restart: unless-stopped
+    environment:
+      - EDGE_MODE=true
+      - METADATA_ONLY=true
+      - SAFETY_ZONES_CONFIG=/config/safety_zones.json
+    volumes:
+      - models_cache:/models
+      - ./config:/config
+    networks:
+      - edge_network
+
+  edubehavior:
+    image: yourrepo/edubehavior:latest
+    restart: unless-stopped
+    environment:
+      - EDGE_MODE=true
+      - METADATA_ONLY=true
+      - MODEL_PRECISION=fp16
+    volumes:
+      - models_cache:/models
+      - edubehavior_data:/data
+    networks:
+      - edge_network
+
+  # Local notification service
+  notifier:
+    image: yourrepo/notifier:latest
+    restart: unless-stopped
+    environment:
+      - EDGE_MODE=true
+      - LOCAL_ALERTS_ONLY=true
+      - WEBHOOK_ENABLED=false
+    volumes:
+      - notifier_config:/config
+    networks:
+      - edge_network
+
+  # Local web interface
+  edge_dashboard:
+    image: yourrepo/edge-dashboard:latest
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - API_BASE_URL=http://fusion:8080
+      - DEVICE_ID=${DEVICE_ID}
+      - ORG_API_KEY=${ORG_API_KEY}
+    depends_on:
+      - fusion
+    networks:
+      - edge_network
+
+  # System monitoring
+  prometheus:
+    image: prom/prometheus:latest
+    restart: unless-stopped
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=7d'
+      - '--web.enable-lifecycle'
+    networks:
+      - edge_network
+
+  # Log aggregation
+  loki:
+    image: grafana/loki:latest
+    restart: unless-stopped
+    ports:
+      - "3100:3100"
+    volumes:
+      - loki_data:/loki
+    command: -config.file=/etc/loki/local-config.yaml
+    networks:
+      - edge_network
+
+volumes:
+  fusion_data:
+    driver: local
+  mediamtx_config:
+    driver: local
+  mediamtx_recordings:
+    driver: local
+  models_cache:
+    driver: local
+  edubehavior_data:
+    driver: local
+  notifier_config:
+    driver: local
+  prometheus_data:
+    driver: local
+  loki_data:
+    driver: local
+
+networks:
+  edge_network:
+    driver: bridge
