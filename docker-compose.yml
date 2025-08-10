@@ -316,22 +316,3 @@ services:
       timeout: 10s
       retries: 3
       start_period: 15s
-
-  media-cleaner:
-    build: ./media-cleaner
-    container_name: media-cleaner
-    restart: unless-stopped
-    environment:
-      - SUPABASE_URL=${SUPABASE_URL}
-      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
-      - MEDIA_RETENTION_DAYS=90
-      - MEDIA_BUCKETS=evidence,event_clips
-      - CLEANUP_INTERVAL_SECONDS=86400
-    ports:
-      - "8097:8097"
-    healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:8097/health || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 15s

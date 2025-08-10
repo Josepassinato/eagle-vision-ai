@@ -25,14 +25,16 @@ logger = logging.getLogger(__name__)
 
 app = FastAPI(title="Visão de Águia - Notifier")
 
-# Enable CORS for browser-based testing
+# CORS configurado por ALLOWED_ORIGINS (csv)
+ORIGINS = os.getenv("ALLOWED_ORIGINS", "https://panel.inigrai.com").split(",")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[o.strip() for o in ORIGINS if o.strip()],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
 
 # Environment variables
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
@@ -45,6 +47,20 @@ TELEGRAM_PARSE_MODE = os.getenv("TELEGRAM_PARSE_MODE", "HTML")
 RATE_LIMIT_PER_CAMERA = 10
 RATE_LIMIT_WINDOW = 60  # seconds
 rate_limit_tracker: Dict[str, List[float]] = {}
+
+# Deduplicação: suprimir repetições por (camera, pessoa) por janela mínima
+ALERT_WINDOW_MIN = int(os.getenv("ALERT_WINDOW_MIN", "5"))
+_last_sent: Dict[str, float] = {}
+
+def should_notify(cam: str, pid: Optional[str]) -> bool:
+    key = f"{cam}:{pid or 'unknown'}"
+    now = time.time()
+    ts = _last_sent.get(key, 0.0)
+    if now - ts < ALERT_WINDOW_MIN * 60:
+        return False
+    _last_sent[key] = now
+    return True
+
 
 class NotifyEventRequest(BaseModel):
     camera_id: str
@@ -271,10 +287,18 @@ async def notify_event(event: NotifyEventRequest):
     
     logger.info(f"Received event: camera_id={event.camera_id}, reason={event.reason}")
     
-    # Check rate limit
-    if not check_rate_limit(event.camera_id):
-        logger.warning(f"Rate limit exceeded for camera {event.camera_id}")
-        raise HTTPException(status_code=429, detail="Rate limit exceeded")
+# Check rate limit
+if not check_rate_limit(event.camera_id):
+    logger.warning(f"Rate limit exceeded for camera {event.camera_id}")
+    raise HTTPException(status_code=429, detail="Rate limit exceeded")
+
+# Deduplication by (camera, person) within ALERT_WINDOW_MIN
+if not should_notify(event.camera_id, event.person_id):
+    logger.info(
+        f"Duplicate suppressed for camera={event.camera_id} person_id={event.person_id} within {ALERT_WINDOW_MIN}min"
+    )
+    return {"status": "skipped_duplicate", "window_min": ALERT_WINDOW_MIN}
+
     
     # Parse chat IDs
     chat_ids = parse_chat_ids()

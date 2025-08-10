@@ -13,7 +13,7 @@
     X-Frame-Options "DENY"
     X-Content-Type-Options "nosniff"
     Referrer-Policy "same-origin"
-    Permissions-Policy "camera=(), microphone=(), geolocation()"
+    Permissions-Policy "camera=(), microphone=(), geolocation=()"
   }
 
   @cors_preflight method OPTIONS

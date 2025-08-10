@@ -16,6 +16,11 @@ jobs:
       - name: Set up Docker Compose
         run: docker compose version
 
+      - name: Fetch models (YOLO/ReID)
+        run: |
+          chmod +x tools/fetch_models.sh
+          bash tools/fetch_models.sh
+
       - name: Run E2E smoke test
         env:
           NETCAM_URL: https://itsstreamingno.dotd.la.gov/public/nor-cam-115.streams/playlist.m3u8

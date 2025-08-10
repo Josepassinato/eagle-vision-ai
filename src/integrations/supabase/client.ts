@@ -3,24 +3,23 @@ import { createClient } from '@supabase/supabase-js';
 import type { Database } from './types';
 import { loadPublicEnv } from '@/lib/publicEnv';
 
-const DEFAULT_SUPABASE_URL = "https://avbswnnywjyvqfxezgfl.supabase.co";
-const DEFAULT_SUPABASE_PUBLISHABLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF2YnN3bm55d2p5dnFmeGV6Z2ZsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQ3NTI3ODQsImV4cCI6MjA3MDMyODc4NH0.fmpP6MWxsz-GYT44mAvBfR5rXIFdR-PoUbswzkeClo4";
-
 const runtime = loadPublicEnv();
-const SUPABASE_URL = runtime.SUPABASE_URL || DEFAULT_SUPABASE_URL;
-const SUPABASE_PUBLISHABLE_KEY = runtime.SUPABASE_ANON_KEY || DEFAULT_SUPABASE_PUBLISHABLE_KEY;
 
 if (!runtime.SUPABASE_URL || !runtime.SUPABASE_ANON_KEY) {
-  console.warn("Supabase URL/Anon Key carregados do fallback do repositório. Configure window.__ENV ou meta tags para produção.");
+  throw new Error("Config ausente: defina SUPABASE_URL/ANON_KEY via window.__ENV ou <meta>.");
 }
 
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";
 
-export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
-  auth: {
-    storage: localStorage,
-    persistSession: true,
-    autoRefreshToken: true,
+export const supabase = createClient<Database>(
+  runtime.SUPABASE_URL as string,
+  runtime.SUPABASE_ANON_KEY as string,
+  {
+    auth: {
+      storage: localStorage,
+      persistSession: true,
+      autoRefreshToken: true,
+    }
   }
-});
+);
