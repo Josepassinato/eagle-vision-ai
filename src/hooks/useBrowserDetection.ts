@@ -48,12 +48,12 @@ export function useBrowserDetection(
     try {
       console.log(`Initializing ${analytic} detector...`);
       
-      // Use YOLO tiny model - faster and works well with WASM
-      const modelName = "Xenova/yolov8n"; // Nano version for speed
+      // Use DETR model - proven to work well in browsers
+      const modelName = "Xenova/detr-resnet-50";
       
       detectorRef.current = await pipeline("object-detection", modelName, {
-        device: "wasm", // Use WASM instead of WebGPU
-        revision: "main",
+        device: "wasm",
+        dtype: "fp32", // Use float32 for better compatibility
       });
       
       console.log(`${analytic} detector initialized successfully`);
