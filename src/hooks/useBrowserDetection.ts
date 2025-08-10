@@ -48,13 +48,12 @@ export function useBrowserDetection(
     try {
       console.log(`Initializing ${analytic} detector...`);
       
-      // Use appropriate model based on analytic
-      const modelName = analytic === "people_count" || analytic === "edubehavior" 
-        ? "Xenova/detr-resnet-50" // Good for people detection
-        : "Xenova/yolos-tiny"; // Faster for vehicles/general objects
+      // Use YOLO tiny model - faster and works well with WASM
+      const modelName = "Xenova/yolov8n"; // Nano version for speed
       
       detectorRef.current = await pipeline("object-detection", modelName, {
-        device: "webgpu", // Try WebGPU first, falls back to WASM
+        device: "wasm", // Use WASM instead of WebGPU
+        revision: "main",
       });
       
       console.log(`${analytic} detector initialized successfully`);
@@ -68,22 +67,27 @@ export function useBrowserDetection(
 
   // Filter detections based on analytic type
   const filterDetections = useCallback((detections: Detection[]): Detection[] => {
-    const peopleLabels = ["person", "people"];
-    const vehicleLabels = ["car", "truck", "bus", "motorcycle", "bicycle", "vehicle"];
-    const safetyLabels = ["person", "car", "truck", "helmet", "vest"];
+    const peopleLabels = ["person"];
+    const vehicleLabels = ["car", "truck", "bus", "motorcycle", "bicycle"];
+    const safetyLabels = ["person", "car", "truck"];
     
     return detections.filter(det => {
       const label = det.label.toLowerCase();
+      const score = det.score || 0;
+      
+      // Minimum confidence threshold
+      if (score < 0.4) return false;
+      
       switch (analytic) {
         case "people_count":
         case "edubehavior":
-          return peopleLabels.some(l => label.includes(l));
+          return peopleLabels.includes(label);
         case "vehicle_count":
-          return vehicleLabels.some(l => label.includes(l));
+          return vehicleLabels.includes(label);
         case "safety":
-          return safetyLabels.some(l => label.includes(l));
+          return safetyLabels.includes(label);
         default:
-          return det.score > 0.3; // General detection
+          return score > 0.5; // General detection
       }
     });
   }, [analytic]);
@@ -96,7 +100,7 @@ export function useBrowserDetection(
     if (video.paused || video.ended || video.readyState < 2) return;
 
     const now = Date.now();
-    if (now - lastProcessTime.current < 500) return; // Throttle to 2 FPS
+    if (now - lastProcessTime.current < 1000) return; // Throttle to 1 FPS for performance
     lastProcessTime.current = now;
 
     try {
