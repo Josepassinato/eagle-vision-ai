@@ -14,3 +14,14 @@ export async function getEvidenceSignedUrl(path: string, ttlSeconds: number = SI
     return null;
   }
 }
+
+export async function getSignedUrl(bucket: string, path: string, ttlSeconds: number = SIGNED_URL_TTL) {
+  try {
+    const { data, error } = await supabase.storage.from(bucket).createSignedUrl(path, ttlSeconds);
+    if (error) throw error;
+    return data?.signedUrl ?? null;
+  } catch (e) {
+    console.error("signed url error", e);
+    return null;
+  }
+}

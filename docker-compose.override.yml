@@ -41,8 +41,7 @@ services:
       - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
       - NOTIFIER_URL=http://notifier:8085
       - HLS_URL=http://mediamtx:8888/simulador/index.m3u8
-      - ANTITHEFT_BUCKET=event_clips
-      - ANTITHEFT_PREFIX=antitheft
+      - ANTITHEFT_BUCKET=antitheft_clips
       - ANTITHEFT_EXPORT_DURATION=10
       - SHELF_OUT_DELTA=${SHELF_OUT_DELTA}
       - CONCEALMENT_DWELL_S=${CONCEALMENT_DWELL_S}

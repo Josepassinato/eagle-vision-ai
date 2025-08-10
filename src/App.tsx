@@ -14,6 +14,7 @@ import People from "./pages/admin/People";
 import Config from "./pages/admin/Config";
 import Metrics from "./pages/admin/Metrics";
 import MapView from "./pages/admin/MapView";
+import Antitheft from "./pages/admin/Antitheft";
 import Live from "./pages/Live";
 import EventsPage from "./pages/EventsPage";
 import Analytics from "./pages/Analytics";
@@ -46,6 +47,7 @@ const App = () => (
             <Route path="config" element={<Config />} />
             <Route path="metrics" element={<Metrics />} />
             <Route path="map" element={<MapView />} />
+            <Route path="antitheft" element={<Antitheft />} />
           </Route>
           <Route path="/" element={<Index />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

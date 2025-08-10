@@ -4,7 +4,7 @@ Antitheft Service
 - Recebe atualizações de tracking por câmera/track
 - Aplica regras de antissefurto baseadas em zonas e permanência
 - Registra sinais e incidentes no Supabase
-- Exporta clipes (MP4 + JSON) para Storage em event_clips/antitheft/
+- Exporta clipes (MP4 + JSON) para Storage em antitheft_clips/{incident_id}/
 - Notifica via Notifier (mensagem + link do clip)
 """
 import os
@@ -27,8 +27,7 @@ SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
 NOTIFIER_URL = os.getenv("NOTIFIER_URL", "http://notifier:8085")
 HLS_URL = os.getenv("HLS_URL", "http://mediamtx:8888/simulador/index.m3u8")
-BUCKET_NAME = os.getenv("ANTITHEFT_BUCKET", "event_clips")
-BUCKET_PREFIX = os.getenv("ANTITHEFT_PREFIX", "antitheft")
+BUCKET_NAME = os.getenv("ANTITHEFT_BUCKET", "antitheft_clips")
 EXPORT_DURATION = int(os.getenv("ANTITHEFT_EXPORT_DURATION", "10"))
 
 # Regras (ENV)
@@ -307,11 +306,11 @@ def track_update(req: TrackUpdate):
             with export_latency_seconds.time():
                 clip = record_clip(HLS_URL, EXPORT_DURATION)
                 if clip:
-                    path = f"{BUCKET_PREFIX}/{inc_id}.mp4"
+                    path = f"{inc_id}/video.mp4"
                     clip_url = upload_storage(path, clip, "video/mp4")
                     # Upload JSON de rótulos/meta
                     label_json = json.dumps(meta, ensure_ascii=False).encode()
-                    upload_storage(f"{BUCKET_PREFIX}/{inc_id}.json", label_json, "application/json")
+                    upload_storage(f"{inc_id}/labels.json", label_json, "application/json")
             notify_event(cam, rule)
             if clip_url:
                 notify_clip(clip_url)
@@ -324,7 +323,7 @@ def export_incident(req: ExportIncidentRequest):
         clip = record_clip(HLS_URL, req.duration_s)
         if not clip:
             raise HTTPException(status_code=500, detail="record failed")
-        path = f"{BUCKET_PREFIX}/{req.incident_id}.mp4"
+        path = f"{req.incident_id}/video.mp4"
         clip_url = upload_storage(path, clip, "video/mp4")
         if not clip_url:
             raise HTTPException(status_code=500, detail="upload failed")
@@ -333,7 +332,7 @@ def export_incident(req: ExportIncidentRequest):
 
 @app.get('/health')
 def health():
-    return {"status": "ok", "hls_url": HLS_URL, "bucket": BUCKET_NAME, "prefix": BUCKET_PREFIX}
+    return {"status": "ok", "hls_url": HLS_URL, "bucket": BUCKET_NAME}
 
 @app.get('/metrics')
 def metrics():
