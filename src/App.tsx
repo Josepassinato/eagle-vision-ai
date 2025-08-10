@@ -27,6 +27,7 @@ import Analytics from "./pages/Analytics";
 import Onboarding from "./pages/Onboarding";
 import WorkspaceManager from "./pages/WorkspaceManager";
 import EdgeDeviceManager from "./pages/EdgeDeviceManager";
+import PrivacyCompliance from "./pages/admin/PrivacyCompliance";
 import GlobalNavActions from "./components/GlobalNavActions";
 
 const queryClient = new QueryClient();
@@ -68,6 +69,7 @@ const App = () => (
             <Route path="demo" element={<Demo />} />
             <Route path="safety" element={<Safety />} />
             <Route path="edubehavior" element={<EduBehavior />} />
+            <Route path="privacy" element={<PrivacyCompliance />} />
           </Route>
           <Route path="/" element={<Index />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

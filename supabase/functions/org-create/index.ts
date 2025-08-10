@@ -1,155 +1,157 @@
-import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+}
+
+interface CreateOrgRequest {
+  name: string;
+  plan?: string;
+  user_id: string;
+}
 
 serve(async (req) => {
-  if (req.method === "OPTIONS") {
+  // Handle CORS preflight requests
+  if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    console.log("[ORG-CREATE] Starting organization creation");
-    
     const supabase = createClient(
-      Deno.env.get("SUPABASE_URL") ?? "",
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
-      { auth: { persistSession: false } }
-    );
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    )
 
-    const { name, plan = "starter" } = await req.json();
-
-    if (!name) {
-      return new Response(JSON.stringify({ error: "Organization name is required" }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 400,
-      });
+    if (req.method !== 'POST') {
+      return new Response(
+        JSON.stringify({ error: 'Method not allowed' }),
+        { status: 405, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
     }
 
-    // Get authenticated user
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader) {
-      return new Response(JSON.stringify({ error: "Authorization header required" }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 401,
-      });
-    }
+    const { name, plan = 'starter', user_id }: CreateOrgRequest = await req.json()
 
-    const token = authHeader.replace("Bearer ", "");
-    const { data: userData, error: userError } = await supabase.auth.getUser(token);
-    if (userError || !userData.user) {
-      return new Response(JSON.stringify({ error: "Invalid authentication" }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 401,
-      });
+    if (!name || !user_id) {
+      return new Response(
+        JSON.stringify({ error: 'Name and user_id are required' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
     }
-
-    const userId = userData.user.id;
-    console.log(`[ORG-CREATE] Creating org for user: ${userId}`);
 
     // Create organization
     const { data: org, error: orgError } = await supabase
       .from('orgs')
-      .insert({
-        name,
-        plan
-      })
+      .insert({ name, plan })
       .select()
-      .single();
+      .single()
 
     if (orgError) {
-      console.error("[ORG-CREATE] Failed to create organization:", orgError);
-      return new Response(JSON.stringify({ error: "Failed to create organization" }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 500,
-      });
+      console.error('Error creating org:', orgError)
+      return new Response(
+        JSON.stringify({ error: 'Failed to create organization' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
     }
 
-    console.log(`[ORG-CREATE] Created organization: ${org.id}`);
-
     // Add user as owner
-    const { error: userRoleError } = await supabase
+    const { error: userOrgError } = await supabase
       .from('org_users')
       .insert({
         org_id: org.id,
-        user_id: userId,
+        user_id: user_id,
         role: 'owner'
-      });
+      })
 
-    if (userRoleError) {
-      console.error("[ORG-CREATE] Failed to add user to organization:", userRoleError);
-      return new Response(JSON.stringify({ error: "Failed to add user to organization" }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 500,
-      });
+    if (userOrgError) {
+      console.error('Error adding user to org:', userOrgError)
+      return new Response(
+        JSON.stringify({ error: 'Failed to add user to organization' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
     }
 
-    // Create default quotas
+    // Create default quota
     const { error: quotaError } = await supabase
       .from('quotas')
       .insert({
         org_id: org.id,
-        max_streams: plan === 'starter' ? 2 : plan === 'pro' ? 10 : 50,
-        max_storage_gb: plan === 'starter' ? 10 : plan === 'pro' ? 100 : 1000,
-        max_minutes_month: plan === 'starter' ? 2000 : plan === 'pro' ? 20000 : 100000,
-        overage_allowed: plan !== 'starter'
-      });
+        max_streams: plan === 'enterprise' ? 50 : plan === 'professional' ? 10 : 2,
+        max_minutes_month: plan === 'enterprise' ? 50000 : plan === 'professional' ? 10000 : 2000,
+        max_storage_gb: plan === 'enterprise' ? 500 : plan === 'professional' ? 100 : 10
+      })
 
     if (quotaError) {
-      console.error("[ORG-CREATE] Failed to create quotas:", quotaError);
+      console.error('Error creating quota:', quotaError)
     }
 
-    // Generate API key
-    const { data: apiKeyData, error: apiKeyError } = await supabase
-      .rpc('generate_api_key');
-
-    if (apiKeyError) {
-      console.error("[ORG-CREATE] Failed to generate API key:", apiKeyError);
-      return new Response(JSON.stringify({ error: "Failed to generate API key" }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 500,
-      });
-    }
-
-    // Store API key
-    const { error: storeKeyError } = await supabase
-      .from('org_api_keys')
+    // Create default privacy settings
+    const { error: privacyError } = await supabase
+      .from('privacy_settings')
       .insert({
         org_id: org.id,
-        name: 'Default API Key',
-        secret: apiKeyData
-      });
+        compliance_framework: 'LGPD',
+        face_blur_enabled: false,
+        license_plate_blur_enabled: false,
+        anonymization_mode: 'none',
+        data_minimization: true,
+        consent_required: true
+      })
 
-    if (storeKeyError) {
-      console.error("[ORG-CREATE] Failed to store API key:", storeKeyError);
+    if (privacyError) {
+      console.error('Error creating privacy settings:', privacyError)
     }
 
-    console.log(`[ORG-CREATE] Organization created successfully: ${org.id}`);
+    // Create default retention policies
+    const retentionPolicies = [
+      { org_id: org.id, data_type: 'clips', retention_days: 30, legal_basis: 'legitimate_interest' },
+      { org_id: org.id, data_type: 'metrics', retention_days: 365, legal_basis: 'legitimate_interest' },
+      { org_id: org.id, data_type: 'events', retention_days: 90, legal_basis: 'legitimate_interest' },
+      { org_id: org.id, data_type: 'logs', retention_days: 30, legal_basis: 'legitimate_interest' }
+    ]
 
-    return new Response(JSON.stringify({
-      success: true,
-      org_id: org.id,
-      name: org.name,
-      plan: org.plan,
-      api_key: apiKeyData,
-      quotas: {
-        max_streams: plan === 'starter' ? 2 : plan === 'pro' ? 10 : 50,
-        max_storage_gb: plan === 'starter' ? 10 : plan === 'pro' ? 100 : 1000,
-        max_minutes_month: plan === 'starter' ? 2000 : plan === 'pro' ? 20000 : 100000
+    const { error: retentionError } = await supabase
+      .from('retention_policies')
+      .insert(retentionPolicies)
+
+    if (retentionError) {
+      console.error('Error creating retention policies:', retentionError)
+    }
+
+    // Log audit event
+    const { error: auditError } = await supabase
+      .from('audit_logs')
+      .insert({
+        org_id: org.id,
+        user_id: user_id,
+        action: 'create',
+        resource_type: 'organization',
+        resource_id: org.id,
+        metadata: { name, plan }
+      })
+
+    if (auditError) {
+      console.error('Error logging audit event:', auditError)
+    }
+
+    return new Response(
+      JSON.stringify({ 
+        success: true, 
+        org: org,
+        message: 'Organization created successfully'
+      }),
+      { 
+        status: 201, 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
       }
-    }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-      status: 201,
-    });
+    )
 
   } catch (error) {
-    console.error("[ORG-CREATE] Error:", error);
-    return new Response(JSON.stringify({ error: error.message }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-      status: 500,
-    });
+    console.error('Unexpected error:', error)
+    return new Response(
+      JSON.stringify({ error: 'Internal server error' }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    )
   }
-});
+})

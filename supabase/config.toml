@@ -30,17 +30,14 @@ verify_jwt = false
 [functions.billing-invoice]
 verify_jwt = false
 
-[functions.org-create]
-verify_jwt = true
-
-[functions.camera-add]
-verify_jwt = false
-
-[functions.stream-start]
-verify_jwt = false
-
-[functions.stream-stop]
-verify_jwt = false
-
 [functions.device-link]
 verify_jwt = false
+
+[functions.org-create]
+verify_jwt = false
+
+[functions.apikey-rotate]
+verify_jwt = true
+
+[functions.usage-summary]
+verify_jwt = true

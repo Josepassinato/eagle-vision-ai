@@ -134,6 +134,53 @@ export type Database = {
         }
         Relationships: []
       }
+      audit_logs: {
+        Row: {
+          action: string
+          id: string
+          ip_address: unknown | null
+          metadata: Json | null
+          org_id: string
+          resource_id: string | null
+          resource_type: string
+          timestamp: string
+          user_agent: string | null
+          user_id: string | null
+        }
+        Insert: {
+          action: string
+          id?: string
+          ip_address?: unknown | null
+          metadata?: Json | null
+          org_id: string
+          resource_id?: string | null
+          resource_type: string
+          timestamp?: string
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          action?: string
+          id?: string
+          ip_address?: unknown | null
+          metadata?: Json | null
+          org_id?: string
+          resource_id?: string | null
+          resource_type?: string
+          timestamp?: string
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "audit_logs_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "orgs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       billing_jobs: {
         Row: {
           created_at: string | null
@@ -343,6 +390,65 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      data_subject_requests: {
+        Row: {
+          completed_at: string | null
+          completion_notes: string | null
+          created_at: string
+          data_subject_id: string
+          data_subject_type: string
+          description: string | null
+          id: string
+          org_id: string
+          request_type: string
+          requester_email: string | null
+          requester_name: string | null
+          response_due_date: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          completed_at?: string | null
+          completion_notes?: string | null
+          created_at?: string
+          data_subject_id: string
+          data_subject_type: string
+          description?: string | null
+          id?: string
+          org_id: string
+          request_type: string
+          requester_email?: string | null
+          requester_name?: string | null
+          response_due_date?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          completed_at?: string | null
+          completion_notes?: string | null
+          created_at?: string
+          data_subject_id?: string
+          data_subject_type?: string
+          description?: string | null
+          id?: string
+          org_id?: string
+          request_type?: string
+          requester_email?: string | null
+          requester_name?: string | null
+          response_due_date?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "data_subject_requests_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "orgs"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       demo_bindings: {
         Row: {
@@ -1165,6 +1271,115 @@ export type Database = {
           },
         ]
       }
+      privacy_consents: {
+        Row: {
+          consent_date: string | null
+          consent_status: string
+          consent_type: string
+          created_at: string
+          data_subject_id: string | null
+          data_subject_type: string
+          expiry_date: string | null
+          id: string
+          legal_basis: string
+          metadata: Json | null
+          org_id: string
+          purpose: string
+          updated_at: string
+          withdrawal_date: string | null
+        }
+        Insert: {
+          consent_date?: string | null
+          consent_status?: string
+          consent_type: string
+          created_at?: string
+          data_subject_id?: string | null
+          data_subject_type: string
+          expiry_date?: string | null
+          id?: string
+          legal_basis: string
+          metadata?: Json | null
+          org_id: string
+          purpose: string
+          updated_at?: string
+          withdrawal_date?: string | null
+        }
+        Update: {
+          consent_date?: string | null
+          consent_status?: string
+          consent_type?: string
+          created_at?: string
+          data_subject_id?: string | null
+          data_subject_type?: string
+          expiry_date?: string | null
+          id?: string
+          legal_basis?: string
+          metadata?: Json | null
+          org_id?: string
+          purpose?: string
+          updated_at?: string
+          withdrawal_date?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "privacy_consents_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "orgs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      privacy_settings: {
+        Row: {
+          anonymization_mode: string
+          compliance_framework: string
+          consent_required: boolean
+          created_at: string
+          data_minimization: boolean
+          face_blur_enabled: boolean
+          id: string
+          license_plate_blur_enabled: boolean
+          org_id: string
+          retention_override: Json | null
+          updated_at: string
+        }
+        Insert: {
+          anonymization_mode?: string
+          compliance_framework?: string
+          consent_required?: boolean
+          created_at?: string
+          data_minimization?: boolean
+          face_blur_enabled?: boolean
+          id?: string
+          license_plate_blur_enabled?: boolean
+          org_id: string
+          retention_override?: Json | null
+          updated_at?: string
+        }
+        Update: {
+          anonymization_mode?: string
+          compliance_framework?: string
+          consent_required?: boolean
+          created_at?: string
+          data_minimization?: boolean
+          face_blur_enabled?: boolean
+          id?: string
+          license_plate_blur_enabled?: boolean
+          org_id?: string
+          retention_override?: Json | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "privacy_settings_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: true
+            referencedRelation: "orgs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       quotas: {
         Row: {
           max_minutes_month: number
@@ -1192,6 +1407,47 @@ export type Database = {
             foreignKeyName: "quotas_org_id_fkey"
             columns: ["org_id"]
             isOneToOne: true
+            referencedRelation: "orgs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      retention_policies: {
+        Row: {
+          auto_delete: boolean
+          created_at: string
+          data_type: string
+          id: string
+          legal_basis: string | null
+          org_id: string
+          retention_days: number
+          updated_at: string
+        }
+        Insert: {
+          auto_delete?: boolean
+          created_at?: string
+          data_type: string
+          id?: string
+          legal_basis?: string | null
+          org_id: string
+          retention_days: number
+          updated_at?: string
+        }
+        Update: {
+          auto_delete?: boolean
+          created_at?: string
+          data_type?: string
+          id?: string
+          legal_basis?: string | null
+          org_id?: string
+          retention_days?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "retention_policies_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
             referencedRelation: "orgs"
             referencedColumns: ["id"]
           },
