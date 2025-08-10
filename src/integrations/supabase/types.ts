@@ -14,6 +14,108 @@ export type Database = {
   }
   public: {
     Tables: {
+      antitheft_incidents: {
+        Row: {
+          camera_id: string
+          id: number
+          meta: Json | null
+          person_id: string | null
+          severity: string
+          ts: string
+        }
+        Insert: {
+          camera_id: string
+          id?: number
+          meta?: Json | null
+          person_id?: string | null
+          severity: string
+          ts?: string
+        }
+        Update: {
+          camera_id?: string
+          id?: number
+          meta?: Json | null
+          person_id?: string | null
+          severity?: string
+          ts?: string
+        }
+        Relationships: []
+      }
+      antitheft_receipts: {
+        Row: {
+          created_at: string
+          id: string
+          items: Json
+          person_id: string | null
+          ts: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          items: Json
+          person_id?: string | null
+          ts?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          items?: Json
+          person_id?: string | null
+          ts?: string
+        }
+        Relationships: []
+      }
+      antitheft_signals: {
+        Row: {
+          camera_id: string
+          id: number
+          meta: Json | null
+          track_id: number | null
+          ts: string
+          type: string
+        }
+        Insert: {
+          camera_id: string
+          id?: number
+          meta?: Json | null
+          track_id?: number | null
+          ts?: string
+          type: string
+        }
+        Update: {
+          camera_id?: string
+          id?: number
+          meta?: Json | null
+          track_id?: number | null
+          ts?: string
+          type?: string
+        }
+        Relationships: []
+      }
+      antitheft_zones: {
+        Row: {
+          camera_id: string
+          created_at: string
+          id: string
+          updated_at: string
+          zones: Json
+        }
+        Insert: {
+          camera_id: string
+          created_at?: string
+          id?: string
+          updated_at?: string
+          zones: Json
+        }
+        Update: {
+          camera_id?: string
+          created_at?: string
+          id?: string
+          updated_at?: string
+          zones?: Json
+        }
+        Relationships: []
+      }
       camera_configs: {
         Row: {
           camera_id: string
@@ -276,6 +378,22 @@ export type Database = {
       binary_quantize: {
         Args: { "": string } | { "": unknown }
         Returns: unknown
+      }
+      get_antitheft_incidents: {
+        Args: {
+          p_from?: string
+          p_to?: string
+          p_camera_id?: string
+          p_severity?: string
+        }
+        Returns: {
+          camera_id: string
+          id: number
+          meta: Json | null
+          person_id: string | null
+          severity: string
+          ts: string
+        }[]
       }
       halfvec_avg: {
         Args: { "": number[] }
