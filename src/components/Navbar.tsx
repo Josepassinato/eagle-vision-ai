@@ -1,10 +1,21 @@
 import { Button } from "@/components/ui/button";
 import { Eye, Menu, X } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { NavLink } from "react-router-dom";
-
+import { supabase } from "@/integrations/supabase/client";
 const Navbar = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isAuthed, setAuthed] = useState(false);
+
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setAuthed(!!session);
+    });
+    supabase.auth.getSession().then(({ data }) => {
+      setAuthed(!!data.session);
+    });
+    return () => subscription.unsubscribe();
+  }, []);
 
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-md border-b border-border/50">
@@ -22,21 +33,39 @@ const Navbar = () => {
 
           {/* Desktop Navigation */}
           <div className="hidden md:flex items-center space-x-6">
-            <TopNavLink to="/live">Live</TopNavLink>
-            <TopNavLink to="/events">Events</TopNavLink>
-            <TopNavLink to="/analytics">Analytics</TopNavLink>
-            <TopNavLink to="/onboarding">Onboarding</TopNavLink>
-            <TopNavLink to="/app/dashboard">Admin</TopNavLink>
+            {isAuthed ? (
+              <>
+                <TopNavLink to="/live">Live</TopNavLink>
+                <TopNavLink to="/events">Events</TopNavLink>
+                <TopNavLink to="/analytics">Analytics</TopNavLink>
+                <TopNavLink to="/onboarding">Onboarding</TopNavLink>
+                <TopNavLink to="/app/dashboard">Admin</TopNavLink>
+              </>
+            ) : (
+              <>
+                <TopNavLink to="/#produtos">Produtos</TopNavLink>
+                <TopNavLink to="/#precos">Preços</TopNavLink>
+                <TopNavLink to="/#sobre">Quem somos</TopNavLink>
+              </>
+            )}
           </div>
 
           {/* Action Buttons */}
           <div className="hidden md:flex items-center space-x-4">
-            <Button variant="ghost" size="sm" asChild>
-              <NavLink to="/auth" aria-label="Login">Login</NavLink>
-            </Button>
-            <Button variant="accent" size="sm" asChild>
-              <NavLink to="/onboarding" aria-label="Começar Agora">Começar Agora</NavLink>
-            </Button>
+            {isAuthed ? (
+              <Button variant="accent" size="sm" asChild>
+                <NavLink to="/app/dashboard" aria-label="Ir para o painel">Ir para o painel</NavLink>
+              </Button>
+            ) : (
+              <>
+                <Button variant="ghost" size="sm" asChild>
+                  <NavLink to="/auth" aria-label="Entrar">Entrar</NavLink>
+                </Button>
+                <Button variant="accent" size="sm" asChild>
+                  <NavLink to="/auth" aria-label="Criar conta">Criar conta</NavLink>
+                </Button>
+              </>
+            )}
           </div>
 
           {/* Mobile Menu Button */}
@@ -55,19 +84,34 @@ const Navbar = () => {
         {isMenuOpen && (
           <div className="md:hidden mt-4 py-4 border-t border-border/50">
             <div className="flex flex-col space-y-4">
-              <TopNavLink to="/live" mobile>Live</TopNavLink>
-              <TopNavLink to="/events" mobile>Events</TopNavLink>
-              <TopNavLink to="/analytics" mobile>Analytics</TopNavLink>
-              <TopNavLink to="/onboarding" mobile>Onboarding</TopNavLink>
-              <TopNavLink to="/app/dashboard" mobile>Admin</TopNavLink>
-              <div className="flex flex-col space-y-2 pt-4">
-                <Button variant="ghost" size="sm" className="justify-start" asChild>
-                  <NavLink to="/auth">Login</NavLink>
-                </Button>
-                <Button variant="accent" size="sm" asChild>
-                  <NavLink to="/onboarding">Começar Agora</NavLink>
-                </Button>
-              </div>
+              {isAuthed ? (
+                <>
+                  <TopNavLink to="/live" mobile>Live</TopNavLink>
+                  <TopNavLink to="/events" mobile>Events</TopNavLink>
+                  <TopNavLink to="/analytics" mobile>Analytics</TopNavLink>
+                  <TopNavLink to="/onboarding" mobile>Onboarding</TopNavLink>
+                  <TopNavLink to="/app/dashboard" mobile>Admin</TopNavLink>
+                  <div className="flex flex-col space-y-2 pt-4">
+                    <Button variant="accent" size="sm" asChild>
+                      <NavLink to="/app/dashboard">Ir para o painel</NavLink>
+                    </Button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <TopNavLink to="/#produtos" mobile>Produtos</TopNavLink>
+                  <TopNavLink to="/#precos" mobile>Preços</TopNavLink>
+                  <TopNavLink to="/#sobre" mobile>Quem somos</TopNavLink>
+                  <div className="flex flex-col space-y-2 pt-4">
+                    <Button variant="ghost" size="sm" className="justify-start" asChild>
+                      <NavLink to="/auth">Entrar</NavLink>
+                    </Button>
+                    <Button variant="accent" size="sm" asChild>
+                      <NavLink to="/auth">Criar conta</NavLink>
+                    </Button>
+                  </div>
+                </>
+              )}
             </div>
           </div>
         )}
