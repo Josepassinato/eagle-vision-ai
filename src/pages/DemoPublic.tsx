@@ -5,7 +5,12 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useEffect, useState, useRef } from "react";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import Hls from "hls.js";
+import OverlayCanvas from "@/components/OverlayCanvas";
+import { useBrowserDetection } from "@/hooks/useBrowserDetection";
+import type { RealtimeEvent } from "@/hooks/useRealtimeEvents";
 
 export default function DemoPublic() {
   const { toast } = useToast();
@@ -17,9 +22,14 @@ export default function DemoPublic() {
   const [streamInfo, setStreamInfo] = useState<{ url: string; protocol: string; ui_hint?: any } | null>(null);
   const [expiresAt, setExpiresAt] = useState<string | null>(null);
   const [remaining, setRemaining] = useState<number>(0);
+  const [browserDetection, setBrowserDetection] = useState<boolean>(true);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const autoRef = useRef<{ inProgress: boolean; index: number }>({ inProgress: false, index: 0 });
   const seededRef = useRef(false);
+
+  // Browser-based AI detection
+  const { isLoading: detectionLoading, error: detectionError, events: detectionEvents, counts, isReady } = 
+    useBrowserDetection(videoRef, browserDetection && !!streamInfo, analytic);
 
   // Seed curated demo sources once
   useEffect(() => {
@@ -281,10 +291,36 @@ export default function DemoPublic() {
                 Parar fonte
               </Button>
             </div>
+            <div className="flex items-center space-x-2">
+              <Switch 
+                id="browser-detection" 
+                checked={browserDetection} 
+                onCheckedChange={setBrowserDetection}
+                disabled={!streamInfo}
+              />
+              <Label htmlFor="browser-detection" className="text-sm">
+                Detecção IA no navegador {detectionLoading && "(carregando...)"}
+              </Label>
+            </div>
             {sessionId && (
-              <p className="text-sm text-muted-foreground">
-                Tempo restante: {String(Math.floor(remaining / 60)).padStart(2, '0')}:{String(remaining % 60).padStart(2, '0')}
-              </p>
+              <div className="space-y-1">
+                <p className="text-sm text-muted-foreground">
+                  Tempo restante: {String(Math.floor(remaining / 60)).padStart(2, '0')}:{String(remaining % 60).padStart(2, '0')}
+                </p>
+                {browserDetection && counts && Object.keys(counts).length > 0 && (
+                  <div className="text-sm">
+                    <span className="text-muted-foreground">Detectado: </span>
+                    {Object.entries(counts).map(([label, count]) => (
+                      <span key={label} className="mr-3">
+                        {label}: <span className="font-semibold text-primary">{count}</span>
+                      </span>
+                    ))}
+                  </div>
+                )}
+                {detectionError && (
+                  <p className="text-sm text-destructive">Erro na detecção: {detectionError}</p>
+                )}
+              </div>
             )}
           </section>
 
@@ -299,25 +335,33 @@ export default function DemoPublic() {
                   <span> • Pode requerer proxy para tocar embutido.</span>
                 )}
               </div>
-              {streamInfo.protocol === "HLS" && (
-                <video
-                  ref={videoRef}
-                  controls
-                  playsInline
-                  onError={handlePlaybackError}
-                  className="w-full max-h-[60vh] rounded-lg border border-border bg-background"
-                  aria-label="Stream HLS de demonstração"
-                />
-              )}
-              { (streamInfo.protocol === "MJPEG" || streamInfo.protocol === "JPEG_STREAM") && (
-                <img
-                  src={streamInfo.url}
-                  alt="Stream MJPEG de demonstração"
-                  loading="lazy"
-                  onError={handlePlaybackError}
-                  className="w-full max-h-[60vh] rounded-lg border border-border object-contain bg-background"
-                />
-              )}
+              <div className="relative">
+                {streamInfo.protocol === "HLS" && (
+                  <video
+                    ref={videoRef}
+                    controls
+                    playsInline
+                    onError={handlePlaybackError}
+                    className="w-full max-h-[60vh] rounded-lg border border-border bg-background"
+                    aria-label="Stream HLS de demonstração"
+                  />
+                )}
+                {(streamInfo.protocol === "MJPEG" || streamInfo.protocol === "JPEG_STREAM") && (
+                  <img
+                    src={streamInfo.url}
+                    alt="Stream MJPEG de demonstração"
+                    loading="lazy"
+                    onError={handlePlaybackError}
+                    className="w-full max-h-[60vh] rounded-lg border border-border object-contain bg-background"
+                  />
+                )}
+                {browserDetection && detectionEvents.length > 0 && (
+                  <OverlayCanvas 
+                    videoRef={videoRef} 
+                    event={detectionEvents[detectionEvents.length - 1] as RealtimeEvent} 
+                  />
+                )}
+              </div>
             </section>
           )}
         </CardContent>
