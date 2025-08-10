@@ -25,6 +25,7 @@ import Live from "./pages/Live";
 import EventsPage from "./pages/EventsPage";
 import Analytics from "./pages/Analytics";
 import Onboarding from "./pages/Onboarding";
+import GlobalNavActions from "./components/GlobalNavActions";
 
 const queryClient = new QueryClient();
 
@@ -34,6 +35,7 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
+        <GlobalNavActions />
         <Routes>
           <Route path="/auth" element={<AuthPage />} />
           <Route path="/live" element={<Live />} />
