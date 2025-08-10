@@ -18,6 +18,7 @@ import Antitheft from "./pages/admin/Antitheft";
 import Live from "./pages/Live";
 import EventsPage from "./pages/EventsPage";
 import Analytics from "./pages/Analytics";
+import Onboarding from "./pages/Onboarding";
 
 const queryClient = new QueryClient();
 
@@ -32,6 +33,7 @@ const App = () => (
           <Route path="/live" element={<Live />} />
           <Route path="/events" element={<EventsPage />} />
           <Route path="/analytics" element={<Analytics />} />
+          <Route path="/onboarding" element={<Onboarding />} />
           <Route path="/admin" element={<Navigate to="/app/dashboard" replace />} />
           <Route
             path="/app"

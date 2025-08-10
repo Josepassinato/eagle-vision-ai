@@ -25,6 +25,7 @@ const Navbar = () => {
             <TopNavLink to="/live">Live</TopNavLink>
             <TopNavLink to="/events">Events</TopNavLink>
             <TopNavLink to="/analytics">Analytics</TopNavLink>
+            <TopNavLink to="/onboarding">Onboarding</TopNavLink>
             <TopNavLink to="/app/dashboard">Admin</TopNavLink>
           </div>
 
@@ -34,7 +35,7 @@ const Navbar = () => {
               <NavLink to="/auth" aria-label="Login">Login</NavLink>
             </Button>
             <Button variant="accent" size="sm" asChild>
-              <NavLink to="/auth" aria-label="Começar Agora">Começar Agora</NavLink>
+              <NavLink to="/onboarding" aria-label="Começar Agora">Começar Agora</NavLink>
             </Button>
           </div>
 
@@ -57,13 +58,14 @@ const Navbar = () => {
               <TopNavLink to="/live" mobile>Live</TopNavLink>
               <TopNavLink to="/events" mobile>Events</TopNavLink>
               <TopNavLink to="/analytics" mobile>Analytics</TopNavLink>
+              <TopNavLink to="/onboarding" mobile>Onboarding</TopNavLink>
               <TopNavLink to="/app/dashboard" mobile>Admin</TopNavLink>
               <div className="flex flex-col space-y-2 pt-4">
                 <Button variant="ghost" size="sm" className="justify-start" asChild>
                   <NavLink to="/auth">Login</NavLink>
                 </Button>
                 <Button variant="accent" size="sm" asChild>
-                  <NavLink to="/auth">Começar Agora</NavLink>
+                  <NavLink to="/onboarding">Começar Agora</NavLink>
                 </Button>
               </div>
             </div>
