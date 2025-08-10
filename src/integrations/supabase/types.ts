@@ -116,6 +116,24 @@ export type Database = {
         }
         Relationships: []
       }
+      app_config: {
+        Row: {
+          key: string
+          updated_at: string
+          value: string
+        }
+        Insert: {
+          key: string
+          updated_at?: string
+          value: string
+        }
+        Update: {
+          key?: string
+          updated_at?: string
+          value?: string
+        }
+        Relationships: []
+      }
       camera_configs: {
         Row: {
           camera_id: string
@@ -394,6 +412,10 @@ export type Database = {
           severity: string
           ts: string
         }[]
+      }
+      get_media_retention_days: {
+        Args: Record<PropertyKey, never>
+        Returns: number
       }
       halfvec_avg: {
         Args: { "": number[] }
