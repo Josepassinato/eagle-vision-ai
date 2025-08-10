@@ -77,3 +77,18 @@ services:
       - ALLOWED_ORIGINS=${ALLOWED_ORIGINS}
     depends_on:
       - notifier
+
+  edubehavior:
+    build: ./edubehavior
+    restart: unless-stopped
+    environment:
+      - EDU_DB_URL=${EDU_DB_URL}
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
+      - EDU_WEBHOOK_URL=${EDU_WEBHOOK_URL}
+      - EDU_NOTIFY_MIN_SEVERITY=${EDU_NOTIFY_MIN_SEVERITY}
+      - EDU_FRAME_STORE=${EDU_FRAME_STORE}
+      - EDU_CLIP_STORE=${EDU_CLIP_STORE}
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS}
+    depends_on:
+      - notifier

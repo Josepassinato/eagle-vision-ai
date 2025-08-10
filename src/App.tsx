@@ -19,6 +19,7 @@ import Credits from "./pages/admin/Credits";
 import CreditSuccess from "./pages/admin/CreditSuccess";
 import Demo from "./pages/admin/Demo";
 import Safety from "./pages/admin/Safety";
+import EduBehavior from "./pages/admin/EduBehavior";
 import Live from "./pages/Live";
 import EventsPage from "./pages/EventsPage";
 import Analytics from "./pages/Analytics";
@@ -58,6 +59,7 @@ const App = () => (
             <Route path="credits/success" element={<CreditSuccess />} />
             <Route path="demo" element={<Demo />} />
             <Route path="safety" element={<Safety />} />
+            <Route path="edubehavior" element={<EduBehavior />} />
           </Route>
           <Route path="/" element={<Index />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

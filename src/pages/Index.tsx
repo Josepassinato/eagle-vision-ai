@@ -2,6 +2,7 @@ import Navbar from "@/components/Navbar";
 import HeroSection from "@/components/HeroSection";
 import MediaGatewayCard from "@/components/MediaGatewayCard";
 import SafetyVisionCard from "@/components/SafetyVisionCard";
+import EduBehaviorCard from "@/components/EduBehaviorCard";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 
@@ -259,7 +260,7 @@ const Index = () => {
 
       <MediaGatewayCard />
       <SafetyVisionCard />
-
+      <EduBehaviorCard />
       {isAuthed && (
         <section className="container mx-auto px-4 py-8">
           <Card>
