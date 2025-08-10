@@ -71,6 +71,14 @@ All colors MUST be HSL.
     --sidebar-border: 220 13% 91%;
 
     --sidebar-ring: 217.2 91.2% 59.8%;
+
+    /* Overlay class colors (used by canvas overlays) */
+    --overlay-person: 33 100% 49%;          /* #F77F00 laranja */
+    --overlay-car: 210 100% 66%;            /* #4DA3FF azul claro */
+    --overlay-truck: 283 39% 52%;           /* #9B59B6 roxo */
+    --overlay-bus: 145 63% 49%;             /* #2ECC71 verde (success) */
+    --overlay-motorcycle: 48 89% 50%;       /* #F1C40F amarelo */
+    --overlay-bicycle: 168 76% 41%;         /* #1ABC9C ciano */
   }
 
   .dark {

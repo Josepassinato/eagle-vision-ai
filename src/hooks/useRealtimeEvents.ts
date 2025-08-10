@@ -3,14 +3,16 @@ import { supabase } from "@/integrations/supabase/client";
 import { OVERLAY_DEBOUNCE_MS, REALTIME_SCHEMA, REALTIME_TABLE } from "@/config";
 
 export type RealtimeEvent = {
+  id?: string | number;
   camera_id: string;
-  bbox?: number[]; // [x1,y1,x2,y2]
+  bbox?: number[]; // [x1,y1,x2,y2] normalized 0-1 preferred (absolute accepted)
   label?: string;
   conf?: number;
   ts: string;
   reason?: string;
   person_id?: string;
   person_name?: string;
+  thumb_path?: string;
 };
 
 export function useRealtimeEvents() {
