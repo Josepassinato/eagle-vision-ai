@@ -50,9 +50,9 @@ export default function AuthPage() {
       if (mode === "signin") {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
-        window.location.href = "/dashboard";
+        window.location.href = "/app/dashboard";
       } else {
-        const redirectUrl = `${window.location.origin}/dashboard`;
+        const redirectUrl = `${window.location.origin}/app/dashboard`;
         const { error } = await supabase.auth.signUp({
           email,
           password,
