@@ -58,6 +58,12 @@ serve(async (req) => {
     global: { headers: { Authorization: authHeader ?? "" } },
   });
 
+  // Service-role client for privileged operations (bypasses RLS)
+  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  const supabaseAdmin = serviceKey
+    ? createClient(supabaseUrl, serviceKey)
+    : null;
+
   try {
     const body = (await req.json()) as Body;
 
@@ -103,8 +109,9 @@ serve(async (req) => {
         requires_proxy: source.protocol === "HLS" || source.url.includes("youtube.com"),
       };
 
-      // Persist binding (admin/service policies allow insert)
-      const { error: insertErr } = await supabase.from("demo_bindings").insert({
+      // Persist binding (use service role to bypass RLS)
+      const clientForInsert = supabaseAdmin ?? supabase;
+      const { error: insertErr } = await clientForInsert.from("demo_bindings").insert({
         demo_id: source.id,
         service,
         params: {
@@ -134,7 +141,8 @@ serve(async (req) => {
     if (body.action === "stop") {
       const { session_id } = body as StopBody;
       // Best-effort cleanup: delete bindings with this session_id in params
-      const { error: delErr } = await supabase
+      const clientForDelete = supabaseAdmin ?? supabase;
+      const { error: delErr } = await clientForDelete
         .from("demo_bindings")
         .delete()
         .eq("params->>session_id", session_id);
