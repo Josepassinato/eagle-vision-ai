@@ -13,6 +13,8 @@ from typing import List, Dict, Any, Optional, Tuple
 import cv2
 import numpy as np
 import onnxruntime as ort
+import hashlib
+from pathlib import Path
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 import uvicorn
@@ -36,6 +38,28 @@ app = FastAPI(
 
 # Sessão ONNX global
 ort_session = None
+
+
+def _verify_integrity(model_path: str):
+    sha_path = Path(f"{model_path}.sha256")
+    if not sha_path.exists():
+        print(f"[integrity] Nenhum arquivo de checksum encontrado para {model_path}")
+        return
+    try:
+        expected = sha_path.read_text().strip().split()[0]
+        h = hashlib.sha256()
+        with open(model_path, 'rb') as f:
+            for chunk in iter(lambda: f.read(1024 * 1024), b''):
+                h.update(chunk)
+        actual = h.hexdigest()
+        if actual != expected:
+            print(f"❌ Checksum MISMATCH: esperado {expected[:8]}..., obtido {actual[:8]}...")
+            raise SystemExit(1)
+        else:
+            print(f"✓ Checksum OK: {actual[:8]}... para {Path(model_path).name}")
+    except Exception as e:
+        print(f"⚠️ Falha ao verificar integridade de {model_path}: {e}")
+
 
 class EmbeddingRequest(BaseModel):
     jpg_b64: str = Field(..., description="Imagem JPEG em base64")
@@ -79,6 +103,9 @@ async def startup_event():
         print(f"❌ Modelo não encontrado: {REID_MODEL_PATH}")
         print("Por favor, defina REID_MODEL_URL ou monte /models com o arquivo onnx")
         return
+    
+    # Verificar integridade se arquivo .sha256 estiver presente
+    _verify_integrity(REID_MODEL_PATH)
     
     # Configurar providers ONNX
     available = ort.get_available_providers()

@@ -13,6 +13,9 @@ from typing import List, Dict, Any
 import cv2
 import numpy as np
 import torch
+import hashlib
+import os
+from pathlib import Path
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 from ultralytics import YOLO
@@ -33,6 +36,28 @@ app = FastAPI(
 
 # Modelo global
 model = None
+
+
+def _verify_integrity(model_path: str):
+    sha_path = Path(f"{model_path}.sha256")
+    if not sha_path.exists():
+        print(f"[integrity] Nenhum arquivo de checksum encontrado para {model_path}")
+        return
+    try:
+        expected = sha_path.read_text().strip().split()[0]
+        h = hashlib.sha256()
+        with open(model_path, 'rb') as f:
+            for chunk in iter(lambda: f.read(1024 * 1024), b''):
+                h.update(chunk)
+        actual = h.hexdigest()
+        if actual != expected:
+            print(f"❌ Checksum MISMATCH: esperado {expected[:8]}..., obtido {actual[:8]}...")
+            raise SystemExit(1)
+        else:
+            print(f"✓ Checksum OK: {actual[:8]}... para {Path(model_path).name}")
+    except Exception as e:
+        print(f"⚠️ Falha ao verificar integridade de {model_path}: {e}")
+
 
 
 class DetectionRequest(BaseModel):
@@ -66,6 +91,8 @@ async def startup_event():
 
     # Carregar modelo (usa fallback do Ultralytics se caminho não existir)
     load_id = YOLO_MODEL if os.path.exists(YOLO_MODEL) else "yolov8x.pt"
+    if os.path.exists(YOLO_MODEL):
+        _verify_integrity(YOLO_MODEL)
     print(f"Carregando modelo YOLO: {load_id}")
     model = YOLO(load_id)
 
