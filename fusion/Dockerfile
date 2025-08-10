@@ -9,9 +9,15 @@ RUN apt-get update && apt-get install -y \
     libxext6 \
     libxrender-dev \
     libgomp1 \
-    && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/* \
+    && groupadd -r appgroup --gid=65532 \
+    && useradd -r -g appgroup --uid=65532 --home-dir=/app --shell=/bin/false appuser
 
 WORKDIR /app
+
+# Copy common schemas
+COPY ../common_schemas/ /common_schemas/
+RUN pip3 install --no-cache-dir /common_schemas/
 
 # Copy requirements and install Python dependencies
 COPY requirements.txt .
@@ -26,9 +32,14 @@ COPY ../face-service/face_client.py /face-service/
 # Copy application code
 COPY . .
 
+# Create non-root directories
+RUN mkdir -p /tmp/fusion && chown -R appuser:appgroup /app /tmp/fusion
+
 # Environment variables
 ENV PORT=8080
-ENV PYTHONPATH="/app:/vision_tracking:/face-service"
+ENV PYTHONPATH="/app:/vision_tracking:/face-service:/common_schemas"
+
+USER 65532:65532
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \

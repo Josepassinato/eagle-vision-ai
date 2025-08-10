@@ -123,6 +123,13 @@ services:
       - MAX_PEOPLE=10
       - MAX_IMAGE_MB=2
       - REQUEST_TIMEOUT=0.150
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    read_only: true
+    tmpfs:
+      - /tmp:noexec,nosuid,size=500m
     depends_on:
       - yolo-detection
       - face-service
