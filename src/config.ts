@@ -1,5 +1,5 @@
 // Centralized frontend config (publishable)
-export const LIVE_HLS_URL = "http://SEU_IP:8888/simulador/index.m3u8"; // public HLS
+export const LIVE_HLS_URL = "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8"; // public HLS (Mux sample)
 export const REALTIME_SCHEMA = "public";
 export const REALTIME_TABLE = "events";
 export const BUCKET_EVIDENCE = "evidence";
