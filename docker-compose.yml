@@ -316,3 +316,39 @@ services:
       timeout: 10s
       retries: 3
       start_period: 15s
+
+  ytproxy_people:
+    image: jrottenberg/ffmpeg:5.1-alpine
+    container_name: ytproxy_people
+    restart: unless-stopped
+    depends_on:
+      - mediamtx
+    entrypoint: /bin/sh
+    command: -c "apk add --no-cache yt-dlp ca-certificates && while true; do URL=$(yt-dlp -g -f best 'https://www.youtube.com/watch?v=83VPsAPWiME') && ffmpeg -re -i $URL -c:v libx264 -preset veryfast -tune zerolatency -pix_fmt yuv420p -an -f rtsp -rtsp_transport tcp rtsp://mediamtx:8554/yt_people || true; echo 'restarting yt_people in 5s'; sleep 5; done"
+
+  ytproxy_vehicles:
+    image: jrottenberg/ffmpeg:5.1-alpine
+    container_name: ytproxy_vehicles
+    restart: unless-stopped
+    depends_on:
+      - mediamtx
+    entrypoint: /bin/sh
+    command: -c "apk add --no-cache yt-dlp ca-certificates && while true; do URL=$(yt-dlp -g -f best 'https://www.youtube.com/watch?v=DLmn7f9SJ5A') && ffmpeg -re -i $URL -c:v libx264 -preset veryfast -tune zerolatency -pix_fmt yuv420p -an -f rtsp -rtsp_transport tcp rtsp://mediamtx:8554/yt_vehicles || true; echo 'restarting yt_vehicles in 5s'; sleep 5; done"
+
+  ytproxy_safety:
+    image: jrottenberg/ffmpeg:5.1-alpine
+    container_name: ytproxy_safety
+    restart: unless-stopped
+    depends_on:
+      - mediamtx
+    entrypoint: /bin/sh
+    command: -c "apk add --no-cache yt-dlp ca-certificates && while true; do URL=$(yt-dlp -g -f best 'https://www.youtube.com/watch?v=5hZjcBvGbkY') && ffmpeg -re -i $URL -c:v libx264 -preset veryfast -tune zerolatency -pix_fmt yuv420p -an -f rtsp -rtsp_transport tcp rtsp://mediamtx:8554/yt_safety || true; echo 'restarting yt_safety in 5s'; sleep 5; done"
+
+  ytproxy_classroom:
+    image: jrottenberg/ffmpeg:5.1-alpine
+    container_name: ytproxy_classroom
+    restart: unless-stopped
+    depends_on:
+      - mediamtx
+    entrypoint: /bin/sh
+    command: -c "apk add --no-cache yt-dlp ca-certificates && while true; do URL=$(yt-dlp -g -f best --playlist-items 1 'https://www.youtube.com/playlist?list=PLUExuVzzZ1EW9aR7U9TSWgANRlrt45byt') && ffmpeg -re -i $URL -c:v libx264 -preset veryfast -tune zerolatency -pix_fmt yuv420p -an -f rtsp -rtsp_transport tcp rtsp://mediamtx:8554/yt_classroom || true; echo 'restarting yt_classroom in 5s'; sleep 5; done"

@@ -9,7 +9,7 @@ import Hls from "hls.js";
 
 export default function DemoPublic() {
   const { toast } = useToast();
-  const [analytic, setAnalytic] = useState<"people_count" | "vehicle_count" | "safety" | "airport">("people_count");
+  const [analytic, setAnalytic] = useState<"people_count" | "vehicle_count" | "safety" | "airport" | "edubehavior">("people_count");
   const [sources, setSources] = useState<any[]>([]);
   const [demoId, setDemoId] = useState<string | null>(null);
   const [sessionId, setSessionId] = useState<string | null>(null);
@@ -249,6 +249,7 @@ export default function DemoPublic() {
                   <SelectItem value="vehicle_count">Veículos</SelectItem>
                   <SelectItem value="safety">Segurança do Trabalho</SelectItem>
                   <SelectItem value="airport">Aeroporto / Transporte</SelectItem>
+                  <SelectItem value="edubehavior">Sala de Aula / EduBehavior</SelectItem>
                 </SelectContent>
               </Select>
             </div>

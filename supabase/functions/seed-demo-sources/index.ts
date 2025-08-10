@@ -33,6 +33,15 @@ const curated = [
     location: "Campus/Hall",
     confidence: 70,
   },
+  // YouTube via RTSP proxies (MediaMTX)
+  {
+    analytic: "people_count",
+    name: "Times Square (YT)",
+    url: "rtsp://mediamtx:8554/yt_people",
+    protocol: "RTSP",
+    location: "Times Square, NYC",
+    confidence: 90,
+  },
 
   // Veículos / Tráfego
   {
@@ -59,6 +68,14 @@ const curated = [
     location: "Estacionamento/via",
     confidence: 65,
   },
+  {
+    analytic: "vehicle_count",
+    name: "NOLA Street View (YT)",
+    url: "rtsp://mediamtx:8554/yt_vehicles",
+    protocol: "RTSP",
+    location: "New Orleans Street",
+    confidence: 90,
+  },
 
   // Pátio industrial / Obra
   {
@@ -69,8 +86,26 @@ const curated = [
     location: "Pátio industrial",
     confidence: 60,
   },
+  {
+    analytic: "safety",
+    name: "Refinery View (YT)",
+    url: "rtsp://mediamtx:8554/yt_safety",
+    protocol: "RTSP",
+    location: "Industrial refinery",
+    confidence: 85,
+  },
 
-  // HLS de teste para transporte/airport (útil para validar HLS)
+  // EduBehavior / Sala de aula
+  {
+    analytic: "edubehavior",
+    name: "Edu Lectures (YT)",
+    url: "rtsp://mediamtx:8554/yt_classroom",
+    protocol: "RTSP",
+    location: "Palestras públicas",
+    confidence: 85,
+  },
+
+  // HLS de teste
   {
     analytic: "airport",
     name: "Mux Test (HLS)",

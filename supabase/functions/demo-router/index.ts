@@ -31,6 +31,8 @@ function analyticToService(a: string): string {
       return "safetyvision";
     case "airport":
       return "fusion";
+    case "edubehavior":
+      return "edubehavior";
     default:
       return "fusion";
   }
@@ -103,11 +105,34 @@ serve(async (req) => {
       const session_id = crypto.randomUUID();
       const service = analyticToService(source.analytic);
 
-      const ui_hint = {
+      // Base UI hint
+      let ui_hint: any = {
         expected_fps: source.protocol === "MJPEG" ? 10 : 15,
         latency_ms: source.protocol === "MJPEG" ? 800 : 1200,
         requires_proxy: source.protocol === "HLS" || source.url.includes("youtube.com"),
       };
+
+      // Convert RTSP to HLS when public MediaMTX base is configured
+      let stream_url = source.url as string;
+      let protocolOut = source.protocol as string;
+      if (source.protocol === "RTSP") {
+        const base = Deno.env.get("MEDIAMTX_PUBLIC_BASE"); // e.g., https://stream.example.com:8888
+        try {
+          const u = new URL(source.url);
+          const path = u.pathname.replace(/^\//, "");
+          if (base) {
+            const trimmed = base.endsWith("/") ? base.slice(0, -1) : base;
+            stream_url = `${trimmed}/${path}/index.m3u8`;
+            protocolOut = "HLS";
+            ui_hint = { ...ui_hint, requires_proxy: false, expected_fps: 15, latency_ms: 1200 };
+          } else {
+            // No public base configured; keep RTSP and mark as requiring proxy
+            ui_hint = { ...ui_hint, requires_proxy: true };
+          }
+        } catch (_) {
+          // Fallback: keep original
+        }
+      }
 
       // Compute 3-minute expiry and cleanup expired bindings
       const now = new Date();
@@ -130,8 +155,8 @@ serve(async (req) => {
         params: {
           session_id,
           camera_alias: body.camera_alias ?? null,
-          protocol: source.protocol,
-          url: source.url,
+          protocol: protocolOut,
+          url: stream_url,
           ui_hint,
           expires_at,
           analytic: source.analytic,
@@ -139,11 +164,11 @@ serve(async (req) => {
       });
       if (insertErr) throw insertErr;
 
-      // For now, stream_url is the original source; a proxy can be added later if needed
+      // Return computed stream URL
       const payload = {
         session_id,
-        stream_url: source.url,
-        protocol: source.protocol,
+        stream_url,
+        protocol: protocolOut,
         source,
         ui_hint,
         expires_at,
