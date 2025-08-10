@@ -1,0 +1,124 @@
+#!/bin/bash
+# Pre-commit hook for security and code quality
+
+set -e
+
+echo "🔍 Running pre-commit security and quality checks..."
+
+# Check for secrets
+echo "🔐 Checking for secrets..."
+if command -v detect-secrets &> /dev/null; then
+    detect-secrets scan --baseline .secrets.baseline --force-use-all-plugins
+else
+    echo "⚠️  detect-secrets not installed, skipping secret detection"
+fi
+
+# Check for hardcoded credentials patterns
+echo "🔒 Checking for hardcoded credentials..."
+if grep -r -E "(password|passwd|secret|key|token)\s*=\s*['\"][^'\"]{3,}['\"]" --include="*.py" --include="*.js" --include="*.ts" --exclude-dir=node_modules --exclude-dir=.git .; then
+    echo "❌ Potential hardcoded credentials found!"
+    echo "Please review the above matches and ensure no real credentials are committed."
+    exit 1
+fi
+
+# Check for common security issues
+echo "🛡️  Checking for security issues..."
+SECURITY_PATTERNS=(
+    "eval\("
+    "exec\("
+    "subprocess\.call\("
+    "os\.system\("
+    "shell=True"
+    "pickle\.load"
+    "yaml\.load\("
+    "SQLALCHEMY_DATABASE_URI.*://.*@"
+)
+
+for pattern in "${SECURITY_PATTERNS[@]}"; do
+    if grep -r -E "$pattern" --include="*.py" --exclude-dir=venv --exclude-dir=.venv --exclude-dir=node_modules .; then
+        echo "⚠️  Potential security issue found: $pattern"
+        echo "Please review the usage and ensure it's safe."
+    fi
+done
+
+# Run ruff on changed Python files
+echo "🧹 Running ruff linting..."
+git diff --cached --name-only --diff-filter=ACM | grep '\.py$' | xargs -r ruff check
+
+# Run black formatting check
+echo "🎨 Checking code formatting..."
+git diff --cached --name-only --diff-filter=ACM | grep '\.py$' | xargs -r black --check
+
+# Check for debug statements
+echo "🐛 Checking for debug statements..."
+if git diff --cached --name-only --diff-filter=ACM | grep '\.py$' | xargs -r grep -n -E "(print\(|pdb\.set_trace|breakpoint\(|console\.log)" || true; then
+    echo "⚠️  Debug statements found in staged files."
+    echo "Please remove debug statements before committing."
+    # Don't exit 1 here as these might be intentional
+fi
+
+# Check for TODO/FIXME comments
+echo "📝 Checking for TODO/FIXME comments..."
+TODO_COUNT=$(git diff --cached --name-only --diff-filter=ACM | xargs -r grep -c -E "(TODO|FIXME|XXX|HACK)" || echo "0")
+if [ "$TODO_COUNT" -gt 5 ]; then
+    echo "⚠️  Many TODO/FIXME comments found ($TODO_COUNT). Consider addressing some before committing."
+fi
+
+# Check Docker files for security
+echo "🐳 Checking Dockerfiles..."
+git diff --cached --name-only --diff-filter=ACM | grep -E "(Dockerfile|\.dockerfile)" | while read -r dockerfile; do
+    if grep -q "USER root" "$dockerfile" && ! grep -q "USER [^r]" "$dockerfile"; then
+        echo "⚠️  $dockerfile: Running as root user. Consider using a non-root user."
+    fi
+    
+    if grep -q "ADD http" "$dockerfile"; then
+        echo "⚠️  $dockerfile: Using ADD with HTTP. Consider using COPY or curl/wget."
+    fi
+    
+    if grep -q "FROM.*:latest" "$dockerfile"; then
+        echo "⚠️  $dockerfile: Using 'latest' tag. Consider pinning to specific versions."
+    fi
+done
+
+# Check for large files
+echo "📦 Checking for large files..."
+git diff --cached --name-only --diff-filter=ACM | while read -r file; do
+    if [ -f "$file" ]; then
+        size=$(wc -c < "$file")
+        if [ "$size" -gt 1048576 ]; then  # 1MB
+            echo "⚠️  Large file detected: $file ($(($size / 1024))KB)"
+            echo "Consider using Git LFS for large files."
+        fi
+    fi
+done
+
+# Check requirements.txt for known vulnerable packages
+echo "📋 Checking for vulnerable packages..."
+git diff --cached --name-only --diff-filter=ACM | grep -E "requirements.*\.txt$" | while read -r req_file; do
+    if command -v safety &> /dev/null; then
+        safety check -r "$req_file" || echo "⚠️  Vulnerability check failed for $req_file"
+    else
+        echo "⚠️  safety not installed, skipping vulnerability check for $req_file"
+    fi
+done
+
+# Check for exposed configuration
+echo "⚙️  Checking for exposed configuration..."
+CONFIG_PATTERNS=(
+    "DATABASE_URL.*://.*:.*@"
+    "REDIS_URL.*://.*:.*@"  
+    "SECRET_KEY\s*=\s*['\"][^'\"]{10,}['\"]"
+    "AWS_SECRET_ACCESS_KEY"
+    "STRIPE_SECRET_KEY"
+)
+
+for pattern in "${CONFIG_PATTERNS[@]}"; do
+    if git diff --cached | grep -E "$pattern"; then
+        echo "❌ Potential configuration leak found: $pattern"
+        echo "Please remove sensitive configuration from code."
+        exit 1
+    fi
+done
+
+echo "✅ Pre-commit checks completed successfully!"
+exit 0
