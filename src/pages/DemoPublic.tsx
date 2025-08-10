@@ -67,13 +67,15 @@ export default function DemoPublic() {
     }
     autoRef.current.inProgress = true;
     autoRef.current.index = idx;
-    setDemoId(sources[idx].id);
-    const res = await doStartFor(sources[idx].id);
+    const list = sources; // snapshot to avoid races
+    const chosen = list[idx];
+    setDemoId(chosen.id);
+    const res = await doStartFor(chosen.id);
     if (!res.ok) {
       // tenta próxima
       tryStartAt(idx + 1);
     } else {
-      toast({ title: "Fonte iniciada", description: `${sources[idx].name} (${sources[idx].protocol})` });
+      toast({ title: "Fonte iniciada", description: `${chosen.name} (${chosen.protocol})` });
     }
   };
 
@@ -103,6 +105,9 @@ export default function DemoPublic() {
       hls = new Hls({ lowLatencyMode: true, backBufferLength: 90 });
       hls.loadSource(streamInfo.url);
       hls.attachMedia(video);
+      hls.on(Hls.Events.ERROR, () => {
+        handlePlaybackError();
+      });
     }
 
     return () => {
@@ -147,9 +152,24 @@ export default function DemoPublic() {
       return;
     }
     setSources(data || []);
-    setDemoId(data && data.length ? data[0].id : null);
+    const firstId = data && data.length ? data[0].id : null;
+    setDemoId(firstId);
     if ((data?.length ?? 0) > 0 && !sessionId) {
-      tryStartAt(0);
+      const startFrom = async (idx: number) => {
+        if (!data || idx >= data.length) {
+          autoRef.current.inProgress = false;
+          toast({ title: "Nenhuma fonte válida encontrada", description: "Tente outro analítico.", variant: "destructive" });
+          return;
+        }
+        autoRef.current.inProgress = true;
+        autoRef.current.index = idx;
+        const chosen = data[idx];
+        setDemoId(chosen.id);
+        const res = await doStartFor(chosen.id);
+        if (!res.ok) return startFrom(idx + 1);
+        toast({ title: "Fonte iniciada", description: `${chosen.name} (${chosen.protocol})` });
+      };
+      startFrom(0);
     }
   };
 
@@ -234,7 +254,7 @@ export default function DemoPublic() {
             </div>
             <div className="w-full md:w-2/3">
               <label className="text-sm text-muted-foreground">Fonte</label>
-              <Select value={demoId ?? undefined} onValueChange={(v) => setDemoId(v)}>
+              <Select value={demoId ?? ""} onValueChange={(v) => setDemoId(v)}>
                 <SelectTrigger>
                   <SelectValue placeholder={sources.length ? "Escolha uma fonte" : "Carregando..."} />
                 </SelectTrigger>
@@ -286,7 +306,7 @@ export default function DemoPublic() {
                   aria-label="Stream HLS de demonstração"
                 />
               )}
-              {streamInfo.protocol === "MJPEG" && (
+              { (streamInfo.protocol === "MJPEG" || streamInfo.protocol === "JPEG_STREAM") && (
                 <img
                   src={streamInfo.url}
                   alt="Stream MJPEG de demonstração"
