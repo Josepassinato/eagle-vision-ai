@@ -23,3 +23,9 @@ verify_jwt = false
 
 [functions.seed-demo-sources]
 verify_jwt = false
+
+[functions.billing-meter]
+verify_jwt = false
+
+[functions.billing-invoice]
+verify_jwt = false
