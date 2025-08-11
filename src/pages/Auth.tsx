@@ -33,11 +33,24 @@ export default function AuthPage() {
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === "SIGNED_IN" && session) {
-        window.location.href = "/onboarding";
+        // Check if user has completed onboarding
+        const hasCompletedOnboarding = localStorage.getItem("onboardingConfig");
+        if (hasCompletedOnboarding) {
+          window.location.href = "/app/dashboard";
+        } else {
+          window.location.href = "/onboarding";
+        }
       }
     });
     supabase.auth.getSession().then(({ data }) => {
-      if (data.session) window.location.href = "/onboarding";
+      if (data.session) {
+        const hasCompletedOnboarding = localStorage.getItem("onboardingConfig");
+        if (hasCompletedOnboarding) {
+          window.location.href = "/app/dashboard";
+        } else {
+          window.location.href = "/onboarding";
+        }
+      }
     });
     return () => subscription.unsubscribe();
   }, []);
@@ -50,7 +63,13 @@ export default function AuthPage() {
       if (mode === "signin") {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
-        window.location.href = "/onboarding";
+        // Check if user has completed onboarding
+        const hasCompletedOnboarding = localStorage.getItem("onboardingConfig");
+        if (hasCompletedOnboarding) {
+          window.location.href = "/app/dashboard";
+        } else {
+          window.location.href = "/onboarding";
+        }
       } else {
         const redirectUrl = `${window.location.origin}/onboarding`;
         const { error } = await supabase.auth.signUp({

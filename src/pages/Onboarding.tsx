@@ -95,11 +95,22 @@ export default function Onboarding() {
       </Helmet>
 
       <main className="container mx-auto px-6 py-10">
-        <header className="mb-8">
-          <h1 className="font-display text-3xl">Configuração guiada</h1>
-          <p className="text-muted-foreground mt-1">
-            Siga os passos para escolher o produto, conectar suas câmeras e ativar os relatórios.
-          </p>
+        <header className="mb-8 flex items-center justify-between">
+          <div>
+            <h1 className="font-display text-3xl">Configuração guiada</h1>
+            <p className="text-muted-foreground mt-1">
+              Siga os passos para escolher o produto, conectar suas câmeras e ativar os relatórios.
+            </p>
+          </div>
+          <Button
+            variant="outline"
+            onClick={() => {
+              localStorage.setItem("onboardingConfig", JSON.stringify({ skipped: true }));
+              navigate("/app/dashboard", { replace: true });
+            }}
+          >
+            Pular Configuração
+          </Button>
         </header>
 
         <nav className="mb-6">
