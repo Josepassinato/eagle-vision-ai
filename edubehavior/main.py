@@ -10,13 +10,36 @@ from fastapi import FastAPI, HTTPException, Response
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from supabase import create_client, Client
-from prometheus_client import Counter, Histogram, generate_latest, CONTENT_TYPE_LATEST
-from prometheus_client import start_http_server
+from prometheus_client import start_http_server, generate_latest, CONTENT_TYPE_LATEST
 import uvicorn
 import logging
 
-from settings import *
-from inference_pipeline import EmotionPipeline
+# Import unified metrics and pipeline
+import sys
+sys.path.append('/common_schemas')
+from common_schemas.metrics import (
+    frames_in_total, frames_processed_total, signals_emitted_total,
+    affect_events_total, affect_quality_below_threshold_total,
+    inference_seconds, frame_processing_seconds, init_service_metrics,
+    affect_infer_seconds
+)
+
+try:
+    from inference_pipeline import EmotionPipeline, FaceROI
+    from settings import *
+    PIPELINE_AVAILABLE = True
+except ImportError as e:
+    logging.warning(f"Pipeline modules not available: {e}")
+    PIPELINE_AVAILABLE = False
+    # Fallback settings
+    PORT = int(os.getenv("PORT", "8087"))
+    SUPABASE_URL = os.getenv("SUPABASE_URL")
+    SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
+    ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "*").split(",")
+    EMOTION_MODEL_PATH = os.getenv("EMOTION_MODEL_PATH", "/models/emotion_model.onnx")
+    EDU_AFFECT_EMA_ALPHA = float(os.getenv("EDU_AFFECT_EMA_ALPHA", "0.1"))
+    EDU_AFFECT_MIN_QUALITY = float(os.getenv("EDU_AFFECT_MIN_QUALITY", "0.7"))
+    EDU_NOTIFY_MIN_SEVERITY = os.getenv("EDU_NOTIFY_MIN_SEVERITY", "HIGH")
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
