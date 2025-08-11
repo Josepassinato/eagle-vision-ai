@@ -2,9 +2,6 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Play, Pause, Users, Shield, AlertTriangle } from "lucide-react";
-import cameraFeedRetail from "@/assets/demo-camera-feed.jpg";
-import cameraFeedOffice from "@/assets/demo-office-feed.jpg";
-import cameraFeedIndustry from "@/assets/demo-industry-feed.jpg";
 
 const LiveDemo = () => {
   const [isPlaying, setIsPlaying] = useState(false);
@@ -16,6 +13,7 @@ const LiveDemo = () => {
     retail: {
       title: "Demo: Loja de Roupas",
       subtitle: "Detecção de furto em tempo real",
+      image: "https://images.unsplash.com/photo-1555529669-e69e7aa0ba9a?w=800&h=450&fit=crop&auto=format",
       events: [
         { 
           time: "14:23:15", 
@@ -46,6 +44,7 @@ const LiveDemo = () => {
     office: {
       title: "Demo: Escritório Corporativo", 
       subtitle: "Controle de acesso por reconhecimento facial",
+      image: "https://images.unsplash.com/photo-1497366216548-37526070297c?w=800&h=450&fit=crop&auto=format",
       events: [
         { 
           time: "09:15:22", 
@@ -70,6 +69,7 @@ const LiveDemo = () => {
     industry: {
       title: "Demo: Área Industrial",
       subtitle: "Monitoramento de EPI e segurança",
+      image: "https://images.unsplash.com/photo-1565793298595-6a879b1d9492?w=800&h=450&fit=crop&auto=format",
       events: [
         { 
           time: "10:45:12", 
@@ -95,19 +95,6 @@ const LiveDemo = () => {
 
   const demo = demoScenarios[currentDemo as keyof typeof demoScenarios];
 
-  // Get the appropriate camera feed image based on current demo
-  const getCameraFeedImage = () => {
-    switch (currentDemo) {
-      case 'office':
-        return cameraFeedOffice;
-      case 'industry':
-        return cameraFeedIndustry;
-      case 'retail':
-      default:
-        return cameraFeedRetail;
-    }
-  };
-
   useEffect(() => {
     let interval: NodeJS.Timeout;
     
@@ -117,13 +104,11 @@ const LiveDemo = () => {
           const nextIndex = prev + 1;
           
           if (nextIndex <= demo.events.length) {
-            // Add new event
             const newEvent = demo.events[nextIndex - 1];
             if (newEvent) {
               setCurrentEvents(prevEvents => [...prevEvents, newEvent]);
             }
             
-            // If we've shown all events, stop after a delay
             if (nextIndex >= demo.events.length) {
               setTimeout(() => {
                 setIsPlaying(false);
@@ -137,7 +122,7 @@ const LiveDemo = () => {
           
           return prev;
         });
-      }, 2000); // Add new event every 2 seconds
+      }, 2000);
     }
     
     return () => {
@@ -146,14 +131,14 @@ const LiveDemo = () => {
   }, [isPlaying, demo.events]);
 
   const startDemo = () => {
-    console.log("Starting demo..."); // Debug
+    console.log("Starting demo..."); 
     setIsPlaying(true);
     setCurrentEvents([]);
     setCurrentEventIndex(0);
   };
 
   const stopDemo = () => {
-    console.log("Stopping demo..."); // Debug
+    console.log("Stopping demo..."); 
     setIsPlaying(false);
     setCurrentEvents([]);
     setCurrentEventIndex(0);
@@ -219,49 +204,43 @@ const LiveDemo = () => {
 
       {/* Video Area with CCTV Effects */}
       <div className="relative aspect-video overflow-hidden bg-gray-900">
-        {/* Background Image */}
+        {/* Background Image with CCTV Effects */}
         {isPlaying && (
-          <img 
-            src={getCameraFeedImage()} 
-            alt="Camera Feed"
-            className="absolute inset-0 w-full h-full object-cover"
+          <div 
+            className="absolute inset-0 w-full h-full bg-cover bg-center"
             style={{
-              animation: 'flicker 4s infinite, zoomPan 15s infinite linear'
+              backgroundImage: `url(${demo.image})`,
+              filter: 'contrast(1.1) brightness(0.9)',
+              animation: 'cctvEffect 8s infinite linear'
             }}
-          />
-        )}
-        
-        {/* Gradient overlay when not playing */}
-        {!isPlaying && (
-          <div className="absolute inset-0 bg-gradient-to-br from-gray-900 to-gray-700"></div>
-        )}
-        
-        {/* CCTV Scan Lines Effect */}
-        {isPlaying && (
-          <>
+          >
+            {/* CCTV Scan Lines */}
             <div 
-              className="absolute inset-0 pointer-events-none z-30"
+              className="absolute inset-0 pointer-events-none z-10"
               style={{
-                background: 'repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,255,0,0.05) 2px, rgba(0,255,0,0.05) 4px)',
-                animation: 'scanlines 3s linear infinite'
+                background: 'repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,255,0,0.1) 2px, rgba(0,255,0,0.1) 4px)',
+                animation: 'scanlines 2s linear infinite'
               }}
-            ></div>
+            />
             
-            {/* Static Noise Overlay */}
+            {/* Static Noise */}
             <div 
-              className="absolute inset-0 pointer-events-none z-20 opacity-20"
+              className="absolute inset-0 pointer-events-none z-10 opacity-20"
               style={{
-                backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100' viewBox='0 0 100 100'%3E%3Cg fill-opacity='0.03'%3E%3Cpolygon fill='%23ffffff' points='50 0 60 40 100 50 60 60 50 100 40 60 0 50 40 40'/%3E%3C/g%3E%3C/svg%3E")`,
+                background: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200' viewBox='0 0 200 200'%3E%3Cdefs%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3C/defs%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.4'/%3E%3C/svg%3E")`,
                 animation: 'staticNoise 0.1s infinite linear'
               }}
-            ></div>
-            
-            {/* Dark overlay to enhance contrast */}
-            <div className="absolute inset-0 bg-black/10 z-10"></div>
-          </>
+            />
+          </div>
         )}
         
-        <div className="absolute inset-0 flex items-center justify-center z-40">
+        {/* Default state */}
+        {!isPlaying && (
+          <div className="absolute inset-0 bg-gradient-to-br from-gray-900 to-gray-700" />
+        )}
+        
+        {/* Content Overlay */}
+        <div className="absolute inset-0 flex items-center justify-center z-20">
           {!isPlaying && currentEvents.length === 0 && (
             <div className="text-center text-white">
               <div className="w-20 h-20 mx-auto mb-4 rounded-full bg-green-500/20 flex items-center justify-center backdrop-blur-sm">
@@ -274,7 +253,7 @@ const LiveDemo = () => {
           
           {isPlaying && (
             <div className="text-center text-white">
-              <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-green-500/30 flex items-center justify-center animate-pulse backdrop-blur-sm">
+              <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-green-500/30 flex items-center justify-center animate-pulse backdrop-blur-sm border-2 border-green-400/50">
                 <Shield className="h-8 w-8 text-green-400" />
               </div>
               <p className="text-lg font-semibold drop-shadow-lg">🤖 IA Analisando...</p>
@@ -283,22 +262,22 @@ const LiveDemo = () => {
           )}
         </div>
 
-        {/* Overlay Information */}
+        {/* CCTV Info Overlays */}
         {isPlaying && (
-          <>
-            <div className="absolute top-4 left-4 bg-black/70 text-white px-3 py-1 rounded text-sm z-20">
-              📹 Camera 01 - {currentDemo === 'office' ? 'Lobby Principal' : currentDemo === 'industry' ? 'Área de Produção' : 'Entrada Principal'}
+          <div className="absolute inset-0 z-30">
+            <div className="absolute top-4 left-4 bg-black/80 text-white px-3 py-1 rounded text-sm font-mono">
+              📹 CAM-01 {currentDemo === 'office' ? 'LOBBY' : currentDemo === 'industry' ? 'PROD-FLOOR' : 'ENTRANCE'}
             </div>
-            <div className="absolute top-4 right-4 bg-green-500 text-white px-3 py-1 rounded text-sm z-20">
-              ✅ IA Ativa
+            <div className="absolute top-4 right-4 bg-green-600 text-white px-3 py-1 rounded text-sm">
+              ✅ AI ACTIVE
             </div>
-            <div className="absolute bottom-4 left-4 bg-black/70 text-white px-3 py-1 rounded text-sm z-20">
+            <div className="absolute bottom-4 left-4 bg-black/80 text-white px-3 py-1 rounded text-sm font-mono">
               🕐 {new Date().toLocaleTimeString()}
             </div>
-            <div className="absolute bottom-4 right-4 bg-red-500 text-white px-3 py-1 rounded text-sm z-20 animate-pulse">
-              🔴 REC
+            <div className="absolute bottom-4 right-4 bg-red-600 text-white px-3 py-1 rounded text-sm animate-pulse font-mono">
+              ● REC
             </div>
-          </>
+          </div>
         )}
       </div>
 
@@ -322,7 +301,7 @@ const LiveDemo = () => {
             return (
               <div
                 key={`event-${index}-${Date.now()}`}
-                className="flex items-center space-x-3 p-3 bg-white rounded-lg border shadow-sm animate-fade-in"
+                className="flex items-center space-x-3 p-3 bg-white rounded-lg border shadow-sm transition-all duration-300"
                 style={{
                   animation: `fadeIn 0.5s ease-out ${index * 0.2}s both`
                 }}
@@ -333,7 +312,7 @@ const LiveDemo = () => {
                 <div className="flex-1">
                   <div className="flex items-center justify-between">
                     <span className="text-sm font-medium text-gray-800">{event.message}</span>
-                    <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">{event.time}</span>
+                    <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded font-mono">{event.time}</span>
                   </div>
                 </div>
               </div>
