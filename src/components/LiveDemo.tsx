@@ -2,7 +2,9 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Play, Pause, Users, Shield, AlertTriangle } from "lucide-react";
-import cameraFeedImage from "@/assets/demo-camera-feed.jpg";
+import cameraFeedRetail from "@/assets/demo-camera-feed.jpg";
+import cameraFeedOffice from "@/assets/demo-office-feed.jpg";
+import cameraFeedIndustry from "@/assets/demo-industry-feed.jpg";
 
 const LiveDemo = () => {
   const [isPlaying, setIsPlaying] = useState(false);
@@ -92,6 +94,19 @@ const LiveDemo = () => {
   };
 
   const demo = demoScenarios[currentDemo as keyof typeof demoScenarios];
+
+  // Get the appropriate camera feed image based on current demo
+  const getCameraFeedImage = () => {
+    switch (currentDemo) {
+      case 'office':
+        return cameraFeedOffice;
+      case 'industry':
+        return cameraFeedIndustry;
+      case 'retail':
+      default:
+        return cameraFeedRetail;
+    }
+  };
 
   useEffect(() => {
     let interval: NodeJS.Timeout;
@@ -206,7 +221,7 @@ const LiveDemo = () => {
       <div 
         className="relative aspect-video bg-cover bg-center"
         style={{
-          backgroundImage: isPlaying ? `url(${cameraFeedImage})` : 'linear-gradient(to bottom right, rgb(17, 24, 39), rgb(55, 65, 81))'
+          backgroundImage: isPlaying ? `url(${getCameraFeedImage()})` : 'linear-gradient(to bottom right, rgb(17, 24, 39), rgb(55, 65, 81))'
         }}
       >
         {/* Overlay to darken image when playing */}
@@ -240,7 +255,7 @@ const LiveDemo = () => {
         {isPlaying && (
           <>
             <div className="absolute top-4 left-4 bg-black/70 text-white px-3 py-1 rounded text-sm z-20">
-              📹 Camera 01 - Entrada Principal
+              📹 Camera 01 - {currentDemo === 'office' ? 'Lobby Principal' : currentDemo === 'industry' ? 'Área de Produção' : 'Entrada Principal'}
             </div>
             <div className="absolute top-4 right-4 bg-green-500 text-white px-3 py-1 rounded text-sm z-20">
               ✅ IA Ativa
