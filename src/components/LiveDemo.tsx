@@ -123,15 +123,23 @@ const LiveDemo = () => {
   }, []);
 
   const addEvent = useCallback((eventIndex: number) => {
+    console.log('Adding event:', eventIndex); // Debug log
     if (eventIndex < demo.events.length) {
       const event = demo.events[eventIndex];
-      setCurrentEvents(prev => [...prev, event]);
+      console.log('Event to add:', event.message); // Debug log
+      setCurrentEvents(prev => {
+        const newEvents = [...prev, event];
+        console.log('New events array:', newEvents); // Debug log
+        return newEvents;
+      });
       
       // Schedule next event
-      setTimeout(() => {
+      const timeoutId = setTimeout(() => {
         addEvent(eventIndex + 1);
       }, 2000);
+      console.log('Scheduled next event with timeout:', timeoutId); // Debug log
     } else {
+      console.log('Demo finished, resetting...'); // Debug log
       // Demo finished, reset after 3 seconds
       setTimeout(() => {
         resetDemo();
@@ -140,16 +148,14 @@ const LiveDemo = () => {
   }, [demo.events, resetDemo]);
 
   const startDemo = useCallback(() => {
-    console.log('Starting demo...'); // Debug log
+    console.log('Starting demo with events:', demo.events); // Debug log
     setIsPlaying(true);
     setCurrentEvents([]);
     setEventIndex(0);
     
-    // Start adding events
-    setTimeout(() => {
-      addEvent(0);
-    }, 500);
-  }, [addEvent]);
+    // Start adding events immediately
+    addEvent(0);
+  }, [demo.events, addEvent]);
 
   const stopDemo = useCallback(() => {
     console.log('Stopping demo...'); // Debug log
