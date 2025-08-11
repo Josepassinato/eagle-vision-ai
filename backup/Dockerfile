@@ -23,4 +23,9 @@ ENV BACKUP_INTERVAL_SECONDS=86400
 
 USER 65532:65532
 
+EXPOSE 8093
+
+HEALTHCHECK --interval=30s --timeout=3s --retries=3 \
+  CMD wget -qO- http://localhost:8093/health || exit 1
+
 CMD ["python", "main.py"]

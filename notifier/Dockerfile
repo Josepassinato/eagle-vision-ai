@@ -42,8 +42,8 @@ USER 65532:65532
 EXPOSE 8085
 
 # Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD python -c "import requests; requests.get('http://localhost:8085/health')"
+HEALTHCHECK --interval=30s --timeout=3s --retries=3 \
+    CMD wget -qO- http://localhost:8085/health || exit 1
 
 # Run the application
 CMD ["python", "main.py"]

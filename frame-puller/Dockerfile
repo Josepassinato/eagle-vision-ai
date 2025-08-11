@@ -48,6 +48,10 @@ ENV PYTHONPATH="/app:/common_schemas"
 
 USER 65532:65532
 
+# Health check (frame-puller is a client, check if process is running)
+HEALTHCHECK --interval=30s --timeout=3s --retries=3 \
+    CMD pgrep -f "python3 main.py" || exit 1
+
 # No port exposure needed (client only)
 
 # Run the application

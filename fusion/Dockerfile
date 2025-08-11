@@ -42,8 +42,8 @@ ENV PYTHONPATH="/app:/vision_tracking:/face-service:/common_schemas"
 USER 65532:65532
 
 # Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
-    CMD curl -f http://localhost:8080/health || exit 1
+HEALTHCHECK --interval=30s --timeout=3s --retries=3 \
+    CMD wget -qO- http://localhost:8080/health || exit 1
 
 # Expose port
 EXPOSE 8080
