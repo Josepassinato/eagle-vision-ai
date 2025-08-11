@@ -1097,6 +1097,33 @@ export type Database = {
           },
         ]
       }
+      onboarding_steps: {
+        Row: {
+          completed: boolean
+          completed_at: string | null
+          created_at: string
+          id: string
+          step_name: string
+          user_id: string
+        }
+        Insert: {
+          completed?: boolean
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          step_name: string
+          user_id: string
+        }
+        Update: {
+          completed?: boolean
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          step_name?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       org_api_keys: {
         Row: {
           created_at: string | null
@@ -1406,6 +1433,36 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      profiles: {
+        Row: {
+          company_name: string | null
+          created_at: string
+          id: string
+          industry: string | null
+          phone: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          company_name?: string | null
+          created_at?: string
+          id?: string
+          industry?: string | null
+          phone?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          company_name?: string | null
+          created_at?: string
+          id?: string
+          industry?: string | null
+          phone?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       quotas: {
         Row: {
@@ -1805,6 +1862,36 @@ export type Database = {
           },
         ]
       }
+      trial_credits: {
+        Row: {
+          created_at: string
+          credits_granted: number
+          credits_used: number
+          id: string
+          trial_end: string
+          trial_start: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          credits_granted?: number
+          credits_used?: number
+          id?: string
+          trial_end?: string
+          trial_start?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          credits_granted?: number
+          credits_used?: number
+          id?: string
+          trial_end?: string
+          trial_start?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       usage_events: {
         Row: {
           analytic: string
@@ -2022,6 +2109,14 @@ export type Database = {
       get_media_retention_days: {
         Args: Record<PropertyKey, never>
         Returns: number
+      }
+      get_user_trial_credits: {
+        Args: { p_user_id?: string }
+        Returns: {
+          credits_remaining: number
+          trial_days_left: number
+          trial_active: boolean
+        }[]
       }
       halfvec_avg: {
         Args: { "": number[] }

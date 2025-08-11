@@ -1,434 +1,332 @@
-import { useMemo, useState } from "react";
-import { Helmet } from "react-helmet-async";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { toast } from "sonner";
-import { Shield, Car, Users, Plus, Trash2, ChevronLeft, ChevronRight, CheckCircle2 } from "lucide-react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Progress } from "@/components/ui/progress";
+import { Badge } from "@/components/ui/badge";
+import { useToast } from "@/hooks/use-toast";
+import { Helmet } from "react-helmet-async";
+import { 
+  CheckCircle, 
+  Camera, 
+  Users, 
+  Shield, 
+  Brain, 
+  Gift,
+  ArrowRight,
+  Clock,
+  CreditCard
+} from "lucide-react";
 
-// Simple onboarding wizard for selecting product, connecting cameras, configuring basics, and activating
+interface TrialCredits {
+  credits_remaining: number;
+  trial_days_left: number;
+  trial_active: boolean;
+}
 
-type Product = "antitheft" | "lpr" | "people_count";
-
-type Camera = {
+interface OnboardingStep {
   id: string;
-  name: string;
-  protocol: "rtsp" | "rtmp";
-  url: string;
-};
+  title: string;
+  description: string;
+  icon: React.ReactNode;
+  action?: string;
+  completed?: boolean;
+}
 
-export default function Onboarding() {
+const Onboarding = () => {
+  const [currentStep, setCurrentStep] = useState(0);
+  const [trialCredits, setTrialCredits] = useState<TrialCredits | null>(null);
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
-  const [step, setStep] = useState(1);
-  const [product, setProduct] = useState<Product | null>(null);
-  const [cameras, setCameras] = useState<Camera[]>([
-    { id: "cam-1", name: "Entrada Principal", protocol: "rtsp", url: "" },
-  ]);
-  const [settings, setSettings] = useState({
-    // generic
-    notifier: false,
-    telegramChatId: "",
-    // antitheft
-    t_face: 0.65,
-    t_reid: 0.86,
-    // lpr
-    lprCountry: "BR",
-    // people count
-    countDirection: "both" as "in" | "out" | "both",
-  });
+  const { toast } = useToast();
 
-  const steps = useMemo(
-    () => [
-      { id: 1, label: "Produto" },
-      { id: 2, label: "Câmeras" },
-      { id: 3, label: "Ajustes" },
-      { id: 4, label: "Revisão" },
-    ],
-    []
-  );
+  const steps: OnboardingStep[] = [
+    {
+      id: "welcome",
+      title: "Bem-vindo à Visão de Águia! 🦅",
+      description: "Sua conta foi criada com sucesso. Vamos configurar sua plataforma de monitoramento inteligente em poucos passos.",
+      icon: <Gift className="h-8 w-8 text-primary" />,
+    },
+    {
+      id: "trial_info",
+      title: "Seu Teste Gratuito",
+      description: "Você tem 100 créditos gratuitos por 7 dias para explorar todos os recursos da plataforma.",
+      icon: <Clock className="h-8 w-8 text-primary" />,
+    },
+    {
+      id: "modules",
+      title: "Módulos Disponíveis",
+      description: "Conheça os módulos de IA que você pode usar para monitoramento inteligente.",
+      icon: <Brain className="h-8 w-8 text-primary" />,
+    },
+    {
+      id: "setup",
+      title: "Configuração Inicial",
+      description: "Configure suas primeiras câmeras e pessoas autorizadas.",
+      icon: <Camera className="h-8 w-8 text-primary" />,
+      action: "Configurar Agora",
+    },
+    {
+      id: "complete",
+      title: "Tudo Pronto!",
+      description: "Sua plataforma está configurada. Você pode começar a monitorar agora mesmo.",
+      icon: <CheckCircle className="h-8 w-8 text-green-500" />,
+      action: "Ir para Dashboard",
+    },
+  ];
 
-  const canContinue = useMemo(() => {
-    if (step === 1) return !!product;
-    if (step === 2) return cameras.every((c) => c.name && c.url);
-    return true;
-  }, [step, product, cameras]);
+  useEffect(() => {
+    loadTrialCredits();
+  }, []);
 
-  const addCamera = () => {
-    const idx = cameras.length + 1;
-    setCameras([
-      ...cameras,
-      { id: `cam-${idx}`, name: `Câmera ${idx}`, protocol: "rtsp", url: "" },
-    ]);
-  };
-
-  const removeCamera = (id: string) => {
-    setCameras(cameras.filter((c) => c.id !== id));
-  };
-
-  const finish = () => {
-    // Persist minimally for later use (can be replaced by API/Supabase later)
+  const loadTrialCredits = async () => {
     try {
-      localStorage.setItem(
-        "onboardingConfig",
-        JSON.stringify({ product, cameras, settings })
-      );
-    } catch {}
-
-    toast.success("Configuração salva! Redirecionando para o painel…", {
-      duration: 2000,
-    });
-    navigate("/app/dashboard", { replace: true });
+      const { data, error } = await supabase.rpc('get_user_trial_credits');
+      if (error) throw error;
+      if (data && data.length > 0) {
+        setTrialCredits(data[0]);
+      }
+    } catch (error) {
+      console.error('Error loading trial credits:', error);
+    }
   };
+
+  const markStepCompleted = async (stepId: string) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      
+      const { error } = await supabase
+        .from('onboarding_steps')
+        .upsert({
+          user_id: user.id,
+          step_name: stepId,
+          completed: true,
+          completed_at: new Date().toISOString(),
+        });
+      
+      if (error) throw error;
+    } catch (error) {
+      console.error('Error marking step as completed:', error);
+    }
+  };
+
+  const handleNext = async () => {
+    const currentStepData = steps[currentStep];
+    await markStepCompleted(currentStepData.id);
+
+    if (currentStep < steps.length - 1) {
+      setCurrentStep(currentStep + 1);
+    } else {
+      // Onboarding complete
+      localStorage.setItem('onboardingCompleted', 'true');
+      navigate('/admin/dashboard');
+    }
+  };
+
+  const handleSkipToConfig = () => {
+    navigate('/admin/config');
+  };
+
+  const handleSkipToDashboard = () => {
+    localStorage.setItem('onboardingCompleted', 'true');
+    navigate('/admin/dashboard');
+  };
+
+  const progress = ((currentStep + 1) / steps.length) * 100;
+  const currentStepData = steps[currentStep];
 
   return (
     <>
       <Helmet>
-        <title>Onboarding — Configurar câmeras e analíticos</title>
-        <meta
-          name="description"
-          content="Assista de forma guiada: selecione o produto, conecte câmeras e ative análises de IA."
-        />
-        <link rel="canonical" href="/onboarding" />
+        <title>Configuração Inicial - Visão de Águia</title>
+        <meta name="description" content="Configure sua plataforma de monitoramento inteligente" />
       </Helmet>
-
-      <main className="container mx-auto px-6 py-10">
-        <header className="mb-8 flex items-center justify-between">
-          <div>
-            <h1 className="font-display text-3xl">Configuração guiada</h1>
-            <p className="text-muted-foreground mt-1">
-              Siga os passos para escolher o produto, conectar suas câmeras e ativar os relatórios.
-            </p>
+      
+      <div className="min-h-screen bg-gradient-to-br from-background via-background/95 to-primary/5 p-4">
+        <div className="max-w-4xl mx-auto">
+          {/* Header with progress */}
+          <div className="mb-8">
+            <div className="flex items-center justify-between mb-4">
+              <h1 className="text-2xl font-bold text-foreground">Configuração Inicial</h1>
+              <Badge variant="outline" className="px-3 py-1">
+                Passo {currentStep + 1} de {steps.length}
+              </Badge>
+            </div>
+            <Progress value={progress} className="h-2" />
           </div>
-          <Button
-            variant="outline"
-            onClick={() => {
-              localStorage.setItem("onboardingConfig", JSON.stringify({ skipped: true }));
-              navigate("/app/dashboard", { replace: true });
-            }}
-          >
-            Pular Configuração
-          </Button>
-        </header>
 
-        <nav className="mb-6">
-          <ol className="flex items-center gap-3 text-sm">
-            {steps.map((s, i) => {
-              const active = step === s.id;
-              const done = step > s.id;
-              return (
-                <li key={s.id} className="flex items-center gap-2">
-                  <span
-                    className={`inline-flex items-center justify-center h-6 w-6 rounded-full border ${
-                      done
-                        ? "bg-primary text-primary-foreground border-primary"
-                        : active
-                        ? "border-primary text-primary"
-                        : "border-muted-foreground text-muted-foreground"
-                    }`}
-                    aria-hidden="true"
-                  >
-                    {done ? <CheckCircle2 className="h-4 w-4" /> : s.id}
-                  </span>
-                  <span className={active ? "text-foreground" : "text-muted-foreground"}>{s.label}</span>
-                  {i < steps.length - 1 && <span className="text-muted-foreground">/</span>}
-                </li>
-              );
-            })}
-          </ol>
-        </nav>
-
-        {step === 1 && (
-          <section aria-labelledby="step1">
-            <Card>
-              <CardHeader>
-                <CardTitle id="step1">Escolha seu produto</CardTitle>
-              </CardHeader>
-              <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <ProductCard
-                  title="Prevenção de Furtos"
-                  description="Detecta furtos e evasões com IA e envia alertas."
-                  icon={<Shield className="h-6 w-6" />}
-                  active={product === "antitheft"}
-                  onSelect={() => { setProduct("antitheft"); setStep(2); }}
-                />
-                <ProductCard
-                  title="Leitura de Placas (LPR)"
-                  description="Identifica placas de veículos para controle de acesso."
-                  icon={<Car className="h-6 w-6" />}
-                  active={product === "lpr"}
-                  onSelect={() => { setProduct("lpr"); setStep(2); }}
-                />
-                <ProductCard
-                  title="Contagem de Pessoas"
-                  description="Conta entradas/saídas para métricas de fluxo."
-                  icon={<Users className="h-6 w-6" />}
-                  active={product === "people_count"}
-                  onSelect={() => { setProduct("people_count"); setStep(2); }}
-                />
-              </CardContent>
-            </Card>
-          </section>
-        )}
-
-        {step === 2 && (
-          <section aria-labelledby="step2" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle id="step2">Conecte suas câmeras</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {cameras.map((c) => (
-                  <div key={c.id} className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
-                    <div className="md:col-span-3">
-                      <Label htmlFor={`name-${c.id}`}>Nome</Label>
-                      <Input
-                        id={`name-${c.id}`}
-                        value={c.name}
-                        placeholder="Ex. Entrada Principal"
-                        onChange={(e) =>
-                          setCameras((prev) => prev.map((x) => (x.id === c.id ? { ...x, name: e.target.value } : x)))
-                        }
-                      />
-                    </div>
-                    <div className="md:col-span-2">
-                      <Label>Protocolo</Label>
-                      <Select
-                        value={c.protocol}
-                        onValueChange={(v: "rtsp" | "rtmp") =>
-                          setCameras((prev) => prev.map((x) => (x.id === c.id ? { ...x, protocol: v } : x)))
-                        }
-                      >
-                        <SelectTrigger aria-label="Selecionar protocolo">
-                          <SelectValue placeholder="Protocolo" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="rtsp">RTSP</SelectItem>
-                          <SelectItem value="rtmp">RTMP</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="md:col-span-6">
-                      <Label htmlFor={`url-${c.id}`}>URL</Label>
-                      <Input
-                        id={`url-${c.id}`}
-                        value={c.url}
-                        placeholder={
-                          c.protocol === "rtmp"
-                            ? "rtmp://seu-host:1935/minha-camera?user=pub&pass=pub123"
-                            : "rtsp://usuario:senha@seu-host:554/stream"
-                        }
-                        onChange={(e) =>
-                          setCameras((prev) => prev.map((x) => (x.id === c.id ? { ...x, url: e.target.value } : x)))
-                        }
-                      />
-                    </div>
-                    <div className="md:col-span-1 flex justify-end">
-                      <Button variant="destructive" type="button" onClick={() => removeCamera(c.id)} aria-label={`Remover ${c.name}`}>
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+          {/* Trial Credits Card */}
+          {trialCredits && (
+            <Card className="mb-6 border-primary/20 bg-primary/5">
+              <CardContent className="pt-6">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-3">
+                    <CreditCard className="h-5 w-5 text-primary" />
+                    <div>
+                      <p className="font-semibold text-foreground">
+                        {trialCredits.credits_remaining} créditos restantes
+                      </p>
+                      <p className="text-sm text-muted-foreground">
+                        {trialCredits.trial_days_left} dias de teste
+                      </p>
                     </div>
                   </div>
-                ))}
-                <Button type="button" variant="secondary" onClick={addCamera}>
-                  <Plus className="h-4 w-4 mr-2" /> Adicionar câmera
-                </Button>
-              </CardContent>
-            </Card>
-          </section>
-        )}
-
-        {step === 3 && (
-          <section aria-labelledby="step3" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle id="step3">Ajustes do produto</CardTitle>
-              </CardHeader>
-              <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="space-y-2">
-                  <Label>Notificações (Telegram)</Label>
-                  <div className="grid grid-cols-1 gap-2">
-                    <div className="flex items-center gap-3">
-                      <input
-                        id="notifier"
-                        type="checkbox"
-                        checked={settings.notifier}
-                        onChange={(e) => setSettings({ ...settings, notifier: e.target.checked })}
-                      />
-                      <Label htmlFor="notifier">Ativar</Label>
-                    </div>
-                    {settings.notifier && (
-                      <Input
-                        placeholder="Chat ID do Telegram"
-                        value={settings.telegramChatId}
-                        onChange={(e) => setSettings({ ...settings, telegramChatId: e.target.value })}
-                      />
-                    )}
-                  </div>
+                  {!trialCredits.trial_active && (
+                    <Button size="sm" variant="outline">
+                      Comprar Créditos
+                    </Button>
+                  )}
                 </div>
+              </CardContent>
+            </Card>
+          )}
 
-                {product === "antitheft" && (
-                  <div className="space-y-2">
-                    <Label>Limiares (IA)</Label>
-                    <div className="grid grid-cols-2 gap-2">
-                      <div>
-                        <Label htmlFor="t_face">T_FACE</Label>
-                        <Input
-                          id="t_face"
-                          type="number"
-                          step="0.01"
-                          min="0"
-                          max="1"
-                          value={settings.t_face}
-                          onChange={(e) => setSettings({ ...settings, t_face: parseFloat(e.target.value) })}
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="t_reid">T_REID</Label>
-                        <Input
-                          id="t_reid"
-                          type="number"
-                          step="0.01"
-                          min="0"
-                          max="1"
-                          value={settings.t_reid}
-                          onChange={(e) => setSettings({ ...settings, t_reid: parseFloat(e.target.value) })}
-                        />
-                      </div>
-                    </div>
-                  </div>
-                )}
+          {/* Main Content */}
+          <Card className="shadow-xl">
+            <CardHeader className="text-center pb-8">
+              <div className="mx-auto mb-4">
+                {currentStepData.icon}
+              </div>
+              <CardTitle className="text-3xl mb-2">{currentStepData.title}</CardTitle>
+              <CardDescription className="text-lg">
+                {currentStepData.description}
+              </CardDescription>
+            </CardHeader>
 
-                {product === "lpr" && (
-                  <div className="space-y-2">
-                    <Label>País (formato de placa)</Label>
-                    <Select
-                      value={settings.lprCountry}
-                      onValueChange={(v) => setSettings({ ...settings, lprCountry: v })}
-                    >
-                      <SelectTrigger aria-label="Selecionar país">
-                        <SelectValue placeholder="País" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="BR">Brasil</SelectItem>
-                        <SelectItem value="US">Estados Unidos</SelectItem>
-                        <SelectItem value="EU">Europa (genérico)</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                )}
-
-                {product === "people_count" && (
-                  <div className="space-y-2">
-                    <Label>Direção</Label>
-                    <Select
-                      value={settings.countDirection}
-                      onValueChange={(v: "in" | "out" | "both") => setSettings({ ...settings, countDirection: v })}
-                    >
-                      <SelectTrigger aria-label="Selecionar direção">
-                        <SelectValue placeholder="Direção" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="in">Entradas</SelectItem>
-                        <SelectItem value="out">Saídas</SelectItem>
-                        <SelectItem value="both">Ambos</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <p className="text-xs text-muted-foreground">
-                      Dica: defina a linha virtual na página Config após concluir o onboarding.
+            <CardContent className="space-y-6">
+              {/* Step-specific content */}
+              {currentStep === 0 && (
+                <div className="text-center space-y-4">
+                  <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                    <h3 className="font-semibold text-green-800 mb-2">🎉 Conta Criada com Sucesso!</h3>
+                    <p className="text-green-700 text-sm">
+                      Você ganhou 100 créditos gratuitos para testar todos os recursos da plataforma por 7 dias.
                     </p>
                   </div>
-                )}
-              </CardContent>
-            </Card>
-          </section>
-        )}
+                </div>
+              )}
 
-        {step === 4 && (
-          <section aria-labelledby="step4">
-            <Card>
-              <CardHeader>
-                <CardTitle id="step4">Revisão</CardTitle>
-              </CardHeader>
-              <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <h3 className="font-medium mb-2">Produto</h3>
-                  <div className="text-sm bg-muted rounded p-3">
-                    {product === "antitheft" && "Prevenção de Furtos"}
-                    {product === "lpr" && "Leitura de Placas (LPR)"}
-                    {product === "people_count" && "Contagem de Pessoas"}
+              {currentStep === 1 && (
+                <div className="grid md:grid-cols-2 gap-4">
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <h3 className="font-semibold text-blue-800 mb-2">100 Créditos Gratuitos</h3>
+                    <p className="text-blue-700 text-sm">
+                      Cada análise de frame consome 1 crédito. Com 100 créditos você pode testar amplamente.
+                    </p>
+                  </div>
+                  <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
+                    <h3 className="font-semibold text-purple-800 mb-2">7 Dias de Teste</h3>
+                    <p className="text-purple-700 text-sm">
+                      Tempo suficiente para configurar e testar todos os módulos da plataforma.
+                    </p>
                   </div>
                 </div>
-                <div>
-                  <h3 className="font-medium mb-2">Câmeras</h3>
-                  <pre className="text-xs bg-muted rounded p-3 max-h-64 overflow-auto">{JSON.stringify(cameras, null, 2)}</pre>
-                </div>
-                <div>
-                  <h3 className="font-medium mb-2">Ajustes</h3>
-                  <pre className="text-xs bg-muted rounded p-3 max-h-64 overflow-auto">{JSON.stringify(settings, null, 2)}</pre>
-                </div>
-                <div className="text-sm text-muted-foreground">
-                  Após concluir, você pode editar zonas/limiares em Admin → Config.
-                </div>
-              </CardContent>
-              <CardFooter className="flex justify-end">
-                <Button onClick={finish}>Ativar e ir ao Painel</Button>
-              </CardFooter>
-            </Card>
-          </section>
-        )}
+              )}
 
-        <div className="mt-6 flex items-center justify-between">
-          <Button
-            variant="outline"
-            disabled={step === 1}
-            onClick={() => setStep((s) => Math.max(1, s - 1))}
-          >
-            <ChevronLeft className="h-4 w-4 mr-2" /> Voltar
-          </Button>
-          <Button
-            disabled={!canContinue}
-            onClick={() => setStep((s) => Math.min(4, s + 1))}
-          >
-            {step === 4 ? "Concluir" : (
-              <span className="inline-flex items-center"><ChevronRight className="h-4 w-4 mr-2" /> Avançar</span>
-            )}
-          </Button>
+              {currentStep === 2 && (
+                <div className="grid md:grid-cols-3 gap-4">
+                  <div className="text-center p-4 border rounded-lg">
+                    <Shield className="h-8 w-8 text-blue-500 mx-auto mb-2" />
+                    <h3 className="font-semibold mb-1">Antifurto</h3>
+                    <p className="text-sm text-muted-foreground">
+                      Detecção inteligente de comportamentos suspeitos
+                    </p>
+                  </div>
+                  <div className="text-center p-4 border rounded-lg">
+                    <Users className="h-8 w-8 text-green-500 mx-auto mb-2" />
+                    <h3 className="font-semibold mb-1">Reconhecimento</h3>
+                    <p className="text-sm text-muted-foreground">
+                      Identificação facial e controle de acesso
+                    </p>
+                  </div>
+                  <div className="text-center p-4 border rounded-lg">
+                    <Brain className="h-8 w-8 text-purple-500 mx-auto mb-2" />
+                    <h3 className="font-semibold mb-1">Segurança</h3>
+                    <p className="text-sm text-muted-foreground">
+                      Monitoramento de EPI e comportamentos
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {currentStep === 3 && (
+                <div className="space-y-4">
+                  <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                    <h3 className="font-semibold text-yellow-800 mb-2">💡 Próximos Passos</h3>
+                    <ul className="text-yellow-700 text-sm space-y-1">
+                      <li>• Configure suas câmeras RTSP/RTMP</li>
+                      <li>• Cadastre pessoas autorizadas</li>
+                      <li>• Defina zonas de monitoramento</li>
+                      <li>• Configure alertas e notificações</li>
+                    </ul>
+                  </div>
+                  <div className="flex space-x-3">
+                    <Button onClick={handleSkipToConfig} className="flex-1">
+                      <Camera className="h-4 w-4 mr-2" />
+                      Configurar Câmeras
+                    </Button>
+                    <Button variant="outline" onClick={handleSkipToDashboard} className="flex-1">
+                      Pular Configuração
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {currentStep === 4 && (
+                <div className="text-center space-y-4">
+                  <div className="bg-green-50 border border-green-200 rounded-lg p-6">
+                    <CheckCircle className="h-12 w-12 text-green-500 mx-auto mb-3" />
+                    <h3 className="font-semibold text-green-800 text-lg mb-2">
+                      Plataforma Configurada!
+                    </h3>
+                    <p className="text-green-700">
+                      Você pode começar a usar todos os recursos da Visão de Águia agora mesmo.
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* Navigation */}
+              <div className="flex justify-between pt-6 border-t">
+                <Button 
+                  variant="outline" 
+                  onClick={() => setCurrentStep(Math.max(0, currentStep - 1))}
+                  disabled={currentStep === 0}
+                >
+                  Anterior
+                </Button>
+                
+                <Button onClick={handleNext} disabled={loading}>
+                  {currentStep === steps.length - 1 ? (
+                    "Finalizar"
+                  ) : (
+                    <>
+                      Próximo
+                      <ArrowRight className="h-4 w-4 ml-2" />
+                    </>
+                  )}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Quick Actions */}
+          <div className="mt-6 text-center">
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={handleSkipToDashboard}
+              className="text-muted-foreground hover:text-foreground"
+            >
+              Pular configuração e ir direto para o dashboard
+            </Button>
+          </div>
         </div>
-      </main>
+      </div>
     </>
   );
-}
+};
 
-function ProductCard({
-  title,
-  description,
-  icon,
-  active,
-  onSelect,
-}: {
-  title: string;
-  description: string;
-  icon: React.ReactNode;
-  active?: boolean;
-  onSelect?: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onSelect}
-      className={`text-left rounded-lg border p-4 transition-colors ${
-        active ? "border-primary bg-primary/5" : "hover:bg-muted"
-      }`}
-      aria-pressed={active}
-    >
-      <div className="flex items-center gap-3 mb-2">
-        <div className="p-2 rounded-md bg-card border">{icon}</div>
-        <div className="font-medium">{title}</div>
-      </div>
-      <p className="text-sm text-muted-foreground">{description}</p>
-    </button>
-  );
-}
+export default Onboarding;

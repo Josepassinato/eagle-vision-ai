@@ -94,7 +94,21 @@ const Index = () => {
         </script>
       </Helmet>
       <div className="min-h-screen bg-background">
-      <Navbar />
+          <Navbar />
+          
+          {/* CTA para Login/Cadastro */}
+          <div className="text-center py-8 bg-primary/5 rounded-lg mb-8">
+            <h2 className="text-2xl font-bold mb-4">Comece seu teste gratuito agora</h2>
+            <p className="text-muted-foreground mb-6">100 créditos grátis + 7 dias de teste completo</p>
+            <div className="flex gap-4 justify-center">
+              <Button asChild size="lg">
+                <a href="/auth">Criar Conta Grátis</a>
+              </Button>
+              <Button variant="outline" size="lg" asChild>
+                <a href="/auth">Fazer Login</a>
+              </Button>
+            </div>
+          </div>
       <HeroSection />
 
       <section id="produtos" className="scroll-mt-24 container mx-auto px-4 py-16">
