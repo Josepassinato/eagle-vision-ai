@@ -1,160 +1,281 @@
 import os
 import base64
-from typing import List, Optional, Dict, Any
+import json
+import cv2
+import numpy as np
 from datetime import datetime
+from typing import List, Optional, Dict, Any
 
-import httpx
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Response
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
+from supabase import create_client, Client
+from prometheus_client import start_http_server, generate_latest, CONTENT_TYPE_LATEST
+import uvicorn
+import logging
 
-SUPABASE_URL = os.getenv("SUPABASE_URL")
-SUPABASE_SERVICE_ROLE = os.getenv("SUPABASE_SERVICE_ROLE_KEY") or os.getenv("SUPABASE_SERVICE_ROLE")
-NOTIFY_MIN_SEV = os.getenv("SAFETY_NOTIFY_MIN_SEVERITY", "HIGH").upper()
-ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "*")
-
-if not SUPABASE_URL:
-    raise RuntimeError("SUPABASE_URL não definido")
-if not SUPABASE_SERVICE_ROLE:
-    raise RuntimeError("SUPABASE_SERVICE_ROLE_KEY/ SUPABASE_SERVICE_ROLE não definido")
-
-REST_URL = f"{SUPABASE_URL}/rest/v1"
-HEADERS = {
-    "apikey": SUPABASE_SERVICE_ROLE,
-    "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE}",
-    "Content-Type": "application/json",
-    "Prefer": "return=representation",
-}
-
-class ZoneHit(BaseModel):
-    zone_id: Optional[str] = None
-    label: Optional[str] = None  # 'restricted','critical','general'
-
-class AnalyzeRequest(BaseModel):
-    site_id: str
-    camera_id: Optional[str] = None
-    ts: Optional[datetime] = None
-    frame_jpeg_b64: Optional[str] = None
-    zone_hits: List[ZoneHit] = Field(default_factory=list)
-
-class SignalOut(BaseModel):
-    id: str
-    type: str
-    severity: str
-    details: Dict[str, Any] = {}
-
-class AnalyzeResponse(BaseModel):
-    signals: List[SignalOut] = Field(default_factory=list)
-    incident_id: Optional[str] = None
-
-app = FastAPI(title="SafetyVision API", version="0.1.0")
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=[o.strip() for o in ALLOWED_ORIGINS.split(",") if o.strip()] or ["*"],
-    allow_methods=["*"],
-    allow_headers=["*"],
+# Import unified metrics and pipeline
+import sys
+sys.path.append('/common_schemas')
+from common_schemas.metrics import (
+    frames_in_total, frames_processed_total, signals_emitted_total,
+    ppe_violations_total, fall_alerts_total, posture_unsafe_total,
+    inference_seconds, frame_processing_seconds, init_service_metrics
 )
 
-SEVERITY_ORDER = {"LOW": 0, "MEDIUM": 1, "HIGH": 2, "CRITICAL": 3}
+try:
+    from ppe_pipeline import SafetyVisionPipeline
+    from yolo_client import get_yolo_client, cleanup_yolo_client
+    PIPELINE_AVAILABLE = True
+except ImportError as e:
+    logger.warning(f"Pipeline modules not available: {e}")
+    PIPELINE_AVAILABLE = False
 
-def choose_severity(sig_type: str, zone_label: Optional[str]) -> str:
-    if sig_type == "missing_ppe":
-        return "HIGH" if (zone_label == "critical") else "MEDIUM"
-    if sig_type == "unauthorized_zone":
-        return "HIGH"
-    if sig_type == "unsafe_lifting":
-        return "MEDIUM"
-    if sig_type == "fall_suspected":
-        return "CRITICAL"
-    return "LOW"
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
-async def insert_row(table: str, payload: Dict[str, Any]) -> Dict[str, Any]:
-    async with httpx.AsyncClient(timeout=10) as client:
-        r = await client.post(f"{REST_URL}/{table}", headers=HEADERS, json=payload)
-        if r.status_code >= 300:
-            raise HTTPException(status_code=500, detail={"table": table, "error": r.text})
-        data = r.json()
-        return data[0] if isinstance(data, list) and data else data
+# Settings
+PORT = int(os.getenv("PORT", "8089"))
+ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "*").split(",")
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
+REQUEST_LOG_LEVEL = os.getenv("REQUEST_LOG_LEVEL", "info")
+
+# SafetyVision specific settings
+SAFETY_ENABLED = os.getenv("SAFETY_ENABLED", "true").lower() == "true" and PIPELINE_AVAILABLE
+YOLO_SERVICE_URL = os.getenv("YOLO_SERVICE_URL", "http://yolo-detection:8080")
+FALL_DETECTION_ENABLED = os.getenv("FALL_DETECTION_ENABLED", "true").lower() == "true"
+POSE_ANALYSIS_ENABLED = os.getenv("POSE_ANALYSIS_ENABLED", "true").lower() == "true"
+
+if not SUPABASE_URL or not SUPABASE_SERVICE_ROLE_KEY:
+    raise RuntimeError("Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY")
+
+supabase: Client = create_client(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
+
+# Initialize safety pipeline
+safety_pipeline = None
+if SAFETY_ENABLED and PIPELINE_AVAILABLE:
+    try:
+        safety_pipeline = SafetyVisionPipeline(
+            yolo_service_url=YOLO_SERVICE_URL,
+            fall_detection_enabled=FALL_DETECTION_ENABLED,
+            pose_analysis_enabled=POSE_ANALYSIS_ENABLED
+        )
+        logger.info("SafetyVision pipeline initialized")
+    except Exception as e:
+        logger.error(f"Failed to initialize SafetyVision pipeline: {e}")
+        safety_pipeline = None
+
+# Initialize service metrics
+service_metrics = init_service_metrics('safetyvision')
+
+# Start Prometheus metrics server
+try:
+    start_http_server(9090)
+    logger.info("Prometheus metrics server started on port 9090")
+except Exception as e:
+    logger.warning(f"Could not start Prometheus server: {e}")
+
+app = FastAPI(title="SafetyVision Service", version="0.2.0")
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=ALLOWED_ORIGINS if ALLOWED_ORIGINS != ["*"] else ["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"]
+)
+
+# Models
+class Track(BaseModel):
+    track_id: str
+    bbox: List[float] = Field(..., description="[x1,y1,x2,y2]")
+    meta: Optional[Dict[str, Any]] = None
+
+class AnalyzeFrameRequest(BaseModel):
+    camera_id: Optional[str] = None
+    org_id: Optional[str] = None
+    zone_type: Optional[str] = "default"
+    ts: Optional[datetime] = None
+    frame_jpeg_b64: Optional[str] = None
+    tracks: Optional[List[Track]] = None
+
+class SignalOut(BaseModel):
+    id: Optional[str] = None
+    type: str
+    severity: str
+    track_id: Optional[str] = None
+    details: Optional[Dict[str, Any]] = None
+    confidence: Optional[float] = None
+    ppe_type: Optional[str] = None
+    risk_factors: Optional[List[str]] = None
+
+class AnalyzeFrameResponse(BaseModel):
+    signals: List[SignalOut] = []
+    incidents: List[Dict[str, Any]] = []
+    telemetry: List[Dict[str, Any]] = []
+
+# Utils
+def decode_image_if_any(b64: Optional[str]) -> Optional[np.ndarray]:
+    if not b64:
+        return None
+    try:
+        raw = base64.b64decode(b64)
+        nparr = np.frombuffer(raw, np.uint8)
+        frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+        return frame
+    except Exception as e:
+        logger.error(f"Failed to decode image: {e}")
+        return None
 
 @app.get("/health")
-async def health():
-    return {
+def health():
+    health_data = {
         "status": "ok",
-        "supabase": bool(SUPABASE_URL),
-        "notify_min_sev": NOTIFY_MIN_SEV,
+        "service": "safetyvision", 
+        "version": "0.2.0",
+        "safety_enabled": SAFETY_ENABLED,
+        "pipeline_ready": safety_pipeline is not None,
+        "yolo_service_url": YOLO_SERVICE_URL,
+        "features": {
+            "fall_detection": FALL_DETECTION_ENABLED,
+            "pose_analysis": POSE_ANALYSIS_ENABLED
+        }
     }
+    
+    if PIPELINE_AVAILABLE and safety_pipeline:
+        try:
+            yolo_client = get_yolo_client()
+            health_data["cache_stats"] = yolo_client.get_cache_stats()
+        except:
+            pass
+    
+    return health_data
 
-@app.post("/analyze_frame", response_model=AnalyzeResponse)
-async def analyze_frame(req: AnalyzeRequest):
-    ts = req.ts or datetime.utcnow()
+@app.get("/metrics")
+def metrics():
+    """Prometheus metrics endpoint"""
+    return Response(generate_latest(), media_type=CONTENT_TYPE_LATEST)
 
-    # Placeholder simples: a lógica real de visão deve ser implementada aqui
-    detected_types: List[str] = []
-    # Exemplo: se não veio frame, apenas marca verificação de zona restrita
-    if any((z.label or "").lower() == "restricted" for z in req.zone_hits):
-        detected_types.append("unauthorized_zone")
+@app.post("/analyze_frame", response_model=AnalyzeFrameResponse)
+async def analyze_frame(req: AnalyzeFrameRequest):
+    """Analyze frame for safety violations"""
+    
+    with frame_processing_seconds.labels(service='safetyvision', camera_id=req.camera_id or 'unknown').time():
+        # Update metrics
+        frames_in_total.labels(
+            service='safetyvision',
+            camera_id=req.camera_id or 'unknown',
+            org_id=req.org_id or 'unknown'
+        ).inc()
+        
+        signals: List[SignalOut] = []
+        telemetry: List[Dict[str, Any]] = []
+        
+        # Try advanced pipeline first
+        if safety_pipeline and req.frame_jpeg_b64 and req.tracks:
+            try:
+                frame = decode_image_if_any(req.frame_jpeg_b64)
+                if frame is not None:
+                    # Convert tracks to expected format
+                    track_data = []
+                    for track in req.tracks:
+                        track_info = {
+                            'track_id': track.track_id,
+                            'bbox': track.bbox,
+                            'confidence': track.meta.get('confidence', 0.8) if track.meta else 0.8
+                        }
+                        track_data.append(track_info)
+                    
+                    # Run safety analysis
+                    pipeline_signals = await safety_pipeline.process_frame(
+                        frame, track_data,
+                        camera_id=req.camera_id or 'unknown',
+                        org_id=req.org_id or 'unknown', 
+                        zone_type=req.zone_type or 'default',
+                        timestamp=req.ts
+                    )
+                    
+                    # Convert to API format
+                    for sig in pipeline_signals:
+                        signal_out = SignalOut(
+                            type=sig['type'],
+                            severity=sig['severity'],
+                            track_id=sig.get('track_id'),
+                            details=sig.get('details', {}),
+                            confidence=sig.get('confidence'),
+                            ppe_type=sig.get('ppe_type'),
+                            risk_factors=sig.get('risk_factors')
+                        )
+                        signals.append(signal_out)
+                        
+                        # Update specific metrics
+                        signals_emitted_total.labels(
+                            service='safetyvision',
+                            signal_type=sig['type'],
+                            severity=sig['severity'],
+                            camera_id=req.camera_id or 'unknown',
+                            org_id=req.org_id or 'unknown'
+                        ).inc()
+                    
+                    frames_processed_total.labels(
+                        service='safetyvision',
+                        camera_id=req.camera_id or 'unknown',
+                        org_id=req.org_id or 'unknown'
+                    ).inc()
+            except Exception as e:
+                logger.error(f"Advanced pipeline failed: {e}")
+        
+        # Fallback: basic rule-based detection
+        if not signals and req.zone_type:
+            # Simple zone-based PPE requirement
+            if req.zone_type in ['construction', 'industrial']:
+                # Simulate PPE violation for demo
+                signals.append(SignalOut(
+                    type='missing_ppe',
+                    severity='HIGH',
+                    track_id=req.tracks[0].track_id if req.tracks else 'unknown',
+                    details={'required_ppe': ['hardhat', 'vest'], 'zone': req.zone_type},
+                    ppe_type='hardhat'
+                ))
+                
+                ppe_violations_total.labels(
+                    ppe_type='hardhat',
+                    camera_id=req.camera_id or 'unknown',
+                    org_id=req.org_id or 'unknown',
+                    severity='HIGH'
+                ).inc()
+        
+        # Generate telemetry
+        if req.tracks:
+            for track in req.tracks:
+                telemetry.append({
+                    "track_id": track.track_id,
+                    "safety_processed": len(signals) > 0,
+                    "pipeline_used": safety_pipeline is not None,
+                    "bbox": track.bbox
+                })
+        
+        # Simple incident generation
+        incidents: List[Dict[str, Any]] = []
+        for s in signals:
+            incidents.append({
+                "incident_id": f"inc_{s.track_id}_{s.type}",
+                "severity": s.severity,
+                "type": s.type
+            })
+    
+    return AnalyzeFrameResponse(signals=signals, incidents=incidents, telemetry=telemetry)
 
-    # Sempre verificamos EPIs como exemplo (placeholder)
-    detected_types.append("missing_ppe")
-
-    signals_payloads = []
-    for sig in detected_types:
-        zlabel = (req.zone_hits[0].label if req.zone_hits else None)
-        sev = choose_severity(sig, (zlabel or "").lower() if zlabel else None)
-        signals_payloads.append({
-            "site_id": req.site_id,
-            "zone_id": req.zone_hits[0].zone_id if req.zone_hits else None,
-            "camera_id": req.camera_id,
-            "ts": ts.isoformat(),
-            "type": sig,
-            "details": {"note": "placeholder logic"},
-            "frame_url": None,
-            "severity": sev  # not stored in table, returned to client only
-        })
-
-    # Insere safety_signals (sem severity na tabela; vai em details se necessário)
-    out_signals: List[SignalOut] = []
-    for sp in signals_payloads:
-        row = await insert_row("safety_signals", {
-            k: v for k, v in sp.items() if k not in ("severity",)
-        })
-        out_signals.append(SignalOut(id=row["id"], type=sp["type"], severity=sp["severity"], details=sp["details"]))
-
-    # Agrega incidente simples por chamada (exemplo):
-    max_sev = "LOW"
-    for s in out_signals:
-        if SEVERITY_ORDER[s.severity] > SEVERITY_ORDER[max_sev]:
-            max_sev = s.severity
-
-    incident = await insert_row("safety_incidents", {
-        "site_id": req.site_id,
-        "first_ts": ts.isoformat(),
-        "last_ts": ts.isoformat(),
-        "severity": max_sev,
-        "status": "open",
-        "aggregation_key": f"{req.camera_id or 'cam'}:{max_sev}:{ts.strftime('%Y%m%d%H%M')}",
-        "signals_count": len(out_signals)
-    })
-
-    return AnalyzeResponse(signals=out_signals, incident_id=incident["id"])
-
-class NotifyClip(BaseModel):
-    incident_id: str
-    clip_url: Optional[str] = None
-
-@app.post("/notify_clip")
-async def notify_clip(body: NotifyClip):
-    # Atualiza incidente com clip_url
-    async with httpx.AsyncClient(timeout=10) as client:
-        r = await client.patch(
-            f"{REST_URL}/safety_incidents?id=eq.{body.incident_id}",
-            headers={**HEADERS, "Prefer": "return=minimal"},
-            json={"clip_url": body.clip_url, "updated_at": datetime.utcnow().isoformat()},
-        )
-        if r.status_code >= 300:
-            raise HTTPException(status_code=500, detail=r.text)
-    return {"ok": True}
+@app.on_event("shutdown")
+async def shutdown_event():
+    """Cleanup on shutdown"""
+    if PIPELINE_AVAILABLE:
+        try:
+            await cleanup_yolo_client()
+        except:
+            pass
+    logger.info("SafetyVision service shutdown complete")
 
 if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=int(os.getenv("PORT", "8089")))
+    uvicorn.run(app, host="0.0.0.0", port=PORT)
