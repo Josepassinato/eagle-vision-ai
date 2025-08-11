@@ -14,15 +14,11 @@ from prometheus_client import start_http_server, generate_latest, CONTENT_TYPE_L
 import uvicorn
 import logging
 
-# Import unified metrics and pipeline
+# Import unified metrics and events
 import sys
 sys.path.append('/common_schemas')
-from common_schemas.metrics import (
-    frames_in_total, frames_processed_total, signals_emitted_total,
-    affect_events_total, affect_quality_below_threshold_total,
-    inference_seconds, frame_processing_seconds, init_service_metrics,
-    affect_infer_seconds
-)
+from common_schemas.metrics import FRAMES_IN, FRAMES_PROC, INFER_SEC, SIGNALS, init_service_metrics
+from common_schemas.events import Signal, Incident, AnalysisResponse, create_signal, create_incident
 
 try:
     from inference_pipeline import EmotionPipeline, FaceROI

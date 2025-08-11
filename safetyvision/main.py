@@ -14,14 +14,11 @@ from prometheus_client import start_http_server, generate_latest, CONTENT_TYPE_L
 import uvicorn
 import logging
 
-# Import unified metrics and pipeline
+# Import unified metrics and events
 import sys
 sys.path.append('/common_schemas')
-from common_schemas.metrics import (
-    frames_in_total, frames_processed_total, signals_emitted_total,
-    ppe_violations_total, fall_alerts_total, posture_unsafe_total,
-    inference_seconds, frame_processing_seconds, init_service_metrics
-)
+from common_schemas.metrics import FRAMES_IN, FRAMES_PROC, INFER_SEC, SIGNALS, init_service_metrics
+from common_schemas.events import Signal, Incident, AnalysisResponse, create_signal, create_incident
 
 try:
     from ppe_pipeline import SafetyVisionPipeline
@@ -111,8 +108,8 @@ class SignalOut(BaseModel):
     risk_factors: Optional[List[str]] = None
 
 class AnalyzeFrameResponse(BaseModel):
-    signals: List[SignalOut] = []
-    incidents: List[Dict[str, Any]] = []
+    signals: List[Dict[str, Any]] = []  # Will be converted to Signal format
+    incidents: List[Dict[str, Any]] = [] # Will be converted to Incident format
     telemetry: List[Dict[str, Any]] = []
 
 # Utils
@@ -157,19 +154,26 @@ def metrics():
     """Prometheus metrics endpoint"""
     return Response(generate_latest(), media_type=CONTENT_TYPE_LATEST)
 
-@app.post("/analyze_frame", response_model=AnalyzeFrameResponse)
+@app.post("/analyze_frame", response_model=AnalysisResponse)
 async def analyze_frame(req: AnalyzeFrameRequest):
     """Analyze frame for safety violations"""
     
-    with frame_processing_seconds.labels(service='safetyvision', camera_id=req.camera_id or 'unknown').time():
+    with INFER_SEC.labels(
+        service='safetyvision', 
+        org_id=req.org_id or 'unknown',
+        camera_id=req.camera_id or 'unknown',
+        model_name='safety_pipeline',
+        model_version='v1'
+    ).time():
         # Update metrics
-        frames_in_total.labels(
+        FRAMES_IN.labels(
             service='safetyvision',
             camera_id=req.camera_id or 'unknown',
             org_id=req.org_id or 'unknown'
         ).inc()
         
-        signals: List[SignalOut] = []
+        signals: List[Signal] = []
+        incidents: List[Incident] = []
         telemetry: List[Dict[str, Any]] = []
         
         # Try advanced pipeline first
@@ -196,29 +200,30 @@ async def analyze_frame(req: AnalyzeFrameRequest):
                         timestamp=req.ts
                     )
                     
-                    # Convert to API format
+                    # Convert to standardized Signal format
                     for sig in pipeline_signals:
-                        signal_out = SignalOut(
-                            type=sig['type'],
-                            severity=sig['severity'],
-                            track_id=sig.get('track_id'),
-                            details=sig.get('details', {}),
-                            confidence=sig.get('confidence'),
-                            ppe_type=sig.get('ppe_type'),
-                            risk_factors=sig.get('risk_factors')
-                        )
-                        signals.append(signal_out)
-                        
-                        # Update specific metrics
-                        signals_emitted_total.labels(
+                        signal = create_signal(
                             service='safetyvision',
-                            signal_type=sig['type'],
-                            severity=sig['severity'],
                             camera_id=req.camera_id or 'unknown',
-                            org_id=req.org_id or 'unknown'
+                            org_id=req.org_id or 'unknown',
+                            signal_type=f"ppe.{sig['type']}" if 'ppe' in sig['type'] else f"safety.{sig['type']}",
+                            severity=sig['severity'],
+                            details=sig.get('details', {}),
+                            track_id=sig.get('track_id'),
+                            confidence=sig.get('confidence')
+                        )
+                        signals.append(signal)
+                        
+                        # Update standardized metrics
+                        SIGNALS.labels(
+                            service='safetyvision',
+                            org_id=req.org_id or 'unknown',
+                            camera_id=req.camera_id or 'unknown',
+                            type=signal.type,
+                            severity=signal.severity
                         ).inc()
                     
-                    frames_processed_total.labels(
+                    FRAMES_PROC.labels(
                         service='safetyvision',
                         camera_id=req.camera_id or 'unknown',
                         org_id=req.org_id or 'unknown'
@@ -230,21 +235,41 @@ async def analyze_frame(req: AnalyzeFrameRequest):
         if not signals and req.zone_type:
             # Simple zone-based PPE requirement
             if req.zone_type in ['construction', 'industrial']:
-                # Simulate PPE violation for demo
-                signals.append(SignalOut(
-                    type='missing_ppe',
-                    severity='HIGH',
-                    track_id=req.tracks[0].track_id if req.tracks else 'unknown',
-                    details={'required_ppe': ['hardhat', 'vest'], 'zone': req.zone_type},
-                    ppe_type='hardhat'
-                ))
-                
-                ppe_violations_total.labels(
-                    ppe_type='hardhat',
+                # Create standardized PPE violation signal
+                signal = create_signal(
+                    service='safetyvision',
                     camera_id=req.camera_id or 'unknown',
                     org_id=req.org_id or 'unknown',
+                    signal_type='ppe.missing',
+                    severity='HIGH',
+                    details={
+                        'required_ppe': ['hardhat', 'vest'], 
+                        'zone': req.zone_type,
+                        'ppe_type': 'hardhat'
+                    },
+                    track_id=req.tracks[0].track_id if req.tracks else 'unknown'
+                )
+                signals.append(signal)
+                
+                SIGNALS.labels(
+                    service='safetyvision',
+                    org_id=req.org_id or 'unknown',
+                    camera_id=req.camera_id or 'unknown',
+                    type='ppe.missing',
                     severity='HIGH'
                 ).inc()
+        
+        # Create incidents from signals
+        for signal in signals:
+            incident = create_incident(
+                service='safetyvision',
+                camera_id=signal.camera_id,
+                org_id=signal.org_id,
+                incident_type=signal.type,
+                severity=signal.severity,
+                aggregation_key=f"safety:{signal.type}:{signal.camera_id}:{signal.track_id or 'none'}"
+            )
+            incidents.append(incident)
         
         # Generate telemetry
         if req.tracks:
@@ -255,17 +280,13 @@ async def analyze_frame(req: AnalyzeFrameRequest):
                     "pipeline_used": safety_pipeline is not None,
                     "bbox": track.bbox
                 })
-        
-        # Simple incident generation
-        incidents: List[Dict[str, Any]] = []
-        for s in signals:
-            incidents.append({
-                "incident_id": f"inc_{s.track_id}_{s.type}",
-                "severity": s.severity,
-                "type": s.type
-            })
     
-    return AnalyzeFrameResponse(signals=signals, incidents=incidents, telemetry=telemetry)
+    # Convert to response format
+    return AnalysisResponse(
+        signals=[signal.dict() for signal in signals],
+        incidents=[incident.dict() for incident in incidents],
+        telemetry={"tracks": telemetry}
+    )
 
 @app.on_event("shutdown")
 async def shutdown_event():
