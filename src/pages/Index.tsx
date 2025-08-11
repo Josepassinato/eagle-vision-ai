@@ -11,6 +11,7 @@ import { toast } from "@/hooks/use-toast";
 import { Send, Shield, Car, Users } from "lucide-react";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import LiveDemo from "@/components/LiveDemo";
 import { Helmet } from "react-helmet-async";
 
 const Index = () => {
@@ -96,17 +97,49 @@ const Index = () => {
       <div className="min-h-screen bg-background">
           <Navbar />
           
+          {/* Demo Section */}
+          <div className="mb-12 container mx-auto px-4">
+            <div className="text-center mb-8">
+              <h2 className="text-3xl font-bold mb-4">Veja Como Funciona em 30 Segundos</h2>
+              <p className="text-muted-foreground text-lg mb-6">
+                Demonstração ao vivo: nossa IA detectando situações em tempo real
+              </p>
+            </div>
+            <LiveDemo />
+          </div>
+
           {/* CTA para Login/Cadastro */}
-          <div className="text-center py-8 bg-primary/5 rounded-lg mb-8">
-            <h2 className="text-2xl font-bold mb-4">Comece seu teste gratuito agora</h2>
-            <p className="text-muted-foreground mb-6">100 créditos grátis + 7 dias de teste completo</p>
-            <div className="flex gap-4 justify-center">
-              <Button asChild size="lg">
-                <a href="/auth">Criar Conta Grátis</a>
-              </Button>
-              <Button variant="outline" size="lg" asChild>
-                <a href="/auth">Fazer Login</a>
-              </Button>
+          <div className="text-center py-12 bg-gradient-to-br from-primary/5 to-primary/10 rounded-xl mb-12 border border-primary/20">
+            <div className="max-w-2xl mx-auto">
+              <h2 className="text-3xl font-bold mb-4">Teste Grátis Agora - Zero Risco</h2>
+              <div className="grid md:grid-cols-3 gap-6 mb-8">
+                <div className="text-center">
+                  <div className="text-3xl mb-2">📱</div>
+                  <h4 className="font-semibold mb-1">Configuração em 5 minutos</h4>
+                  <p className="text-sm text-muted-foreground">Setup automático das suas câmeras</p>
+                </div>
+                <div className="text-center">
+                  <div className="text-3xl mb-2">⏱️</div>
+                  <h4 className="font-semibold mb-1">7 dias totalmente grátis</h4>
+                  <p className="text-sm text-muted-foreground">Cerca de 100 horas de monitoramento</p>
+                </div>
+                <div className="text-center">
+                  <div className="text-3xl mb-2">🎯</div>
+                  <h4 className="font-semibold mb-1">Alertas inteligentes</h4>
+                  <p className="text-sm text-muted-foreground">Só avisa quando é realmente importante</p>
+                </div>
+              </div>
+              <div className="flex gap-4 justify-center">
+                <Button asChild size="lg" className="text-lg px-8">
+                  <a href="/auth">Começar Teste Grátis</a>
+                </Button>
+                <Button variant="outline" size="lg" asChild className="text-lg px-8">
+                  <a href="/auth">Já Tenho Conta</a>
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground mt-4">
+                ✅ Sem cartão de crédito • ✅ Cancele quando quiser • ✅ Suporte brasileiro
+              </p>
             </div>
           </div>
       <HeroSection />
