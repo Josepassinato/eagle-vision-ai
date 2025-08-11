@@ -218,42 +218,52 @@ const LiveDemo = () => {
       </div>
 
       {/* Video Area with CCTV Effects */}
-      <div 
-        className={`relative aspect-video bg-cover bg-center overflow-hidden ${isPlaying ? 'cctv-active' : ''}`}
-        style={{
-          backgroundImage: isPlaying ? `url(${getCameraFeedImage()})` : 'linear-gradient(to bottom right, rgb(17, 24, 39), rgb(55, 65, 81))',
-          animation: isPlaying ? 'flicker 4s infinite, zoomPan 15s infinite linear' : 'none'
-        }}
-      >
+      <div className="relative aspect-video overflow-hidden bg-gray-900">
+        {/* Background Image */}
+        {isPlaying && (
+          <img 
+            src={getCameraFeedImage()} 
+            alt="Camera Feed"
+            className="absolute inset-0 w-full h-full object-cover"
+            style={{
+              animation: 'flicker 4s infinite, zoomPan 15s infinite linear'
+            }}
+          />
+        )}
+        
+        {/* Gradient overlay when not playing */}
+        {!isPlaying && (
+          <div className="absolute inset-0 bg-gradient-to-br from-gray-900 to-gray-700"></div>
+        )}
+        
         {/* CCTV Scan Lines Effect */}
         {isPlaying && (
           <>
             <div 
               className="absolute inset-0 pointer-events-none z-30"
               style={{
-                background: 'repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,255,0,0.03) 2px, rgba(0,255,0,0.03) 4px)',
+                background: 'repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,255,0,0.05) 2px, rgba(0,255,0,0.05) 4px)',
                 animation: 'scanlines 3s linear infinite'
               }}
             ></div>
             
-            {/* Static Noise Effect */}
+            {/* Static Noise Overlay */}
             <div 
-              className="absolute inset-0 pointer-events-none z-20 opacity-30"
+              className="absolute inset-0 pointer-events-none z-20 opacity-20"
               style={{
-                background: 'url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'100\' height=\'100\' viewBox=\'0 0 100 100\'%3E%3Cg fill-opacity=\'0.1\'%3E%3Cpolygon fill=\'%23000\' points=\'50 0 60 40 100 50 60 60 50 100 40 60 0 50 40 40\'/%3E%3C/g%3E%3C/svg%3E") repeat',
+                backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100' viewBox='0 0 100 100'%3E%3Cg fill-opacity='0.03'%3E%3Cpolygon fill='%23ffffff' points='50 0 60 40 100 50 60 60 50 100 40 60 0 50 40 40'/%3E%3C/g%3E%3C/svg%3E")`,
                 animation: 'staticNoise 0.1s infinite linear'
               }}
             ></div>
+            
+            {/* Dark overlay to enhance contrast */}
+            <div className="absolute inset-0 bg-black/10 z-10"></div>
           </>
         )}
-        {/* Overlay to darken image when playing */}
-        {isPlaying && (
-          <div className="absolute inset-0 bg-black/20"></div>
-        )}
         
-        <div className="absolute inset-0 flex items-center justify-center">
+        <div className="absolute inset-0 flex items-center justify-center z-40">
           {!isPlaying && currentEvents.length === 0 && (
-            <div className="text-center text-white z-10">
+            <div className="text-center text-white">
               <div className="w-20 h-20 mx-auto mb-4 rounded-full bg-green-500/20 flex items-center justify-center backdrop-blur-sm">
                 <Play className="h-8 w-8 text-green-400" />
               </div>
@@ -263,12 +273,12 @@ const LiveDemo = () => {
           )}
           
           {isPlaying && (
-            <div className="text-center text-white z-10">
+            <div className="text-center text-white">
               <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-green-500/30 flex items-center justify-center animate-pulse backdrop-blur-sm">
                 <Shield className="h-8 w-8 text-green-400" />
               </div>
-              <p className="text-lg font-semibold text-shadow">🤖 IA Analisando...</p>
-              <p className="text-sm text-gray-200 mt-2">Processando imagens em tempo real</p>
+              <p className="text-lg font-semibold drop-shadow-lg">🤖 IA Analisando...</p>
+              <p className="text-sm text-gray-200 mt-2 drop-shadow-lg">Processando imagens em tempo real</p>
             </div>
           )}
         </div>
