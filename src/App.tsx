@@ -4,6 +4,8 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import Index from "./pages/Index";
+import Setup from "./pages/Setup";
+import SimpleDashboard from "./pages/SimpleDashboard";
 import NotFound from "./pages/NotFound";
 import AdminLayout from "./layouts/AdminLayout";
 import ProtectedRoute from "./components/ProtectedRoute";
@@ -49,6 +51,8 @@ const App = () => (
           <Route path="/demo" element={<DemoPublic />} />
           <Route path="/workspace" element={<WorkspaceManager />} />
           <Route path="/edge" element={<EdgeDeviceManager />} />
+          <Route path="/setup" element={<ProtectedRoute><Setup /></ProtectedRoute>} />
+          <Route path="/dashboard-simple" element={<ProtectedRoute><SimpleDashboard /></ProtectedRoute>} />
           <Route path="/onboarding" element={<ProtectedRoute><Onboarding /></ProtectedRoute>} />
           <Route path="/admin" element={<Navigate to="/app/dashboard" replace />} />
           <Route

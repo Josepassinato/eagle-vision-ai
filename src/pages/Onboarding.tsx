@@ -122,17 +122,17 @@ const Onboarding = () => {
     } else {
       // Onboarding complete
       localStorage.setItem('onboardingCompleted', 'true');
-      navigate('/admin/dashboard');
+      navigate('/dashboard-simple');
     }
   };
 
   const handleSkipToConfig = () => {
-    navigate('/admin/config');
+    navigate('/setup');
   };
 
   const handleSkipToDashboard = () => {
     localStorage.setItem('onboardingCompleted', 'true');
-    navigate('/admin/dashboard');
+    navigate('/dashboard-simple');
   };
 
   const progress = ((currentStep + 1) / steps.length) * 100;
