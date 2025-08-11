@@ -1330,6 +1330,33 @@ export type Database = {
           },
         ]
       }
+      privacy_policies: {
+        Row: {
+          created_at: string
+          id: string
+          org_id: string
+          policy_data: Json
+          policy_name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          org_id: string
+          policy_data?: Json
+          policy_name: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          org_id?: string
+          policy_data?: Json
+          policy_name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       privacy_settings: {
         Row: {
           anonymization_mode: string
@@ -1920,6 +1947,45 @@ export type Database = {
           label?: string | null
           notes?: string | null
           plate?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      video_retention: {
+        Row: {
+          blur_enabled: boolean
+          blur_faces: boolean
+          blur_method: string
+          blur_plates: boolean
+          camera_id: string | null
+          created_at: string
+          id: string
+          org_id: string
+          retention_days: number
+          updated_at: string
+        }
+        Insert: {
+          blur_enabled?: boolean
+          blur_faces?: boolean
+          blur_method?: string
+          blur_plates?: boolean
+          camera_id?: string | null
+          created_at?: string
+          id?: string
+          org_id: string
+          retention_days?: number
+          updated_at?: string
+        }
+        Update: {
+          blur_enabled?: boolean
+          blur_faces?: boolean
+          blur_method?: string
+          blur_plates?: boolean
+          camera_id?: string | null
+          created_at?: string
+          id?: string
+          org_id?: string
+          retention_days?: number
           updated_at?: string
         }
         Relationships: []
