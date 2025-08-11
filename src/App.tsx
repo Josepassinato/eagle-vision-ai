@@ -29,6 +29,7 @@ import WorkspaceManager from "./pages/WorkspaceManager";
 import EdgeDeviceManager from "./pages/EdgeDeviceManager";
 import PrivacyCompliance from "./pages/admin/PrivacyCompliance";
 import GlobalNavActions from "./components/GlobalNavActions";
+import AIAssistant from "./components/AIAssistant";
 
 const queryClient = new QueryClient();
 
@@ -39,6 +40,7 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <GlobalNavActions />
+        <AIAssistant />
         <Routes>
           <Route path="/auth" element={<AuthPage />} />
           <Route path="/live" element={<Live />} />
