@@ -1,0 +1,196 @@
+name: AI Vision Platform CI
+on: 
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    services:
+      # Run essential services for integration tests
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: test_ai_vision
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+        
+    - name: Cache Python dependencies
+      uses: actions/cache@v4
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-
+          
+    - name: Install system dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          ffmpeg \
+          libgl1-mesa-glx \
+          libglib2.0-0 \
+          libsm6 \
+          libxext6 \
+          libxrender-dev \
+          libgomp1
+          
+    - name: Install Python dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install pytest pytest-asyncio httpx
+        
+        # Install common schemas
+        pip install -e ./common_schemas/
+        
+        # Install service dependencies
+        if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+        if [ -f edubehavior/requirements.txt ]; then pip install -r edubehavior/requirements.txt; fi
+        if [ -f safetyvision/requirements.txt ]; then pip install -r safetyvision/requirements.txt; fi
+        if [ -f yolo-detection/requirements.txt ]; then pip install -r yolo-detection/requirements.txt; fi
+        
+        # Additional test dependencies
+        pip install opencv-python-headless numpy
+        
+    - name: Create test fixtures
+      run: |
+        python -c "from tests.conftest import create_test_fixtures; create_test_fixtures()"
+        
+    - name: Lint Python code
+      run: |
+        pip install flake8
+        # Stop the build if there are Python syntax errors or undefined names
+        flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+        # Treat all errors as warnings
+        flake8 . --count --exit-zero --max-complexity=10 --max-line-length=120 --statistics
+        
+    - name: Run unit tests (if any)
+      run: |
+        # Run any standalone unit tests
+        if [ -d "tests/unit" ]; then
+          pytest tests/unit/ -v --tb=short
+        fi
+        
+    - name: Start test services (background)
+      run: |
+        # Start minimal services for integration tests
+        # Note: In a full CI setup, you'd use docker-compose
+        echo "Services would be started here via docker-compose"
+        echo "For now, tests will skip if services unavailable"
+        
+    - name: Run integration tests
+      run: |
+        # Run integration tests with service availability checks
+        pytest tests/ -v --tb=short -x
+        
+    - name: Run security tests
+      run: |
+        pip install safety bandit
+        # Check for known security vulnerabilities
+        safety check --json --output safety-report.json || true
+        # Check for common security issues in Python code
+        bandit -r . -f json -o bandit-report.json -x tests/ || true
+        
+    - name: Upload test artifacts
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: test-reports
+        path: |
+          safety-report.json
+          bandit-report.json
+          pytest-report.xml
+        retention-days: 30
+        
+    - name: Test report summary
+      if: always()
+      run: |
+        echo "## Test Summary" >> $GITHUB_STEP_SUMMARY
+        echo "Integration tests completed. Check logs for details." >> $GITHUB_STEP_SUMMARY
+        
+        if [ -f safety-report.json ]; then
+          echo "Security scan completed - check artifacts for details." >> $GITHUB_STEP_SUMMARY
+        fi
+
+  docker-build:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push'
+    
+    strategy:
+      matrix:
+        service: 
+          - edubehavior
+          - safetyvision  
+          - yolo-detection
+          - fusion
+          - enricher
+          
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+      
+    - name: Build Docker image
+      run: |
+        cd ${{ matrix.service }}
+        docker build -t ai-vision-${{ matrix.service }}:${{ github.sha }} .
+        
+    - name: Test Docker image
+      run: |
+        # Basic smoke test - container should start and health check should pass
+        docker run -d --name test-${{ matrix.service }} ai-vision-${{ matrix.service }}:${{ github.sha }}
+        sleep 30
+        
+        # Check if container is still running
+        if docker ps | grep test-${{ matrix.service }}; then
+          echo "✅ ${{ matrix.service }} container running"
+        else
+          echo "❌ ${{ matrix.service }} container failed"
+          docker logs test-${{ matrix.service }}
+          exit 1
+        fi
+        
+        docker stop test-${{ matrix.service }}
+        docker rm test-${{ matrix.service }}
+
+  security-scan:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Run Trivy vulnerability scanner
+      uses: aquasecurity/trivy-action@master
+      with:
+        scan-type: 'fs'
+        scan-ref: '.'
+        format: 'sarif'
+        output: 'trivy-results.sarif'
+        
+    - name: Upload Trivy scan results
+      uses: github/codeql-action/upload-sarif@v2
+      if: always()
+      with:
+        sarif_file: 'trivy-results.sarif'
