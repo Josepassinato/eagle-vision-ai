@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Play, Pause, Users, Shield, AlertTriangle } from "lucide-react";
+import cameraFeedImage from "@/assets/demo-camera-feed.jpg";
 
 const LiveDemo = () => {
   const [isPlaying, setIsPlaying] = useState(false);
@@ -202,11 +203,21 @@ const LiveDemo = () => {
       </div>
 
       {/* Video Area */}
-      <div className="relative aspect-video bg-gradient-to-br from-gray-900 to-gray-700">
+      <div 
+        className="relative aspect-video bg-cover bg-center"
+        style={{
+          backgroundImage: isPlaying ? `url(${cameraFeedImage})` : 'linear-gradient(to bottom right, rgb(17, 24, 39), rgb(55, 65, 81))'
+        }}
+      >
+        {/* Overlay to darken image when playing */}
+        {isPlaying && (
+          <div className="absolute inset-0 bg-black/20"></div>
+        )}
+        
         <div className="absolute inset-0 flex items-center justify-center">
           {!isPlaying && currentEvents.length === 0 && (
-            <div className="text-center text-white">
-              <div className="w-20 h-20 mx-auto mb-4 rounded-full bg-green-500/20 flex items-center justify-center">
+            <div className="text-center text-white z-10">
+              <div className="w-20 h-20 mx-auto mb-4 rounded-full bg-green-500/20 flex items-center justify-center backdrop-blur-sm">
                 <Play className="h-8 w-8 text-green-400" />
               </div>
               <p className="text-lg font-semibold mb-2">Demonstração Interativa</p>
@@ -215,12 +226,12 @@ const LiveDemo = () => {
           )}
           
           {isPlaying && (
-            <div className="text-center text-white">
-              <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-green-500/20 flex items-center justify-center animate-pulse">
+            <div className="text-center text-white z-10">
+              <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-green-500/30 flex items-center justify-center animate-pulse backdrop-blur-sm">
                 <Shield className="h-8 w-8 text-green-400" />
               </div>
-              <p className="text-lg font-semibold">🤖 IA Analisando...</p>
-              <p className="text-sm text-gray-300 mt-2">Processando imagens em tempo real</p>
+              <p className="text-lg font-semibold text-shadow">🤖 IA Analisando...</p>
+              <p className="text-sm text-gray-200 mt-2">Processando imagens em tempo real</p>
             </div>
           )}
         </div>
@@ -228,14 +239,17 @@ const LiveDemo = () => {
         {/* Overlay Information */}
         {isPlaying && (
           <>
-            <div className="absolute top-4 left-4 bg-black/70 text-white px-3 py-1 rounded text-sm">
+            <div className="absolute top-4 left-4 bg-black/70 text-white px-3 py-1 rounded text-sm z-20">
               📹 Camera 01 - Entrada Principal
             </div>
-            <div className="absolute top-4 right-4 bg-green-500 text-white px-3 py-1 rounded text-sm">
+            <div className="absolute top-4 right-4 bg-green-500 text-white px-3 py-1 rounded text-sm z-20">
               ✅ IA Ativa
             </div>
-            <div className="absolute bottom-4 left-4 bg-black/70 text-white px-3 py-1 rounded text-sm">
+            <div className="absolute bottom-4 left-4 bg-black/70 text-white px-3 py-1 rounded text-sm z-20">
               🕐 {new Date().toLocaleTimeString()}
+            </div>
+            <div className="absolute bottom-4 right-4 bg-red-500 text-white px-3 py-1 rounded text-sm z-20 animate-pulse">
+              🔴 REC
             </div>
           </>
         )}
