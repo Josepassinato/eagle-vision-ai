@@ -217,13 +217,35 @@ const LiveDemo = () => {
         </div>
       </div>
 
-      {/* Video Area */}
+      {/* Video Area with CCTV Effects */}
       <div 
-        className="relative aspect-video bg-cover bg-center"
+        className={`relative aspect-video bg-cover bg-center overflow-hidden ${isPlaying ? 'cctv-active' : ''}`}
         style={{
-          backgroundImage: isPlaying ? `url(${getCameraFeedImage()})` : 'linear-gradient(to bottom right, rgb(17, 24, 39), rgb(55, 65, 81))'
+          backgroundImage: isPlaying ? `url(${getCameraFeedImage()})` : 'linear-gradient(to bottom right, rgb(17, 24, 39), rgb(55, 65, 81))',
+          animation: isPlaying ? 'flicker 4s infinite, zoomPan 15s infinite linear' : 'none'
         }}
       >
+        {/* CCTV Scan Lines Effect */}
+        {isPlaying && (
+          <>
+            <div 
+              className="absolute inset-0 pointer-events-none z-30"
+              style={{
+                background: 'repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,255,0,0.03) 2px, rgba(0,255,0,0.03) 4px)',
+                animation: 'scanlines 3s linear infinite'
+              }}
+            ></div>
+            
+            {/* Static Noise Effect */}
+            <div 
+              className="absolute inset-0 pointer-events-none z-20 opacity-30"
+              style={{
+                background: 'url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'100\' height=\'100\' viewBox=\'0 0 100 100\'%3E%3Cg fill-opacity=\'0.1\'%3E%3Cpolygon fill=\'%23000\' points=\'50 0 60 40 100 50 60 60 50 100 40 60 0 50 40 40\'/%3E%3C/g%3E%3C/svg%3E") repeat',
+                animation: 'staticNoise 0.1s infinite linear'
+              }}
+            ></div>
+          </>
+        )}
         {/* Overlay to darken image when playing */}
         {isPlaying && (
           <div className="absolute inset-0 bg-black/20"></div>
