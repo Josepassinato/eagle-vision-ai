@@ -1,22 +1,24 @@
 """
-EduBehavior service settings using Pydantic
+EduBehavior service settings
 """
 
-import sys
-sys.path.append('/common_schemas')
+import os
+from typing import List
 
-from common_schemas import EduBehaviorSettings
-
-# Load settings with validation
-settings = EduBehaviorSettings()
-
-# Export for compatibility
-PORT = settings.port
-ALLOWED_ORIGINS = settings.allowed_origins
-SUPABASE_URL = settings.supabase_url
-SUPABASE_SERVICE_ROLE_KEY = settings.supabase_service_role_key
-EDU_NOTIFY_MIN_SEVERITY = settings.edu_notify_min_severity
+# Core settings
+PORT = int(os.getenv("PORT", "8080"))
+ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "*").split(",")
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
+EDU_NOTIFY_MIN_SEVERITY = os.getenv("EDU_NOTIFY_MIN_SEVERITY", "HIGH")
 
 # Model settings
-EMOTION_CONFIDENCE_THRESHOLD = settings.emotion_confidence_threshold
-ATTENTION_THRESHOLD = settings.attention_threshold
+EMOTION_CONFIDENCE_THRESHOLD = float(os.getenv("EMOTION_CONFIDENCE_THRESHOLD", "0.65"))
+ATTENTION_THRESHOLD = float(os.getenv("ATTENTION_THRESHOLD", "0.55"))
+
+# EMA and pipeline settings
+EDU_AFFECT_EMA_ALPHA = float(os.getenv("EDU_AFFECT_EMA_ALPHA", "0.3"))
+EDU_AFFECT_MIN_QUALITY = float(os.getenv("EDU_AFFECT_MIN_QUALITY", "0.5"))
+
+# Model path
+EMOTION_MODEL_PATH = os.getenv("EMOTION_MODEL_PATH", "/models/emotion_model.onnx")
