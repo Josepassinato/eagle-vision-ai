@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Play, Pause, Users, Shield, AlertTriangle } from "lucide-react";
@@ -40,8 +40,23 @@ const LiveDemo = () => {
 
   const [currentEvents, setCurrentEvents] = useState<any[]>([]);
   const [eventIndex, setEventIndex] = useState(0);
+  const timeoutRef = useRef<NodeJS.Timeout[]>([]);
+
+  // Cleanup function to clear all timeouts
+  const clearAllTimeouts = () => {
+    timeoutRef.current.forEach(timeout => clearTimeout(timeout));
+    timeoutRef.current = [];
+  };
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => clearAllTimeouts();
+  }, []);
 
   const startDemo = () => {
+    // Clear any existing timeouts
+    clearAllTimeouts();
+    
     setIsPlaying(true);
     setCurrentEvents([]);
     setEventIndex(0);
@@ -52,17 +67,26 @@ const LiveDemo = () => {
       if (index < events.length) {
         setCurrentEvents(prev => [...prev, events[index]]);
         setEventIndex(index + 1);
-        setTimeout(() => showNextEvent(index + 1), 2000);
+        const timeout = setTimeout(() => showNextEvent(index + 1), 2000);
+        timeoutRef.current.push(timeout);
       } else {
-        setTimeout(() => {
+        const timeout = setTimeout(() => {
           setIsPlaying(false);
           setCurrentEvents([]);
           setEventIndex(0);
         }, 3000);
+        timeoutRef.current.push(timeout);
       }
     };
     
     showNextEvent(0);
+  };
+
+  const stopDemo = () => {
+    clearAllTimeouts();
+    setIsPlaying(false);
+    setCurrentEvents([]);
+    setEventIndex(0);
   };
 
   const demo = demoScenarios[currentDemo as keyof typeof demoScenarios];
@@ -82,24 +106,28 @@ const LiveDemo = () => {
         </div>
         
         <div className="flex items-center space-x-4">
-          <Button
-            onClick={startDemo}
-            disabled={isPlaying}
-            size="sm"
-            className="bg-primary hover:bg-primary/90"
-          >
-            {isPlaying ? (
-              <>
-                <Pause className="h-4 w-4 mr-2" />
-                Executando...
-              </>
-            ) : (
-              <>
+          <div className="flex space-x-2">
+            {!isPlaying ? (
+              <Button
+                onClick={startDemo}
+                size="sm"
+                className="bg-primary hover:bg-primary/90"
+              >
                 <Play className="h-4 w-4 mr-2" />
                 Iniciar Demo
-              </>
+              </Button>
+            ) : (
+              <Button
+                onClick={stopDemo}
+                size="sm"
+                variant="outline"
+                className="bg-white/10 border-white/20 text-white hover:bg-white/20"
+              >
+                <Pause className="h-4 w-4 mr-2" />
+                Parar Demo
+              </Button>
             )}
-          </Button>
+          </div>
           
           <select
             value={currentDemo}
@@ -162,8 +190,11 @@ const LiveDemo = () => {
           
           {currentEvents.map((event, index) => (
             <div
-              key={index}
-              className="flex items-center space-x-3 p-2 bg-white rounded border animate-in slide-in-from-bottom duration-500"
+              key={`${event.type}-${index}`}
+              className="flex items-center space-x-3 p-2 bg-white rounded border transition-all duration-300 opacity-100 transform translate-y-0"
+              style={{ 
+                animation: `slideInFromBottom 0.3s ease-out ${index * 0.1}s both`
+              }}
             >
               <div className={`p-1 rounded-full text-white ${event.color}`}>
                 {event.icon}
