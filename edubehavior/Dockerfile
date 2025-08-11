@@ -26,8 +26,9 @@ RUN pip3 install --no-cache-dir -r requirements.txt
 # App code
 COPY . .
 
-# Create non-root directories
-RUN mkdir -p /tmp/edubehavior && chown -R appuser:appgroup /app /tmp/edubehavior
+# Create non-root directories  
+RUN mkdir -p /tmp/edubehavior /models && \
+    chown -R appuser:appgroup /app /tmp/edubehavior /models
 
 # Env
 ENV PORT=8080
