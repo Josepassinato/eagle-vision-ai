@@ -46,8 +46,8 @@ const startConversion = async (request: ConversionRequest): Promise<ConversionSt
   
   activeConversions.set(camera_id, status);
   
-  // Simular processo de conversão em background
-  EdgeRuntime.waitUntil(simulateConversion(camera_id));
+  // Simular processo de conversão em background (sem EdgeRuntime)
+  simulateConversion(camera_id);
   
   return status;
 };
@@ -122,14 +122,19 @@ serve(async (req) => {
   }
 
   try {
+    console.log(`Converting RTSP to HLS for ${req.method} ${req.url}`);
     const url = new URL(req.url);
     const action = url.searchParams.get('action') || 'status';
+    console.log(`Action: ${action}`);
 
     if (req.method === 'POST') {
+      console.log('Processing POST request');
       const body = await req.json();
+      console.log('Request body:', body);
 
       switch (action) {
         case 'start': {
+          console.log('Starting conversion...');
           const request: ConversionRequest = body;
           
           if (!request.rtsp_url || !request.camera_id) {
