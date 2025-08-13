@@ -109,7 +109,8 @@ serve(async (req) => {
     );
 
     const url = new URL(req.url);
-    const action = url.pathname.split('/').pop();
+    const pathParts = url.pathname.split('/');
+    const action = pathParts[pathParts.length - 1] || url.searchParams.get('action');
 
     if (req.method === 'POST') {
       let body;
@@ -139,7 +140,8 @@ serve(async (req) => {
       }
 
       switch (action) {
-        case 'test-connection': {
+        case 'test-connection':
+        case 'test': {
           const config: TestConnectionRequest = body;
           
           // Validar campos obrigatórios
@@ -166,7 +168,8 @@ serve(async (req) => {
           );
         }
 
-        case 'save-config': {
+        case 'save-config':
+        case 'save': {
           const config: DVRConfig = body;
           
           // Validar campos obrigatórios
@@ -223,7 +226,8 @@ serve(async (req) => {
           );
         }
 
-        case 'scan-network': {
+        case 'scan-network':
+        case 'scan': {
           // Scanner de rede básico para encontrar dispositivos
           const { network_range = '192.168.1' } = body;
           
@@ -278,9 +282,14 @@ serve(async (req) => {
         }
 
         default:
+          console.log(`Unknown action: ${action}, URL: ${req.url}`);
           return new Response(
-            JSON.stringify({ error: 'Ação não reconhecida' }),
-            { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            JSON.stringify({ 
+              error: 'Ação não reconhecida',
+              action: action,
+              available_actions: ['test-connection', 'save-config', 'scan-network']
+            }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           );
       }
     }
