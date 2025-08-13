@@ -2,19 +2,24 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import Hls from "hls.js";
 import { LIVE_HLS_URL } from "@/config";
 import { useRealtimeEvents } from "@/hooks/useRealtimeEvents";
+import { useRealtimeDetections } from "@/hooks/useRealtimeDetections";
 import type { RealtimeEvent } from "@/hooks/useRealtimeEvents";
 import OverlayCanvas from "@/components/OverlayCanvas";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { Button } from "@/components/ui/button";
+import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 
 const Live: React.FC = () => {
   const videoRef = useRef<HTMLVideoElement | null>(null);
-  const [cameraId, setCameraId] = useState<string>("cam-sim");
+  const [cameraId, setCameraId] = useState<string>("cam-real-01");
   const { events } = useRealtimeEvents(cameraId);
+  const { latestDetection } = useRealtimeDetections(cameraId);
   const [simulate, setSimulate] = useState(false);
   const [simEvent, setSimEvent] = useState<RealtimeEvent | null>(null);
+  const [isProcessing, setIsProcessing] = useState(false);
 
   useEffect(() => {
     const video = videoRef.current;
@@ -44,10 +49,74 @@ const Live: React.FC = () => {
     }
   }, []);
 
-  // Último evento da câmera (do Realtime)
+  // Convert real detection to event format for overlay
+  const realEvent = useMemo(() => {
+    if (!latestDetection) return null;
+    
+    return {
+      camera_id: latestDetection.camera_id,
+      bbox: latestDetection.bbox,
+      label: latestDetection.detection_type,
+      conf: latestDetection.confidence,
+      ts: latestDetection.created_at,
+      reason: `${latestDetection.service} detection`
+    } as RealtimeEvent;
+  }, [latestDetection]);
+
+  // Último evento da câmera (do Realtime legacy)
   const lastForCam = useMemo(() => {
     return events.length ? events[events.length - 1] : null;
   }, [events]);
+
+  const startProcessing = async () => {
+    try {
+      setIsProcessing(true);
+      
+      const { data, error } = await supabase.functions.invoke('stream-start', {
+        body: {
+          camera_id: cameraId,
+          stream_url: LIVE_HLS_URL,
+          analytics_enabled: ['people_detection', 'vehicle_detection', 'safety_monitoring']
+        }
+      });
+
+      if (error) throw error;
+      
+      toast({
+        title: "Processamento iniciado",
+        description: `Análise em tempo real ativa para ${cameraId}`
+      });
+    } catch (error) {
+      toast({
+        title: "Erro ao iniciar processamento",
+        description: String(error),
+        variant: "destructive"
+      });
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const stopProcessing = async () => {
+    try {
+      const { data, error } = await supabase.functions.invoke('stream-stop', {
+        body: { camera_id: cameraId }
+      });
+
+      if (error) throw error;
+      
+      toast({
+        title: "Processamento parado",
+        description: `Análise pausada para ${cameraId}`
+      });
+    } catch (error) {
+      toast({
+        title: "Erro ao parar processamento", 
+        description: String(error),
+        variant: "destructive"
+      });
+    }
+  };
 
   // Simulação de detecções (caixas aleatórias)
   useEffect(() => {
@@ -71,7 +140,7 @@ const Live: React.FC = () => {
     return () => clearInterval(interval);
   }, [simulate, cameraId]);
 
-  const eventToShow = simulate ? simEvent : lastForCam;
+  const eventToShow = simulate ? simEvent : realEvent || lastForCam;
 
   return (
     <main className="container mx-auto px-6 py-10">
@@ -83,9 +152,19 @@ const Live: React.FC = () => {
       <section className="mb-4 flex items-center gap-4 flex-wrap">
         <div className="flex items-center gap-2">
           <label className="text-sm text-muted-foreground" htmlFor="camera">camera_id</label>
-          <Input id="camera" value={cameraId} onChange={(e) => setCameraId(e.target.value)} className="w-[220px]" placeholder="cam-sim" />
+          <Input id="camera" value={cameraId} onChange={(e) => setCameraId(e.target.value)} className="w-[220px]" placeholder="cam-real-01" />
         </div>
-        <div className="text-xs text-muted-foreground">Eventos desta câmera: {events.length}</div>
+        <div className="text-xs text-muted-foreground">
+          Detecções reais: {latestDetection ? '✅' : '❌'} | Eventos legacy: {events.length}
+        </div>
+        <div className="flex items-center gap-2">
+          <Button onClick={startProcessing} disabled={isProcessing} size="sm">
+            {isProcessing ? "Iniciando..." : "Iniciar Análise"}
+          </Button>
+          <Button onClick={stopProcessing} variant="outline" size="sm">
+            Parar
+          </Button>
+        </div>
         <div className="ml-auto flex items-center gap-2">
           <Label htmlFor="sim">Simular detecções</Label>
           <Switch id="sim" checked={simulate} onCheckedChange={setSimulate} />

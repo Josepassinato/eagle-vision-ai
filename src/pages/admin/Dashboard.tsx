@@ -5,11 +5,75 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 export default function Dashboard() {
   const [balance, setBalance] = useState<number | null>(null);
+  const [stats, setStats] = useState({
+    people24h: 0,
+    vehicles24h: 0,
+    avgLatency: 0,
+    camerasOnline: 0
+  });
+
   useEffect(() => {
+    // Load credit balance
     supabase.from("credit_ledger").select("delta").then(({ data, error }) => {
       if (!error && data) setBalance(data.reduce((sum: number, r: any) => sum + (r.delta || 0), 0));
     });
+
+    // Load real analytics data
+    loadAnalytics();
+    
+    // Setup realtime subscriptions
+    const frameAnalysisSubscription = supabase
+      .channel('frame_analysis_changes')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'frame_analysis' }, () => {
+        loadAnalytics();
+      })
+      .subscribe();
+
+    return () => {
+      frameAnalysisSubscription.unsubscribe();
+    };
   }, []);
+
+  const loadAnalytics = async () => {
+    const last24h = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+
+    // Get people count from last 24h
+    const { data: peopleData } = await supabase
+      .from('detections')
+      .select('id')
+      .eq('detection_type', 'person')
+      .gte('created_at', last24h);
+
+    // Get vehicle count from last 24h  
+    const { data: vehicleData } = await supabase
+      .from('detections')
+      .select('id')
+      .in('detection_type', ['car', 'truck', 'motorcycle', 'bus'])
+      .gte('created_at', last24h);
+
+    // Get average processing latency
+    const { data: latencyData } = await supabase
+      .from('frame_analysis')
+      .select('processing_time_ms')
+      .gte('created_at', last24h);
+
+    // Get online cameras
+    const { data: cameraData } = await supabase
+      .from('cameras')
+      .select('id')
+      .eq('online', true);
+
+    const avgLatency = latencyData && latencyData.length > 0 
+      ? Math.round(latencyData.reduce((sum, r) => sum + r.processing_time_ms, 0) / latencyData.length)
+      : 0;
+
+    setStats({
+      people24h: peopleData?.length || 0,
+      vehicles24h: vehicleData?.length || 0,
+      avgLatency,
+      camerasOnline: cameraData?.length || 0
+    });
+  };
   return (
     <div className="space-y-6">
       <Card className="shadow-primary">
@@ -32,8 +96,8 @@ export default function Dashboard() {
             <CardTitle>Pessoas (24h)</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">--</div>
-            <p className="text-sm text-muted-foreground">por câmera</p>
+            <div className="text-3xl font-bold">{stats.people24h}</div>
+            <p className="text-sm text-muted-foreground">detecções</p>
           </CardContent>
         </Card>
         <Card className="shadow-primary">
@@ -41,8 +105,8 @@ export default function Dashboard() {
             <CardTitle>Veículos (24h)</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">--</div>
-            <p className="text-sm text-muted-foreground">por câmera</p>
+            <div className="text-3xl font-bold">{stats.vehicles24h}</div>
+            <p className="text-sm text-muted-foreground">detecções</p>
           </CardContent>
         </Card>
         <Card className="shadow-primary">
@@ -50,8 +114,8 @@ export default function Dashboard() {
             <CardTitle>Latência média</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">--</div>
-            <p className="text-sm text-muted-foreground">Prometheus</p>
+            <div className="text-3xl font-bold">{stats.avgLatency}ms</div>
+            <p className="text-sm text-muted-foreground">processamento</p>
           </CardContent>
         </Card>
         <Card className="shadow-primary">
@@ -59,8 +123,8 @@ export default function Dashboard() {
             <CardTitle>Câmeras online</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">--</div>
-            <p className="text-sm text-muted-foreground">status</p>
+            <div className="text-3xl font-bold">{stats.camerasOnline}</div>
+            <p className="text-sm text-muted-foreground">ativas</p>
           </CardContent>
         </Card>
       </div>
