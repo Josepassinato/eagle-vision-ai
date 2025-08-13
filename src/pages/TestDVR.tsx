@@ -193,11 +193,8 @@ const TestDVR = () => {
     setTestResult(null);
     
     try {
-      const { data, error } = await supabase.functions.invoke('dvr-manager', {
-        body: {
-          ...formData,
-          action: 'test-connection'
-        }
+      const { data, error } = await supabase.functions.invoke('dvr-manager/test-connection', {
+        body: formData
       });
 
       if (error) throw error;
@@ -245,11 +242,8 @@ const TestDVR = () => {
     setLoading(true);
     
     try {
-      const { data, error } = await supabase.functions.invoke('dvr-manager', {
-        body: {
-          ...formData,
-          action: 'save-config'
-        }
+      const { data, error } = await supabase.functions.invoke('dvr-manager/save-config', {
+        body: formData
       });
 
       if (error) throw error;
@@ -284,11 +278,8 @@ const TestDVR = () => {
     setDevices([]);
     
     try {
-      const { data, error } = await supabase.functions.invoke('dvr-manager', {
-        body: {
-          network_range: "192.168.1",
-          action: 'scan-network'
-        }
+      const { data, error } = await supabase.functions.invoke('dvr-manager/scan-network', {
+        body: { network_range: "192.168.1" }
       });
 
       if (error) throw error;
