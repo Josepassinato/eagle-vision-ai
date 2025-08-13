@@ -2,387 +2,217 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { Helmet } from "react-helmet-async";
+import { IPCameraSetup } from "@/components/IPCameraSetup";
 import { 
   Camera, 
   Wifi, 
   CheckCircle, 
-  Search, 
-  Monitor,
-  Router,
-  Smartphone,
   ArrowRight,
-  RefreshCw
+  Plus,
+  Trash2
 } from "lucide-react";
 
 const Setup = () => {
   const [currentStep, setCurrentStep] = useState(0);
-  const [isScanning, setIsScanning] = useState(false);
-  const [foundCameras, setFoundCameras] = useState<any[]>([]);
-  const [selectedCameras, setSelectedCameras] = useState<string[]>([]);
+  const [savedCameras, setSavedCameras] = useState<any[]>([]);
   const navigate = useNavigate();
   const { toast } = useToast();
 
   const steps = [
-    { id: "scan", title: "Buscar Câmeras", icon: <Search className="h-6 w-6" /> },
-    { id: "select", title: "Selecionar Câmeras", icon: <Camera className="h-6 w-6" /> },
+    { id: "manual", title: "Configurar Câmeras", icon: <Camera className="h-6 w-6" /> },
     { id: "test", title: "Testar Conexão", icon: <Wifi className="h-6 w-6" /> },
     { id: "complete", title: "Finalizar", icon: <CheckCircle className="h-6 w-6" /> },
   ];
 
-  const startScan = async () => {
-    setIsScanning(true);
-    toast({
-      title: "Buscando câmeras...",
-      description: "Procurando dispositivos na sua rede",
-    });
+  useEffect(() => {
+    loadSavedCameras();
+  }, []);
 
+  const loadSavedCameras = async () => {
     try {
-      // Usar edge function real para buscar câmeras IP
-      const { data, error } = await supabase.functions.invoke('ip-camera-manager', {
-        body: { action: 'scan-network', networkRange: '192.168.1.0/24' }
-      });
-
+      const { data, error } = await supabase.functions.invoke('ip-camera-manager');
+      
       if (error) throw error;
-
-      const cameras = data.devices?.map((device: any, index: number) => ({
-        id: `cam_${String(index + 1).padStart(3, '0')}`,
-        name: `Câmera ${device.brand || 'IP'} ${device.ip}`,
-        ip: device.ip,
-        brand: device.brand || 'Desconhecido',
-        status: device.ports?.includes(80) || device.ports?.includes(554) ? 'online' : 'offline'
-      })) || [];
-
-      setFoundCameras(cameras);
-      setIsScanning(false);
-      setCurrentStep(1);
       
+      setSavedCameras(data.data || []);
+    } catch (error) {
+      console.error('Erro ao carregar câmeras:', error);
+    }
+  };
+
+  const handleCameraAdded = (camera: any) => {
+    setSavedCameras(prev => [...prev, camera]);
+    if (savedCameras.length === 0) {
       toast({
-        title: "Busca concluída! 📹",
-        description: `Encontramos ${cameras.length} dispositivos na sua rede`,
+        title: "Primeira câmera adicionada! 🎉",
+        description: "Agora você pode testar a conexão ou adicionar mais câmeras",
+      });
+    }
+  };
+
+  const deleteCamera = async (cameraId: string) => {
+    try {
+      const { error } = await supabase
+        .from('ip_cameras')
+        .delete()
+        .eq('id', cameraId);
+      
+      if (error) throw error;
+      
+      setSavedCameras(prev => prev.filter(cam => cam.id !== cameraId));
+      toast({
+        title: "Câmera removida",
+        description: "A câmera foi removida da configuração",
       });
     } catch (error) {
-      console.error('Erro ao buscar câmeras:', error);
-      setIsScanning(false);
+      console.error('Erro ao remover câmera:', error);
       toast({
-        title: "Erro na busca",
-        description: "Não foi possível buscar câmeras na rede",
+        title: "Erro",
+        description: "Não foi possível remover a câmera",
         variant: "destructive"
       });
     }
   };
 
-  const toggleCamera = (cameraId: string) => {
-    setSelectedCameras(prev => 
-      prev.includes(cameraId) 
-        ? prev.filter(id => id !== cameraId)
-        : [...prev, cameraId]
-    );
-  };
+  const finishSetup = () => {
+    if (savedCameras.length === 0) {
+      toast({
+        title: "Atenção",
+        description: "Adicione pelo menos uma câmera antes de finalizar",
+        variant: "destructive"
+      });
+      return;
+    }
 
-  const testCameras = async () => {
-    setCurrentStep(2);
+    localStorage.setItem('setupCompleted', 'true');
+    
     toast({
-      title: "Testando conexões...",
-      description: "Verificando se as câmeras estão funcionando",
+      title: "Configuração concluída! 🎉",
+      description: "Redirecionando para seu painel...",
     });
 
-    try {
-      const selectedCameraData = foundCameras.filter(cam => selectedCameras.includes(cam.id));
-      const testResults = [];
-
-      for (const camera of selectedCameraData) {
-        const { data, error } = await supabase.functions.invoke('ip-camera-manager', {
-          body: {
-            action: 'test-connection',
-            config: {
-              name: camera.name,
-              ip_address: camera.ip,
-              brand: camera.brand,
-              port: 80,
-              username: 'admin',
-              password: 'admin123'
-            }
-          }
-        });
-
-        testResults.push({
-          camera: camera.name,
-          success: !error && data?.httpTest?.success
-        });
-      }
-
-      setCurrentStep(3);
-      toast({
-        title: "Teste concluído! ✅",
-        description: `${testResults.filter(r => r.success).length}/${testResults.length} câmeras conectadas`,
-      });
-    } catch (error) {
-      console.error('Erro ao testar câmeras:', error);
-      toast({
-        title: "Erro no teste",
-        description: "Não foi possível testar todas as conexões",
-        variant: "destructive"
-      });
-      setCurrentStep(3); // Continuar mesmo com erro
-    }
+    setTimeout(() => {
+      navigate('/dashboard-simple');
+    }, 1500);
   };
 
-  const finishSetup = async () => {
-    try {
-      const selectedCameraData = foundCameras.filter(cam => selectedCameras.includes(cam.id));
-      
-      // Salvar câmeras na base de dados
-      for (const camera of selectedCameraData) {
-        await supabase.functions.invoke('ip-camera-manager', {
-          body: {
-            action: 'save-config',
-            config: {
-              name: camera.name,
-              ip_address: camera.ip,
-              brand: camera.brand,
-              port: 80,
-              username: 'admin',
-              password: 'admin123'
-            }
-          }
-        });
-      }
-
-      localStorage.setItem('setupCompleted', 'true');
-      
-      toast({
-        title: "Configuração salva! 🎉",
-        description: "Redirecionando para seu painel...",
-      });
-
-      setTimeout(() => {
-        navigate('/dashboard-simple');
-      }, 1500);
-    } catch (error) {
-      console.error('Erro ao salvar configuração:', error);
-      toast({
-        title: "Erro ao salvar",
-        description: "Não foi possível salvar a configuração",
-        variant: "destructive"
-      });
-    }
-  };
-
-  const progress = ((currentStep + 1) / steps.length) * 100;
+  const progress = savedCameras.length > 0 ? 100 : 50;
 
   return (
     <>
       <Helmet>
-        <title>Configuração Automática - Visão de Águia</title>
-        <meta name="description" content="Configure suas câmeras automaticamente em poucos cliques" />
+        <title>Configuração de Câmeras - Visão de Águia</title>
+        <meta name="description" content="Configure suas câmeras IP manualmente com dados precisos" />
       </Helmet>
       
       <div className="min-h-screen bg-gradient-to-br from-background via-background/95 to-primary/5 p-4">
-        <div className="max-w-4xl mx-auto">
+        <div className="max-w-6xl mx-auto">
           {/* Header */}
           <div className="text-center mb-8">
-            <h1 className="text-3xl font-bold mb-2">Configuração Automática de Câmeras</h1>
+            <h1 className="text-3xl font-bold mb-2">Configuração de Câmeras IP</h1>
             <p className="text-muted-foreground text-lg">
-              Vamos encontrar e conectar suas câmeras automaticamente
+              Configure suas câmeras IP manualmente com seus dados de rede
             </p>
           </div>
 
           {/* Progress */}
           <div className="mb-8">
-            <div className="flex items-center justify-between mb-4">
-              {steps.map((step, index) => (
-                <div key={step.id} className="flex items-center">
-                  <div className={`flex items-center justify-center w-10 h-10 rounded-full border-2 ${
-                    index <= currentStep 
-                      ? 'bg-primary text-primary-foreground border-primary' 
-                      : 'border-gray-300 text-gray-400'
-                  }`}>
-                    {index < currentStep ? <CheckCircle className="h-5 w-5" /> : step.icon}
-                  </div>
-                  <span className={`ml-2 text-sm font-medium ${
-                    index <= currentStep ? 'text-foreground' : 'text-muted-foreground'
-                  }`}>
-                    {step.title}
-                  </span>
-                  {index < steps.length - 1 && (
-                    <div className={`w-16 h-1 mx-4 rounded ${
-                      index < currentStep ? 'bg-primary' : 'bg-gray-200'
-                    }`} />
-                  )}
-                </div>
-              ))}
+            <div className="flex items-center justify-center mb-4">
+              <div className={`flex items-center justify-center w-10 h-10 rounded-full border-2 ${
+                savedCameras.length > 0 
+                  ? 'bg-primary text-primary-foreground border-primary' 
+                  : 'border-gray-300 text-gray-400'
+              }`}>
+                <Camera className="h-5 w-5" />
+              </div>
+              <span className="ml-3 text-lg font-medium">
+                {savedCameras.length > 0 ? `${savedCameras.length} câmera(s) configurada(s)` : 'Configure suas câmeras'}
+              </span>
             </div>
             <Progress value={progress} className="h-2" />
           </div>
 
           {/* Content */}
-          <Card className="shadow-xl">
-            <CardContent className="p-8">
-              {/* Step 0: Scan */}
-              {currentStep === 0 && (
-                <div className="text-center space-y-6">
-                  <div className="text-6xl mb-4">🔍</div>
-                  <div>
-                    <h2 className="text-2xl font-bold mb-2">Buscar Câmeras na Rede</h2>
-                    <p className="text-muted-foreground mb-6">
-                      Vamos procurar automaticamente por câmeras IP na sua rede local
-                    </p>
+          <div className="grid lg:grid-cols-2 gap-8">
+            {/* Configuração */}
+            <div>
+              <IPCameraSetup onCameraAdded={handleCameraAdded} />
+            </div>
+
+            {/* Câmeras Salvas */}
+            <div>
+              <Card>
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-lg font-semibold">Câmeras Configuradas</h3>
+                    <span className="text-sm text-muted-foreground">
+                      {savedCameras.length} câmera(s)
+                    </span>
                   </div>
                   
-                  <div className="grid md:grid-cols-3 gap-4 mb-8">
-                    <div className="text-center p-4 border rounded-lg">
-                      <Router className="h-8 w-8 mx-auto mb-2 text-blue-500" />
-                      <h4 className="font-semibold mb-1">Rede Local</h4>
-                      <p className="text-sm text-muted-foreground">Scaneia 192.168.x.x</p>
+                  {savedCameras.length === 0 ? (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <Camera className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                      <p>Nenhuma câmera configurada ainda</p>
+                      <p className="text-sm">Adicione uma câmera ao lado para começar</p>
                     </div>
-                    <div className="text-center p-4 border rounded-lg">
-                      <Camera className="h-8 w-8 mx-auto mb-2 text-green-500" />
-                      <h4 className="font-semibold mb-1">Câmeras IP</h4>
-                      <p className="text-sm text-muted-foreground">Hikvision, Dahua, Intelbras</p>
-                    </div>
-                    <div className="text-center p-4 border rounded-lg">
-                      <Monitor className="h-8 w-8 mx-auto mb-2 text-purple-500" />
-                      <h4 className="font-semibold mb-1">Auto-Config</h4>
-                      <p className="text-sm text-muted-foreground">Configuração automática</p>
-                    </div>
-                  </div>
-
-                  {!isScanning ? (
-                    <Button onClick={startScan} size="lg" className="text-lg px-8">
-                      <Search className="h-5 w-5 mr-2" />
-                      Buscar Câmeras Automaticamente
-                    </Button>
                   ) : (
-                    <div className="space-y-4">
-                      <div className="flex items-center justify-center">
-                        <RefreshCw className="h-8 w-8 animate-spin text-primary mr-3" />
-                        <span className="text-lg">Procurando câmeras...</span>
-                      </div>
-                      <p className="text-sm text-muted-foreground">
-                        Isso pode levar alguns segundos...
-                      </p>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Step 1: Select Cameras */}
-              {currentStep === 1 && (
-                <div className="space-y-6">
-                  <div className="text-center mb-6">
-                    <h2 className="text-2xl font-bold mb-2">Câmeras Encontradas! 📹</h2>
-                    <p className="text-muted-foreground">
-                      Selecione quais câmeras você quer usar para monitoramento
-                    </p>
-                  </div>
-
-                  <div className="space-y-3">
-                    {foundCameras.map((camera) => (
-                      <div 
-                        key={camera.id}
-                        className={`p-4 border-2 rounded-lg cursor-pointer transition-all ${
-                          selectedCameras.includes(camera.id)
-                            ? 'border-primary bg-primary/5'
-                            : 'border-gray-200 hover:border-primary/50'
-                        }`}
-                        onClick={() => toggleCamera(camera.id)}
-                      >
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center space-x-4">
+                    <div className="space-y-3">
+                      {savedCameras.map((camera) => (
+                        <div 
+                          key={camera.id}
+                          className="p-4 border rounded-lg flex items-center justify-between"
+                        >
+                          <div className="flex items-center space-x-3">
                             <div className={`p-2 rounded-lg ${
                               camera.status === 'online' ? 'bg-green-100' : 'bg-red-100'
                             }`}>
-                              <Camera className={`h-5 w-5 ${
+                              <Camera className={`h-4 w-4 ${
                                 camera.status === 'online' ? 'text-green-600' : 'text-red-600'
                               }`} />
                             </div>
                             <div>
-                              <h4 className="font-semibold">{camera.name}</h4>
+                              <h4 className="font-medium">{camera.name}</h4>
                               <p className="text-sm text-muted-foreground">
-                                {camera.brand} • {camera.ip}
+                                {camera.brand} • {camera.ip_address}
                               </p>
                             </div>
                           </div>
-                          <div className="flex items-center space-x-2">
-                            <Badge variant={camera.status === 'online' ? 'default' : 'destructive'}>
-                              {camera.status === 'online' ? '✅ Online' : '❌ Offline'}
-                            </Badge>
-                            {selectedCameras.includes(camera.id) && (
-                              <CheckCircle className="h-5 w-5 text-primary" />
-                            )}
+                          
+                          <div className="flex items-center gap-2">
+                            <div className={`w-2 h-2 rounded-full ${
+                              camera.status === 'online' ? 'bg-green-500' : 'bg-red-500'
+                            }`} />
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => deleteCamera(camera.id)}
+                              className="text-red-600 hover:text-red-700"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
                           </div>
                         </div>
-                      </div>
-                    ))}
-                  </div>
-
-                  <div className="flex justify-between pt-6">
-                    <Button variant="outline" onClick={() => setCurrentStep(0)}>
-                      Buscar Novamente
-                    </Button>
-                    <Button 
-                      onClick={testCameras}
-                      disabled={selectedCameras.length === 0}
-                      className="flex items-center"
-                    >
-                      Testar Câmeras Selecionadas
-                      <ArrowRight className="h-4 w-4 ml-2" />
-                    </Button>
-                  </div>
-                </div>
-              )}
-
-              {/* Step 2: Test Connection */}
-              {currentStep === 2 && (
-                <div className="text-center space-y-6">
-                  <div className="text-6xl mb-4">⚡</div>
-                  <div>
-                    <h2 className="text-2xl font-bold mb-2">Testando Conexões</h2>
-                    <p className="text-muted-foreground mb-6">
-                      Verificando se as câmeras estão transmitindo corretamente...
-                    </p>
-                  </div>
-                  
-                  <div className="flex items-center justify-center">
-                    <RefreshCw className="h-8 w-8 animate-spin text-primary mr-3" />
-                    <span className="text-lg">Conectando às câmeras...</span>
-                  </div>
-                </div>
-              )}
-
-              {/* Step 3: Complete */}
-              {currentStep === 3 && (
-                <div className="text-center space-y-6">
-                  <div className="text-6xl mb-4">🎉</div>
-                  <div>
-                    <h2 className="text-2xl font-bold mb-2">Tudo Funcionando!</h2>
-                    <p className="text-muted-foreground mb-6">
-                      Suas câmeras estão conectadas e a IA já está analisando
-                    </p>
-                  </div>
-                  
-                  <div className="bg-green-50 border border-green-200 rounded-lg p-6 mb-6">
-                    <h4 className="font-semibold text-green-800 mb-3">✅ Configuração Concluída:</h4>
-                    <div className="text-green-700 text-sm space-y-1">
-                      <p>• {selectedCameras.length} câmera(s) conectada(s)</p>
-                      <p>• IA de detecção ativada</p>
-                      <p>• Alertas em tempo real configurados</p>
-                      <p>• Gravação automática de eventos ativa</p>
+                      ))}
                     </div>
-                  </div>
+                  )}
 
-                  <Button onClick={finishSetup} size="lg" className="text-lg px-8">
-                    🚀 Ver Meu Painel de Monitoramento
-                  </Button>
-                </div>
-              )}
-            </CardContent>
-          </Card>
+                  {savedCameras.length > 0 && (
+                    <div className="mt-6 pt-6 border-t">
+                      <Button onClick={finishSetup} className="w-full" size="lg">
+                        <CheckCircle className="h-5 w-5 mr-2" />
+                        Finalizar Configuração
+                      </Button>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          </div>
         </div>
       </div>
     </>
