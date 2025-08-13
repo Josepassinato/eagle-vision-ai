@@ -323,7 +323,13 @@ export default function Config() {
                   <p className="text-muted-foreground mb-4">
                     Configure câmeras IP ou DVRs para começar a usar analytics
                   </p>
-                  <Button variant="outline">
+                  <Button 
+                    variant="outline"
+                    onClick={() => {
+                      const dvrTab = document.querySelector('[value="dvr"]') as HTMLElement;
+                      if (dvrTab) dvrTab.click();
+                    }}
+                  >
                     Ir para DVR/NVR
                   </Button>
                 </div>
