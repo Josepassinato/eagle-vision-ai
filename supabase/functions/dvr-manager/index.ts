@@ -296,21 +296,23 @@ serve(async (req) => {
     }
 
     if (req.method === 'GET') {
-      // Listar configurações DVR
+      // Listar configurações DVR - usar service role para bypass de RLS
       const { data, error } = await supabase
         .from('dvr_configs')
         .select('*')
         .order('created_at', { ascending: false });
 
       if (error) {
+        console.error('GET Error:', error);
         return new Response(
           JSON.stringify({ success: false, error: error.message }),
           { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
 
+      console.log('GET Success - Found configs:', data?.length || 0);
       return new Response(
-        JSON.stringify({ success: true, configs: data }),
+        JSON.stringify({ success: true, configs: data || [] }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
