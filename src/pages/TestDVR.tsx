@@ -43,6 +43,59 @@ const TestDVR = () => {
     name: ""
   });
 
+  // Streams de demonstração públicos disponíveis
+  const demoStreams = [
+    {
+      name: "IPVM Demo Camera (Live)",
+      host: "ipvmdemo.dyndns.org",
+      port: 5541,
+      username: "demo",
+      password: "demo",
+      protocol: "generic",
+      description: "Câmera real com placa de teste e relógio ao vivo",
+      url: "rtsp://demo:demo@ipvmdemo.dyndns.org:5541/onvif-media/media.amp?profile=profile_1_h264&sessiontimeout=60&streamtype=unicast"
+    },
+    {
+      name: "Wowza Test Stream",
+      host: "www.wowza.com",
+      port: 1935,
+      username: "",
+      password: "",
+      protocol: "generic", 
+      description: "Stream de teste estático da Wowza",
+      url: "rtsp://wowzaec2demo.streamlock.net/vod/mp4:BigBuckBunny_115k.mov"
+    },
+    {
+      name: "Hikvision Demo Pattern",
+      host: "demo.hikvision.com",
+      port: 554,
+      username: "admin",
+      password: "12345",
+      protocol: "hikvision",
+      description: "Exemplo de configuração Hikvision (pode não estar ativo)",
+      url: "rtsp://admin:12345@demo.hikvision.com:554/Streaming/channels/101"
+    }
+  ];
+
+  const loadDemoStream = (demo: any) => {
+    setFormData({
+      name: demo.name,
+      protocol: demo.protocol,
+      host: demo.host,
+      port: demo.port,
+      username: demo.username,
+      password: demo.password,
+      channel: 1,
+      stream_quality: "main",
+      transport_protocol: "tcp"
+    });
+    
+    toast({
+      title: "Demo carregado!",
+      description: `Configuração ${demo.name} foi carregada no formulário`,
+    });
+  };
+
   const testConnection = async () => {
     setLoading(true);
     setTestResult(null);
@@ -214,7 +267,7 @@ const TestDVR = () => {
         </div>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-2">
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
         {/* Formulário de Teste */}
         <Card>
           <CardHeader>
@@ -343,7 +396,59 @@ const TestDVR = () => {
           </CardContent>
         </Card>
 
-        {/* Dispositivos Encontrados */}
+        {/* Streams de Demonstração */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Wifi className="w-5 h-5" />
+              Streams de Demonstração
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <p className="text-sm text-muted-foreground mb-4">
+              Streams públicos disponíveis para teste:
+            </p>
+            {demoStreams.map((demo, index) => (
+              <div key={index} className="border rounded-lg p-4 space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="font-medium">{demo.name}</div>
+                  <Button 
+                    size="sm" 
+                    variant="outline"
+                    onClick={() => loadDemoStream(demo)}
+                  >
+                    Usar
+                  </Button>
+                </div>
+                <div className="text-sm text-muted-foreground">
+                  {demo.description}
+                </div>
+                <div className="text-xs font-mono bg-muted p-2 rounded break-all">
+                  {demo.url}
+                </div>
+                <div className="flex gap-1 flex-wrap">
+                  <Badge variant="outline" className="text-xs">
+                    {demo.host}:{demo.port}
+                  </Badge>
+                  {demo.username && (
+                    <Badge variant="outline" className="text-xs">
+                      {demo.username}:{demo.password || "***"}
+                    </Badge>
+                  )}
+                </div>
+              </div>
+            ))}
+            
+            <Alert>
+              <AlertDescription className="text-sm">
+                <strong>Dica:</strong> O stream do IPVM é uma câmera real ao vivo com placas de teste e relógio. 
+                É a melhor opção para testar funcionalidades em tempo real.
+              </AlertDescription>
+            </Alert>
+          </CardContent>
+        </Card>
+
+        {/* Dispositivos Encontrados e Configurações Salvas */}
         <div className="space-y-6">
           {devices.length > 0 && (
             <Card>
