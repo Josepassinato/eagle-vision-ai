@@ -52,7 +52,7 @@ const Onboarding = () => {
     {
       id: "use_case",
       title: "O que você quer proteger?",
-      description: "Escolha seu tipo de negócio para configurarmos automaticamente os alertas certos para você.",
+      description: "Escolha seu tipo de negócio para personalizarmos os alertas mais relevantes para você.",
       icon: <Shield className="h-8 w-8 text-primary" />,
     },
     {
@@ -64,9 +64,9 @@ const Onboarding = () => {
     {
       id: "setup",
       title: "Conectar suas Câmeras",
-      description: "Vamos encontrar e conectar suas câmeras automaticamente. Super simples!",
+      description: "Configure manualmente suas câmeras IP ou DVR seguindo nosso guia passo a passo.",
       icon: <Camera className="h-8 w-8 text-primary" />,
-      action: "Buscar Câmeras",
+      action: "Configurar Câmeras",
     },
     {
       id: "complete",
@@ -210,10 +210,10 @@ const Onboarding = () => {
               )}
 
               {currentStep === 1 && (
-                <div className="space-y-6">
-                  <p className="text-center text-muted-foreground mb-6">
-                    Escolha o que melhor descreve seu negócio para configurarmos automaticamente:
-                  </p>
+                  <div className="space-y-6">
+                   <p className="text-center text-muted-foreground mb-6">
+                     Escolha o que melhor descreve seu negócio para personalizarmos os alertas:
+                   </p>
                   <div className="grid md:grid-cols-2 gap-4">
                     <button
                       onClick={() => setSelectedUseCase("retail")}
@@ -296,17 +296,17 @@ const Onboarding = () => {
                     </button>
                   </div>
                   
-                  {selectedUseCase && (
-                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mt-4">
-                      <h4 className="font-semibold text-blue-800 mb-2">✨ Configuração Automática</h4>
-                      <p className="text-blue-700 text-sm">
-                        Perfeito! Vamos configurar automaticamente os alertas e detecções 
-                        mais importantes para {selectedUseCase === "retail" ? "comércio" : 
-                        selectedUseCase === "office" ? "escritório" : 
-                        selectedUseCase === "industry" ? "indústria" : "educação"}.
-                      </p>
-                    </div>
-                  )}
+                   {selectedUseCase && (
+                     <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mt-4">
+                       <h4 className="font-semibold text-blue-800 mb-2">✨ Perfil Selecionado</h4>
+                       <p className="text-blue-700 text-sm">
+                         Perfeito! Vamos personalizar os alertas e detecções 
+                         mais importantes para {selectedUseCase === "retail" ? "comércio" : 
+                         selectedUseCase === "office" ? "escritório" : 
+                         selectedUseCase === "industry" ? "indústria" : "educação"}.
+                       </p>
+                     </div>
+                   )}
                 </div>
               )}
 
@@ -347,22 +347,22 @@ const Onboarding = () => {
 
               {currentStep === 3 && (
                 <div className="space-y-6">
-                  <div className="text-center mb-6">
-                    <div className="text-6xl mb-4">📱</div>
-                    <h3 className="text-xl font-bold mb-2">Vamos Conectar suas Câmeras</h3>
-                    <p className="text-muted-foreground">
-                      Super simples! Vamos encontrar suas câmeras automaticamente
-                    </p>
-                  </div>
+                   <div className="text-center mb-6">
+                     <div className="text-6xl mb-4">📱</div>
+                     <h3 className="text-xl font-bold mb-2">Vamos Conectar suas Câmeras</h3>
+                     <p className="text-muted-foreground">
+                       Configure manualmente suas câmeras IP seguindo nosso guia
+                     </p>
+                   </div>
                   
-                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
-                    <h4 className="font-semibold text-blue-800 mb-3">🔍 Busca Automática</h4>
-                    <div className="space-y-2 text-blue-700 text-sm">
-                      <p>✅ Detectamos câmeras IP na sua rede</p>
-                      <p>✅ Configuramos automaticamente as melhores configurações</p>
-                      <p>✅ Testamos se está funcionando em tempo real</p>
-                    </div>
-                  </div>
+                   <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
+                     <h4 className="font-semibold text-blue-800 mb-3">🔧 Configuração Manual</h4>
+                     <div className="space-y-2 text-blue-700 text-sm">
+                       <p>✅ Guia passo a passo para conectar suas câmeras</p>
+                       <p>✅ Suporte para câmeras IP e sistemas DVR</p>
+                       <p>✅ Teste de conexão em tempo real</p>
+                     </div>
+                   </div>
                   
                   <div className="grid md:grid-cols-2 gap-4">
                     <div className="border rounded-lg p-4">
@@ -379,19 +379,19 @@ const Onboarding = () => {
                     </div>
                   </div>
                   
-                  <div className="flex space-x-3">
-                    <Button onClick={handleSkipToConfig} className="flex-1 text-lg py-6">
-                      <Camera className="h-5 w-5 mr-2" />
-                      Buscar Minhas Câmeras
-                    </Button>
-                    <Button variant="outline" onClick={handleSkipToDashboard} className="flex-1">
-                      Fazer Depois
-                    </Button>
-                  </div>
+                   <div className="flex space-x-3">
+                     <Button onClick={handleSkipToConfig} className="flex-1 text-lg py-6">
+                       <Camera className="h-5 w-5 mr-2" />
+                       Configurar Câmeras
+                     </Button>
+                     <Button variant="outline" onClick={handleSkipToDashboard} className="flex-1">
+                       Fazer Depois
+                     </Button>
+                   </div>
                   
-                  <div className="text-center text-xs text-muted-foreground">
-                    💡 Dica: Se suas câmeras já estão funcionando no celular/computador, conseguimos conectar!
-                  </div>
+                   <div className="text-center text-xs text-muted-foreground">
+                     💡 Dica: Você precisará do IP, usuário e senha das suas câmeras para configurar
+                   </div>
                 </div>
               )}
 
