@@ -38,6 +38,7 @@ const Navbar = () => {
                 <TopNavLink to="/live">Live</TopNavLink>
                 <TopNavLink to="/events">Events</TopNavLink>
                 <TopNavLink to="/analytics">Analytics</TopNavLink>
+                <TopNavLink to="/test-dvr">Teste DVR</TopNavLink>
                 <TopNavLink to="/onboarding">Onboarding</TopNavLink>
                 <TopNavLink to="/app/dashboard">Admin</TopNavLink>
               </>
@@ -90,6 +91,7 @@ const Navbar = () => {
                   <TopNavLink to="/live" mobile>Live</TopNavLink>
                   <TopNavLink to="/events" mobile>Events</TopNavLink>
                   <TopNavLink to="/analytics" mobile>Analytics</TopNavLink>
+                  <TopNavLink to="/test-dvr" mobile>Teste DVR</TopNavLink>
                   <TopNavLink to="/onboarding" mobile>Onboarding</TopNavLink>
                   <TopNavLink to="/app/dashboard" mobile>Admin</TopNavLink>
                   <div className="flex flex-col space-y-2 pt-4">

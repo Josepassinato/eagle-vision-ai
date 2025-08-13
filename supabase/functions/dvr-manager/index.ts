@@ -102,8 +102,8 @@ serve(async (req) => {
   }
 
   try {
-    const { supabaseClient } = await import("https://esm.sh/@supabase/supabase-js@2");
-    const supabase = supabaseClient(
+    const { createClient } = await import("https://esm.sh/@supabase/supabase-js@2");
+    const supabase = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
