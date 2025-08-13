@@ -204,8 +204,7 @@ serve(async (req) => {
               stream_url: streamUrl,
               status: testResult.success ? 'connected' : 'error',
               error_message: testResult.error || null,
-              last_tested_at: new Date().toISOString(),
-              org_id: config.org_id
+              last_tested_at: new Date().toISOString()
             })
             .select()
             .single();
