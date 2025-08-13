@@ -2045,6 +2045,39 @@ export type Database = {
           },
         ]
       }
+      stream_analytics_logs: {
+        Row: {
+          action: string
+          analytics_modules: string[] | null
+          camera_id: string
+          created_at: string
+          id: string
+          org_id: string | null
+          stream_url: string
+          timestamp: string
+        }
+        Insert: {
+          action: string
+          analytics_modules?: string[] | null
+          camera_id: string
+          created_at?: string
+          id?: string
+          org_id?: string | null
+          stream_url: string
+          timestamp?: string
+        }
+        Update: {
+          action?: string
+          analytics_modules?: string[] | null
+          camera_id?: string
+          created_at?: string
+          id?: string
+          org_id?: string | null
+          stream_url?: string
+          timestamp?: string
+        }
+        Relationships: []
+      }
       streams: {
         Row: {
           analytic: string
