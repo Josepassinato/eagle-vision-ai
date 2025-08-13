@@ -34,13 +34,6 @@ const Setup = () => {
     { id: "complete", title: "Finalizar", icon: <CheckCircle className="h-6 w-6" /> },
   ];
 
-  // Simulação de câmeras encontradas
-  const mockCameras = [
-    { id: "cam_001", name: "Câmera Entrada Principal", ip: "192.168.1.101", brand: "Hikvision", status: "online" },
-    { id: "cam_002", name: "Câmera Corredor", ip: "192.168.1.102", brand: "Intelbras", status: "online" },
-    { id: "cam_003", name: "Câmera Estoque", ip: "192.168.1.103", brand: "Dahua", status: "offline" },
-  ];
-
   const startScan = async () => {
     setIsScanning(true);
     toast({
@@ -48,16 +41,39 @@ const Setup = () => {
       description: "Procurando dispositivos na sua rede",
     });
 
-    // Simular busca de câmeras
-    setTimeout(() => {
-      setFoundCameras(mockCameras);
+    try {
+      // Usar edge function real para buscar câmeras IP
+      const { data, error } = await supabase.functions.invoke('ip-camera-manager', {
+        body: { action: 'scan-network', networkRange: '192.168.1.0/24' }
+      });
+
+      if (error) throw error;
+
+      const cameras = data.devices?.map((device: any, index: number) => ({
+        id: `cam_${String(index + 1).padStart(3, '0')}`,
+        name: `Câmera ${device.brand || 'IP'} ${device.ip}`,
+        ip: device.ip,
+        brand: device.brand || 'Desconhecido',
+        status: device.ports?.includes(80) || device.ports?.includes(554) ? 'online' : 'offline'
+      })) || [];
+
+      setFoundCameras(cameras);
       setIsScanning(false);
       setCurrentStep(1);
+      
       toast({
-        title: "Câmeras encontradas! 📹",
-        description: `Encontramos ${mockCameras.length} câmeras na sua rede`,
+        title: "Busca concluída! 📹",
+        description: `Encontramos ${cameras.length} dispositivos na sua rede`,
       });
-    }, 3000);
+    } catch (error) {
+      console.error('Erro ao buscar câmeras:', error);
+      setIsScanning(false);
+      toast({
+        title: "Erro na busca",
+        description: "Não foi possível buscar câmeras na rede",
+        variant: "destructive"
+      });
+    }
   };
 
   const toggleCamera = (cameraId: string) => {
@@ -75,28 +91,86 @@ const Setup = () => {
       description: "Verificando se as câmeras estão funcionando",
     });
 
-    setTimeout(() => {
+    try {
+      const selectedCameraData = foundCameras.filter(cam => selectedCameras.includes(cam.id));
+      const testResults = [];
+
+      for (const camera of selectedCameraData) {
+        const { data, error } = await supabase.functions.invoke('ip-camera-manager', {
+          body: {
+            action: 'test-connection',
+            config: {
+              name: camera.name,
+              ip_address: camera.ip,
+              brand: camera.brand,
+              port: 80,
+              username: 'admin',
+              password: 'admin123'
+            }
+          }
+        });
+
+        testResults.push({
+          camera: camera.name,
+          success: !error && data?.httpTest?.success
+        });
+      }
+
       setCurrentStep(3);
       toast({
-        title: "Tudo funcionando! ✅",
-        description: "Suas câmeras estão conectadas e transmitindo",
+        title: "Teste concluído! ✅",
+        description: `${testResults.filter(r => r.success).length}/${testResults.length} câmeras conectadas`,
       });
-    }, 2000);
+    } catch (error) {
+      console.error('Erro ao testar câmeras:', error);
+      toast({
+        title: "Erro no teste",
+        description: "Não foi possível testar todas as conexões",
+        variant: "destructive"
+      });
+      setCurrentStep(3); // Continuar mesmo com erro
+    }
   };
 
-  const finishSetup = () => {
-    // Salvar configuração
-    localStorage.setItem('setupCompleted', 'true');
-    localStorage.setItem('selectedCameras', JSON.stringify(selectedCameras));
-    
-    toast({
-      title: "Configuração concluída! 🎉",
-      description: "Redirecionando para seu painel...",
-    });
+  const finishSetup = async () => {
+    try {
+      const selectedCameraData = foundCameras.filter(cam => selectedCameras.includes(cam.id));
+      
+      // Salvar câmeras na base de dados
+      for (const camera of selectedCameraData) {
+        await supabase.functions.invoke('ip-camera-manager', {
+          body: {
+            action: 'save-config',
+            config: {
+              name: camera.name,
+              ip_address: camera.ip,
+              brand: camera.brand,
+              port: 80,
+              username: 'admin',
+              password: 'admin123'
+            }
+          }
+        });
+      }
 
-    setTimeout(() => {
-      navigate('/dashboard-simple');
-    }, 1500);
+      localStorage.setItem('setupCompleted', 'true');
+      
+      toast({
+        title: "Configuração salva! 🎉",
+        description: "Redirecionando para seu painel...",
+      });
+
+      setTimeout(() => {
+        navigate('/dashboard-simple');
+      }, 1500);
+    } catch (error) {
+      console.error('Erro ao salvar configuração:', error);
+      toast({
+        title: "Erro ao salvar",
+        description: "Não foi possível salvar a configuração",
+        variant: "destructive"
+      });
+    }
   };
 
   const progress = ((currentStep + 1) / steps.length) * 100;
