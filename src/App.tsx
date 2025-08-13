@@ -21,6 +21,7 @@ import Credits from "./pages/admin/Credits";
 import CreditSuccess from "./pages/admin/CreditSuccess";
 import Demo from "./pages/admin/Demo";
 import TestDVR from "./pages/TestDVR";
+import DVRAnalytics from "./pages/DVRAnalytics";
 import DemoPublic from "./pages/DemoPublic";
 import Safety from "./pages/admin/Safety";
 import EduBehavior from "./pages/admin/EduBehavior";
@@ -56,6 +57,7 @@ const App = () => (
           <Route path="/setup" element={<ProtectedRoute><Setup /></ProtectedRoute>} />
           <Route path="/dashboard-simple" element={<ProtectedRoute><SimpleDashboard /></ProtectedRoute>} />
           <Route path="/test-dvr" element={<ProtectedRoute><TestDVR /></ProtectedRoute>} />
+          <Route path="/dvr-analytics" element={<ProtectedRoute><DVRAnalytics /></ProtectedRoute>} />
           <Route path="/admin" element={<Navigate to="/app/dashboard" replace />} />
           <Route
             path="/app"

@@ -10,7 +10,7 @@ import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
-import { Loader2, CheckCircle, XCircle, Wifi, Search, Play, Square, Activity, Eye, Users } from "lucide-react";
+import { Loader2, CheckCircle, XCircle, Wifi, Search, Play, Square, Activity, Eye, Users, Settings } from "lucide-react";
 
 interface TestResult {
   success: boolean;
@@ -728,6 +728,27 @@ const TestDVR = () => {
                     </div>
                   </div>
                 ))}
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Link para Configuração de Analíticos */}
+          {configs.length > 0 && (
+            <Card>
+              <CardContent className="pt-6">
+                <div className="text-center">
+                  <h3 className="text-lg font-semibold mb-2">Próximo Passo</h3>
+                  <p className="text-muted-foreground mb-4">
+                    Configure os analíticos para seus DVRs conectados
+                  </p>
+                  <Button 
+                    onClick={() => window.location.href = '/dvr-analytics'}
+                    className="flex items-center gap-2"
+                  >
+                    <Settings className="h-4 w-4" />
+                    Configurar Analíticos
+                  </Button>
+                </div>
               </CardContent>
             </Card>
           )}
