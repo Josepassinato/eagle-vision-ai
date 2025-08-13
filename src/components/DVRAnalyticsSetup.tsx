@@ -371,6 +371,25 @@ const DVRAnalyticsSetup: React.FC = () => {
           </CardContent>
         </Card>
       )}
+
+      {selectedConfig && (
+        <Card className="mt-6">
+          <CardHeader>
+            <CardTitle className="text-blue-900">📺 Visualizar Análise em Tempo Real</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-gray-600 mb-4">
+              Assista ao vídeo sendo processado com overlays das detecções da IA em tempo real
+            </p>
+            <Button 
+              onClick={() => window.open('/live', '_blank')} 
+              className="bg-blue-600 hover:bg-blue-700"
+            >
+              🔴 Abrir Visualização ao Vivo
+            </Button>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 };
