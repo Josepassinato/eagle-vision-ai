@@ -330,10 +330,44 @@ serve(async (req) => {
     }
 
     if (req.method === 'GET') {
-      // Listar configurações DVR - usar service role para bypass de RLS
+      // Get user from auth header for GET requests
+      const authHeader = req.headers.get('authorization')
+      if (!authHeader?.startsWith('Bearer ')) {
+        return new Response(
+          JSON.stringify({ success: false, error: 'Unauthorized' }),
+          { status: 401, headers: corsHeaders }
+        )
+      }
+
+      const token = authHeader.substring(7)
+      
+      // Get user from token
+      const { data: { user }, error: authError } = await supabase.auth.getUser(token)
+      
+      if (authError || !user) {
+        return new Response(
+          JSON.stringify({ success: false, error: 'Invalid token' }),
+          { status: 401, headers: corsHeaders }
+        )
+      }
+
+      // Get user's organization
+      const { data: orgData, error: orgError } = await supabase
+        .from('org_users')
+        .select('org_id')
+        .eq('user_id', user.id)
+        .single()
+
+      let orgId = null;
+      if (orgData) {
+        orgId = orgData.org_id;
+      }
+
+      // Listar configurações DVR filtradas por org_id
       const { data, error } = await supabase
         .from('dvr_configs')
         .select('*')
+        .eq('org_id', orgId)
         .order('created_at', { ascending: false });
 
       if (error) {
@@ -344,7 +378,7 @@ serve(async (req) => {
         );
       }
 
-      console.log('GET Success - Found configs:', data?.length || 0);
+      console.log('GET Success - Found configs:', data?.length || 0, 'for org:', orgId);
       return new Response(
         JSON.stringify({ success: true, configs: data || [] }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
