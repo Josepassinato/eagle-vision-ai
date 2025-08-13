@@ -135,8 +135,7 @@ const DVRAnalyticsSetup: React.FC = () => {
         body: {
           camera_id: selectedConfig.id,
           stream_url: selectedConfig.stream_url,
-          analytics: enabled ? [serviceId] : [],
-          action: enabled ? 'start' : 'stop'
+          analytics_enabled: enabled ? [serviceId] : []
         }
       });
 
@@ -191,7 +190,7 @@ const DVRAnalyticsSetup: React.FC = () => {
         body: {
           camera_id: selectedConfig.id,
           stream_url: selectedConfig.stream_url,
-          analytics: enabledServices
+          analytics_enabled: enabledServices
         }
       });
 
