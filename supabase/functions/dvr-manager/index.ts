@@ -38,12 +38,17 @@ const buildStreamUrl = (config: TestConnectionRequest): string => {
   };
 
   let url = protocols[config.protocol] || protocols['generic'];
-  url = url.replace('{username}', encodeURIComponent(config.username));
-  url = url.replace('{password}', encodeURIComponent(config.password));
+  url = url.replace('{username}', encodeURIComponent(config.username || ''));
+  url = url.replace('{password}', encodeURIComponent(config.password || ''));
   url = url.replace('{host}', config.host);
   url = url.replace('{port}', config.port.toString());
   url = url.replace('{channel}', config.channel.toString());
   url = url.replace('{stream}', config.stream_quality === 'sub' ? '1' : '0');
+  
+  // Se não tem username/password, remover da URL
+  if (!config.username && !config.password) {
+    url = url.replace(/\/\/:@/, '//');
+  }
 
   return url;
 };
@@ -154,9 +159,9 @@ serve(async (req) => {
           const config: TestConnectionRequest = body;
           
           // Validar campos obrigatórios
-          if (!config.protocol || !config.host || !config.username || !config.password) {
+          if (!config.protocol || !config.host) {
             return new Response(
-              JSON.stringify({ success: false, error: 'Campos obrigatórios faltando' }),
+              JSON.stringify({ success: false, error: 'Protocol e host são obrigatórios' }),
               { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
             );
           }
@@ -182,9 +187,9 @@ serve(async (req) => {
           const config: DVRConfig = body;
           
           // Validar campos obrigatórios
-          if (!config.name || !config.protocol || !config.host || !config.username || !config.password) {
+          if (!config.name || !config.protocol || !config.host) {
             return new Response(
-              JSON.stringify({ success: false, error: 'Campos obrigatórios faltando' }),
+              JSON.stringify({ success: false, error: 'Name, protocol e host são obrigatórios' }),
               { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
             );
           }
