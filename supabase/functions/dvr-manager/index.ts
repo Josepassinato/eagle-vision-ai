@@ -112,7 +112,23 @@ serve(async (req) => {
     const action = url.pathname.split('/').pop();
 
     if (req.method === 'POST') {
-      const body = await req.json();
+      let body;
+      try {
+        const text = await req.text();
+        if (!text || text.trim() === '') {
+          return new Response(
+            JSON.stringify({ success: false, error: 'Body da requisição está vazio' }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+        body = JSON.parse(text);
+      } catch (parseError) {
+        console.error('JSON Parse Error:', parseError);
+        return new Response(
+          JSON.stringify({ success: false, error: 'JSON inválido na requisição' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
 
       switch (action) {
         case 'test-connection': {
