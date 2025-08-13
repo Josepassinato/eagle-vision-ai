@@ -77,10 +77,28 @@ serve(async (req) => {
 
   try {
     if (!openAIApiKey) {
-      throw new Error('OPENAI_API_KEY não está configurada');
+      console.error('OpenAI API key is not configured');
+      return new Response(JSON.stringify({ 
+        response: "🔧 Serviço temporariamente indisponível. Tente novamente em alguns momentos.",
+        error: true
+      }), {
+        status: 200,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
-    const { message, context, history } = await req.json();
+    const body = await req.json().catch(() => null);
+    if (!body || typeof body !== 'object') {
+      return new Response(JSON.stringify({ 
+        response: "❌ Dados inválidos enviados.",
+        error: true
+      }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    const { message, context, history } = body;
 
     // Build conversation history
     const messages = [
@@ -104,7 +122,7 @@ serve(async (req) => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4.1-2025-04-14',
+        model: 'gpt-4o-mini',
         messages: messages,
         max_tokens: 500,
         temperature: 0.7,

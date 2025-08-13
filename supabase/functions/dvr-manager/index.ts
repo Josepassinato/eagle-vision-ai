@@ -116,16 +116,24 @@ serve(async (req) => {
       try {
         const text = await req.text();
         if (!text || text.trim() === '') {
+          console.log('Empty request body received');
           return new Response(
-            JSON.stringify({ success: false, error: 'Body da requisição está vazio' }),
+            JSON.stringify({ success: false, error: 'Body da requisição está vazio. Envie dados JSON válidos.' }),
             { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           );
         }
         body = JSON.parse(text);
+        if (!body || typeof body !== 'object') {
+          throw new Error('Body deve ser um objeto JSON válido');
+        }
       } catch (parseError) {
         console.error('JSON Parse Error:', parseError);
         return new Response(
-          JSON.stringify({ success: false, error: 'JSON inválido na requisição' }),
+          JSON.stringify({ 
+            success: false, 
+            error: 'JSON inválido na requisição. Verifique a sintaxe do JSON.',
+            details: parseError.message 
+          }),
           { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
