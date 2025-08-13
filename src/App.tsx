@@ -52,6 +52,7 @@ const App = () => (
           <Route path="/demo" element={<DemoPublic />} />
           <Route path="/workspace" element={<WorkspaceManager />} />
           <Route path="/edge" element={<EdgeDeviceManager />} />
+          <Route path="/onboarding" element={<ProtectedRoute><Onboarding /></ProtectedRoute>} />
           <Route path="/setup" element={<ProtectedRoute><Setup /></ProtectedRoute>} />
           <Route path="/dashboard-simple" element={<ProtectedRoute><SimpleDashboard /></ProtectedRoute>} />
           <Route path="/test-dvr" element={<ProtectedRoute><TestDVR /></ProtectedRoute>} />
