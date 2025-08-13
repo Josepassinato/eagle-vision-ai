@@ -1,9 +1,12 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import DVRProtocolInput from "@/components/DVRProtocolInput";
 
 export default function Config() {
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
+      <DVRProtocolInput />
+      
       <Card>
         <CardHeader>
           <CardTitle>Thresholds (Fusion)</CardTitle>
