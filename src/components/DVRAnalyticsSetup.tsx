@@ -76,11 +76,25 @@ const DVRAnalyticsSetup: React.FC = () => {
     try {
       console.log('Carregando configurações DVR...');
       
-      const { data: result, error } = await supabase.functions.invoke('dvr-manager');
-      
-      if (error) {
-        throw new Error(error.message);
+      const { data: session } = await supabase.auth.getSession();
+      if (!session.session?.access_token) {
+        throw new Error('Usuário não autenticado');
       }
+
+      const response = await fetch(`https://avbswnnywjyvqfxezgfl.supabase.co/functions/v1/dvr-manager`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${session.session.access_token}`,
+          'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF2YnN3bm55d2p5dnFmeGV6Z2ZsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQ3NTI3ODQsImV4cCI6MjA3MDMyODc4NH0.fmpP6MWxsz-GYT44mAvBfR5rXIFdR-PoUbswzkeClo4',
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP Error: ${response.status}`);
+      }
+
+      const result = await response.json();
       console.log('Resultado da requisição:', result);
       
       if (result.success) {
