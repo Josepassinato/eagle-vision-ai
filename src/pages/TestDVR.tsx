@@ -389,12 +389,23 @@ const TestDVR = () => {
     setLoadingConfigs(true);
     
     try {
-      const { data, error } = await supabase.functions.invoke('dvr-manager');
+      // Usar fetch direto para contornar possíveis problemas de RLS
+      const response = await fetch(`https://avbswnnywjyvqfxezgfl.supabase.co/functions/v1/dvr-manager`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
+          'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF2YnN3bm55d2p5dnFmeGV6Z2ZsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQ3NTI3ODQsImV4cCI6MjA3MDMyODc4NH0.fmpP6MWxsz-GYT44mAvBfR5rXIFdR-PoUbswzkeClo4',
+          'Content-Type': 'application/json'
+        }
+      });
 
-      if (error) throw error;
-      
+      const data = await response.json();
+
       if (data.success) {
         setConfigs(data.configs || []);
+        console.log('✅ Configurações carregadas:', data.configs?.length || 0);
+      } else {
+        throw new Error(data.error || 'Erro ao carregar configurações');
       }
     } catch (error: any) {
       console.error('Erro ao carregar configs:', error);
