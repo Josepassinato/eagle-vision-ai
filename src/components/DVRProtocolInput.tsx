@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -7,7 +7,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Monitor, Eye, Shield, TestTube } from 'lucide-react';
+import { Monitor, Eye, Shield, TestTube, Search, Wifi } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/components/ui/use-toast';
 
 interface DVRConfig {
   protocol: string;
@@ -17,9 +19,19 @@ interface DVRConfig {
   password: string;
   channel: string;
   stream: string;
+  name: string;
+}
+
+interface ScannedDevice {
+  ip: string;
+  port: number;
+  detected_protocol: string;
+  possible_brands: string[];
 }
 
 const DVRProtocolInput: React.FC = () => {
+  const { toast } = useToast();
+  
   const [config, setConfig] = useState<DVRConfig>({
     protocol: '',
     host: '',
@@ -27,11 +39,15 @@ const DVRProtocolInput: React.FC = () => {
     username: 'admin',
     password: '',
     channel: '1',
-    stream: 'main'
+    stream: 'main',
+    name: ''
   });
 
   const [testStatus, setTestStatus] = useState<'idle' | 'testing' | 'success' | 'error'>('idle');
   const [streamUrl, setStreamUrl] = useState('');
+  const [scanning, setScanning] = useState(false);
+  const [scannedDevices, setScannedDevices] = useState<ScannedDevice[]>([]);
+  const [configs, setConfigs] = useState<any[]>([]);
 
   const protocols = [
     { value: 'hikvision', label: 'Hikvision', port: '554', format: 'rtsp://{username}:{password}@{host}:{port}/Streaming/Channels/{channel}01' },
@@ -48,6 +64,21 @@ const DVRProtocolInput: React.FC = () => {
     { value: 'generic', label: 'Genérico RTSP', port: '554', format: 'rtsp://{username}:{password}@{host}:{port}/stream' }
   ];
 
+  useEffect(() => {
+    loadConfigs();
+  }, []);
+
+  const loadConfigs = async () => {
+    try {
+      const { data, error } = await supabase.functions.invoke('dvr-manager');
+      if (!error && data.success) {
+        setConfigs(data.configs || []);
+      }
+    } catch (error) {
+      console.error('Error loading configs:', error);
+    }
+  };
+
   const handleProtocolChange = (value: string) => {
     const protocol = protocols.find(p => p.value === value);
     if (protocol) {
@@ -59,40 +90,149 @@ const DVRProtocolInput: React.FC = () => {
     }
   };
 
-  const buildStreamUrl = () => {
-    const protocol = protocols.find(p => p.value === config.protocol);
-    if (!protocol || !config.host) return '';
-
-    let url = protocol.format;
-    url = url.replace('{username}', config.username);
-    url = url.replace('{password}', config.password);
-    url = url.replace('{host}', config.host);
-    url = url.replace('{port}', config.port);
-    url = url.replace('{channel}', config.channel);
-    url = url.replace('{stream}', config.stream === 'sub' ? '1' : '0');
-
-    return url;
-  };
-
   const testConnection = async () => {
+    if (!config.protocol || !config.host || !config.username || !config.password) {
+      toast({
+        title: "Erro",
+        description: "Preencha todos os campos obrigatórios",
+        variant: "destructive"
+      });
+      return;
+    }
+
     setTestStatus('testing');
     
-    // Simulate connection test
-    setTimeout(() => {
-      const url = buildStreamUrl();
-      if (url && config.host && config.username && config.password) {
-        setStreamUrl(url);
+    try {
+      const { data, error } = await supabase.functions.invoke('dvr-manager/test-connection', {
+        body: {
+          protocol: config.protocol,
+          host: config.host,
+          port: parseInt(config.port),
+          username: config.username,
+          password: config.password,
+          channel: parseInt(config.channel),
+          stream_quality: config.stream,
+          transport_protocol: 'tcp'
+        }
+      });
+
+      if (error) throw error;
+
+      if (data.success) {
+        setStreamUrl(data.stream_url);
         setTestStatus('success');
+        toast({
+          title: "Sucesso",
+          description: "Conexão estabelecida com sucesso!"
+        });
       } else {
         setTestStatus('error');
+        toast({
+          title: "Erro na conexão",
+          description: data.error || "Falha ao conectar com o DVR",
+          variant: "destructive"
+        });
       }
-    }, 2000);
+    } catch (error) {
+      console.error('Test error:', error);
+      setTestStatus('error');
+      toast({
+        title: "Erro",
+        description: "Erro ao testar conexão",
+        variant: "destructive"
+      });
+    }
   };
 
-  const handleSubmit = () => {
-    const url = buildStreamUrl();
-    console.log('DVR Configuration:', { ...config, streamUrl: url });
-    // Here you would save the configuration
+  const handleSubmit = async () => {
+    if (!config.name || testStatus !== 'success') {
+      toast({
+        title: "Erro",
+        description: "Teste a conexão antes de salvar e defina um nome",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    try {
+      const { data, error } = await supabase.functions.invoke('dvr-manager/save-config', {
+        body: {
+          name: config.name,
+          protocol: config.protocol,
+          host: config.host,
+          port: parseInt(config.port),
+          username: config.username,
+          password: config.password,
+          channel: parseInt(config.channel),
+          stream_quality: config.stream,
+          transport_protocol: 'tcp'
+        }
+      });
+
+      if (error) throw error;
+
+      if (data.success) {
+        toast({
+          title: "Sucesso",
+          description: "Configuração salva com sucesso!"
+        });
+        loadConfigs();
+        // Reset form
+        setConfig({
+          protocol: '',
+          host: '',
+          port: '554',
+          username: 'admin',
+          password: '',
+          channel: '1',
+          stream: 'main',
+          name: ''
+        });
+        setTestStatus('idle');
+        setStreamUrl('');
+      } else {
+        toast({
+          title: "Erro",
+          description: data.error || "Erro ao salvar configuração",
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      console.error('Save error:', error);
+      toast({
+        title: "Erro",
+        description: "Erro ao salvar configuração",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const scanNetwork = async () => {
+    setScanning(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('dvr-manager/scan-network', {
+        body: { network_range: '192.168.1' }
+      });
+
+      if (error) throw error;
+
+      if (data.success) {
+        setScannedDevices(data.devices || []);
+        toast({
+          title: "Scan completo",
+          description: `${data.devices?.length || 0} dispositivos encontrados`
+        });
+      }
+    } catch (error) {
+      console.error('Scan error:', error);
+      toast({
+        title: "Erro",
+        description: "Erro ao escanear rede",
+        variant: "destructive"
+      });
+    } finally {
+      setScanning(false);
+    }
   };
 
   return (
@@ -110,15 +250,26 @@ const DVRProtocolInput: React.FC = () => {
       </Card>
 
       <Tabs defaultValue="basic" className="w-full">
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="basic">Configuração Básica</TabsTrigger>
           <TabsTrigger value="advanced">Configurações Avançadas</TabsTrigger>
+          <TabsTrigger value="scan">Scanner de Rede</TabsTrigger>
           <TabsTrigger value="test">Teste & Validação</TabsTrigger>
         </TabsList>
 
         <TabsContent value="basic" className="space-y-4">
           <Card>
             <CardContent className="space-y-4 pt-6">
+              <div className="space-y-2">
+                <Label htmlFor="name">Nome da Configuração</Label>
+                <Input
+                  id="name"
+                  placeholder="DVR Loja Principal"
+                  value={config.name}
+                  onChange={(e) => setConfig(prev => ({ ...prev, name: e.target.value }))}
+                />
+              </div>
+              
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="protocol">Protocolo DVR/NVR</Label>
@@ -193,6 +344,86 @@ const DVRProtocolInput: React.FC = () => {
                   </Select>
                 </div>
               </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="scan" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Search className="w-5 h-5" />
+                Scanner de Rede
+              </CardTitle>
+              <CardDescription>
+                Buscar automaticamente por dispositivos DVR/NVR na rede
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center gap-4">
+                <Button 
+                  onClick={scanNetwork}
+                  disabled={scanning}
+                  variant="outline"
+                >
+                  {scanning ? (
+                    <>
+                      <Wifi className="w-4 h-4 mr-2 animate-spin" />
+                      Escaneando...
+                    </>
+                  ) : (
+                    <>
+                      <Search className="w-4 h-4 mr-2" />
+                      Escanear Rede 192.168.1.x
+                    </>
+                  )}
+                </Button>
+                
+                {scannedDevices.length > 0 && (
+                  <Badge variant="secondary">
+                    {scannedDevices.length} dispositivos encontrados
+                  </Badge>
+                )}
+              </div>
+
+              {scannedDevices.length > 0 && (
+                <div className="space-y-2">
+                  <h4 className="font-medium">Dispositivos Encontrados:</h4>
+                  <div className="grid gap-2">
+                    {scannedDevices.map((device, index) => (
+                      <div key={index} className="flex items-center justify-between p-3 border rounded-lg">
+                        <div>
+                          <div className="font-medium">{device.ip}:{device.port}</div>
+                          <div className="text-sm text-muted-foreground">
+                            Protocolo: {device.detected_protocol.toUpperCase()}
+                          </div>
+                        </div>
+                        <Button
+                          size="sm"
+                          onClick={() => {
+                            setConfig(prev => ({
+                              ...prev,
+                              host: device.ip,
+                              port: device.port.toString(),
+                              protocol: device.possible_brands[0] || 'generic'
+                            }));
+                          }}
+                        >
+                          Usar
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <Alert>
+                <Wifi className="h-4 w-4" />
+                <AlertDescription>
+                  <strong>Scanner de Rede:</strong> Busca por dispositivos nas portas 554 (RTSP), 80 e 8080 (HTTP).
+                  Funciona apenas para dispositivos na mesma rede local.
+                </AlertDescription>
+              </Alert>
             </CardContent>
           </Card>
         </TabsContent>
@@ -297,11 +528,32 @@ const DVRProtocolInput: React.FC = () => {
                 </Button>
                 <Button 
                   onClick={handleSubmit}
-                  disabled={testStatus !== 'success'}
+                  disabled={testStatus !== 'success' || !config.name}
                 >
                   Salvar Configuração
                 </Button>
               </div>
+
+              {configs.length > 0 && (
+                <div className="space-y-2">
+                  <h4 className="font-medium">Configurações Salvas:</h4>
+                  <div className="grid gap-2">
+                    {configs.map((savedConfig) => (
+                      <div key={savedConfig.id} className="flex items-center justify-between p-3 border rounded-lg">
+                        <div>
+                          <div className="font-medium">{savedConfig.name}</div>
+                          <div className="text-sm text-muted-foreground">
+                            {savedConfig.protocol} • {savedConfig.host}:{savedConfig.port}
+                          </div>
+                        </div>
+                        <Badge variant={savedConfig.status === 'connected' ? 'default' : 'destructive'}>
+                          {savedConfig.status === 'connected' ? 'Conectado' : 'Erro'}
+                        </Badge>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>

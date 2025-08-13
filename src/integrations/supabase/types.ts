@@ -518,6 +518,77 @@ export type Database = {
         }
         Relationships: []
       }
+      dvr_configs: {
+        Row: {
+          channel: number
+          created_at: string
+          error_message: string | null
+          host: string
+          id: string
+          last_tested_at: string | null
+          metadata: Json | null
+          name: string
+          org_id: string | null
+          password: string
+          port: number
+          protocol: string
+          status: string
+          stream_quality: string
+          stream_url: string | null
+          transport_protocol: string
+          updated_at: string
+          username: string
+        }
+        Insert: {
+          channel?: number
+          created_at?: string
+          error_message?: string | null
+          host: string
+          id?: string
+          last_tested_at?: string | null
+          metadata?: Json | null
+          name: string
+          org_id?: string | null
+          password: string
+          port?: number
+          protocol: string
+          status?: string
+          stream_quality?: string
+          stream_url?: string | null
+          transport_protocol?: string
+          updated_at?: string
+          username: string
+        }
+        Update: {
+          channel?: number
+          created_at?: string
+          error_message?: string | null
+          host?: string
+          id?: string
+          last_tested_at?: string | null
+          metadata?: Json | null
+          name?: string
+          org_id?: string | null
+          password?: string
+          port?: number
+          protocol?: string
+          status?: string
+          stream_quality?: string
+          stream_url?: string | null
+          transport_protocol?: string
+          updated_at?: string
+          username?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dvr_configs_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "orgs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       edge_clips: {
         Row: {
           camera_id: string | null
