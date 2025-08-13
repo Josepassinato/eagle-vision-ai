@@ -183,6 +183,53 @@ const Live: React.FC = () => {
     }
   };
 
+  const startRtspConversion = async () => {
+    if (!selectedDVR || !currentStreamUrl.startsWith('rtsp://')) {
+      toast({
+        title: "Stream RTSP necessário",
+        description: "Selecione um DVR com stream RTSP para converter",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    try {
+      const { data, error } = await supabase.functions.invoke('rtsp-to-hls', {
+        body: {
+          rtsp_url: currentStreamUrl,
+          camera_id: cameraId,
+          quality: 'medium',
+          action: 'start'
+        }
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: "🎬 Conversão RTSP→HLS iniciada!",
+        description: `Configurando servidor de streaming para ${selectedDVR.name}`,
+      });
+
+      // Mostrar instruções de setup
+      console.log('Instruções de setup:', data.instructions);
+      
+      if (data.conversion?.hls_url) {
+        setCurrentStreamUrl(data.conversion.hls_url);
+        toast({
+          title: "Stream HLS disponível",
+          description: "Agora você pode ver o vídeo no browser!",
+        });
+      }
+
+    } catch (error) {
+      toast({
+        title: "Erro na conversão",
+        description: String(error),
+        variant: "destructive"
+      });
+    }
+  };
+
   // Simulação de detecções (caixas aleatórias)
   useEffect(() => {
     if (!simulate) { setSimEvent(null); return; }
@@ -273,6 +320,11 @@ const Live: React.FC = () => {
           <Button onClick={stopProcessing} variant="outline" size="sm">
             Parar
           </Button>
+          {currentStreamUrl.startsWith('rtsp://') && (
+            <Button onClick={startRtspConversion} variant="secondary" size="sm">
+              🎬 Converter RTSP→HLS
+            </Button>
+          )}
         </div>
         <div className="ml-auto flex items-center gap-2">
           <Label htmlFor="sim">Simular detecções</Label>
