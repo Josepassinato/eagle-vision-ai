@@ -61,24 +61,34 @@ const TestDVR = () => {
   // Streams de demonstração públicos disponíveis
   const demoStreams = [
     {
-      name: "IPVM Demo Camera (Live)",
-      host: "ipvmdemo.dyndns.org",
-      port: 5541,
-      username: "demo",
-      password: "demo",
+      name: "RTSP Test Server (Public)",
+      host: "rtsp.stream",
+      port: 554,
+      username: "",
+      password: "",
       protocol: "generic",
-      description: "Câmera real com placa de teste e relógio ao vivo",
-      url: "rtsp://demo:demo@ipvmdemo.dyndns.org:5541/onvif-media/media.amp?profile=profile_1_h264&sessiontimeout=60&streamtype=unicast"
+      description: "Servidor de teste RTSP público - sempre ativo",
+      url: "rtsp://rtsp.stream/pattern"
     },
     {
-      name: "Wowza Test Stream",
-      host: "www.wowza.com",
+      name: "Big Buck Bunny (Wowza)",
+      host: "wowzaec2demo.streamlock.net",
       port: 1935,
       username: "",
       password: "",
       protocol: "generic", 
-      description: "Stream de teste estático da Wowza",
+      description: "Stream de teste público da Wowza - Big Buck Bunny",
       url: "rtsp://wowzaec2demo.streamlock.net/vod/mp4:BigBuckBunny_115k.mov"
+    },
+    {
+      name: "Sample Test Stream",
+      host: "sample-videos.com",
+      port: 554,
+      username: "",
+      password: "",
+      protocol: "generic",
+      description: "Stream de teste com vídeo de exemplo",
+      url: "rtsp://sample-videos.com/test.mp4"
     },
     {
       name: "Hikvision Demo Pattern",
@@ -91,6 +101,66 @@ const TestDVR = () => {
       url: "rtsp://admin:12345@demo.hikvision.com:554/Streaming/channels/101"
     }
   ];
+
+  // Estado para testes automáticos de streams
+  const [streamTests, setStreamTests] = useState<{[key: string]: {status: string, tested: boolean}}>({});
+
+  // Testar automaticamente todos os streams públicos
+  const testAllDemoStreams = async () => {
+    toast({
+      title: "🔍 Testando streams públicos",
+      description: "Verificando conectividade de todos os streams...",
+    });
+
+    for (const demo of demoStreams) {
+      setStreamTests(prev => ({ 
+        ...prev, 
+        [demo.name]: { status: 'testing', tested: false }
+      }));
+
+      try {
+        const testConfig = {
+          name: demo.name,
+          protocol: demo.protocol,
+          host: demo.host,
+          port: demo.port,
+          username: demo.username,
+          password: demo.password,
+          channel: 1,
+          stream_quality: "main",
+          transport_protocol: "tcp"
+        };
+
+        const { data, error } = await supabase.functions.invoke('dvr-manager/test-connection', {
+          body: testConfig
+        });
+
+        if (error) throw error;
+
+        setStreamTests(prev => ({ 
+          ...prev, 
+          [demo.name]: { 
+            status: data.success ? 'success' : 'failed', 
+            tested: true 
+          }
+        }));
+
+      } catch (error) {
+        setStreamTests(prev => ({ 
+          ...prev, 
+          [demo.name]: { status: 'failed', tested: true }
+        }));
+      }
+
+      // Pequeno delay entre testes
+      await new Promise(resolve => setTimeout(resolve, 1000));
+    }
+
+    toast({
+      title: "✅ Testes concluídos",
+      description: "Verificação de streams públicos finalizada",
+    });
+  };
 
   const loadDemoStream = (demo: any) => {
     setFormData({
@@ -542,23 +612,48 @@ const TestDVR = () => {
               <Wifi className="w-5 h-5" />
               Streams de Demonstração
             </CardTitle>
+            <div className="flex gap-2">
+              <Button 
+                size="sm" 
+                variant="outline"
+                onClick={testAllDemoStreams}
+                disabled={loading}
+              >
+                {loading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <CheckCircle className="w-4 h-4 mr-2" />}
+                Testar Todos
+              </Button>
+            </div>
           </CardHeader>
           <CardContent className="space-y-3">
             <p className="text-sm text-muted-foreground mb-4">
               Streams públicos disponíveis para teste:
             </p>
-            {demoStreams.map((demo, index) => (
-              <div key={index} className="border rounded-lg p-4 space-y-2">
-                <div className="flex items-center justify-between">
-                  <div className="font-medium">{demo.name}</div>
-                  <Button 
-                    size="sm" 
-                    variant="outline"
-                    onClick={() => loadDemoStream(demo)}
-                  >
-                    Usar
-                  </Button>
-                </div>
+            {demoStreams.map((demo, index) => {
+              const testStatus = streamTests[demo.name];
+              return (
+                <div key={index} className="border rounded-lg p-4 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className="font-medium">{demo.name}</div>
+                      {testStatus?.tested && (
+                        <Badge 
+                          variant={testStatus.status === 'success' ? 'default' : testStatus.status === 'failed' ? 'destructive' : 'outline'}
+                          className="text-xs"
+                        >
+                          {testStatus.status === 'success' ? '✅ Funciona' : 
+                           testStatus.status === 'failed' ? '❌ Falhou' : 
+                           '⏳ Testando...'}
+                        </Badge>
+                      )}
+                    </div>
+                    <Button 
+                      size="sm" 
+                      variant="outline"
+                      onClick={() => loadDemoStream(demo)}
+                    >
+                      Usar
+                    </Button>
+                  </div>
                 <div className="text-sm text-muted-foreground">
                   {demo.description}
                 </div>
@@ -575,8 +670,9 @@ const TestDVR = () => {
                     </Badge>
                   )}
                 </div>
-              </div>
-            ))}
+                </div>
+              )
+            })}
             
             <Alert>
               <AlertDescription className="text-sm">
