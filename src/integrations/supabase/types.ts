@@ -518,6 +518,45 @@ export type Database = {
         }
         Relationships: []
       }
+      detections: {
+        Row: {
+          bbox: Json | null
+          camera_id: string
+          confidence: number | null
+          created_at: string
+          detection_type: string
+          frame_id: string
+          id: string
+          metadata: Json | null
+          org_id: string
+          service: string
+        }
+        Insert: {
+          bbox?: Json | null
+          camera_id: string
+          confidence?: number | null
+          created_at?: string
+          detection_type: string
+          frame_id: string
+          id?: string
+          metadata?: Json | null
+          org_id: string
+          service: string
+        }
+        Update: {
+          bbox?: Json | null
+          camera_id?: string
+          confidence?: number | null
+          created_at?: string
+          detection_type?: string
+          frame_id?: string
+          id?: string
+          metadata?: Json | null
+          org_id?: string
+          service?: string
+        }
+        Relationships: []
+      }
       dvr_configs: {
         Row: {
           channel: number
@@ -988,6 +1027,45 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      frame_analysis: {
+        Row: {
+          analytics_enabled: string[]
+          camera_id: string
+          created_at: string
+          frame_id: string
+          id: string
+          metadata: Json | null
+          org_id: string
+          people_count: number | null
+          processing_time_ms: number
+          timestamp: string
+        }
+        Insert: {
+          analytics_enabled: string[]
+          camera_id: string
+          created_at?: string
+          frame_id: string
+          id?: string
+          metadata?: Json | null
+          org_id: string
+          people_count?: number | null
+          processing_time_ms: number
+          timestamp: string
+        }
+        Update: {
+          analytics_enabled?: string[]
+          camera_id?: string
+          created_at?: string
+          frame_id?: string
+          id?: string
+          metadata?: Json | null
+          org_id?: string
+          people_count?: number | null
+          processing_time_ms?: number
+          timestamp?: string
+        }
+        Relationships: []
       }
       incidents: {
         Row: {
