@@ -111,6 +111,8 @@ serve(async (req) => {
     const url = new URL(req.url);
     const pathParts = url.pathname.split('/');
     const action = pathParts[pathParts.length - 1] || url.searchParams.get('action');
+    
+    console.log(`DVR Manager - Method: ${req.method}, URL: ${req.url}, Action: ${action}`);
 
     if (req.method === 'POST') {
       let body;
