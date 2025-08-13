@@ -110,9 +110,9 @@ serve(async (req) => {
 
     const url = new URL(req.url);
     const pathParts = url.pathname.split('/');
-    const action = pathParts[pathParts.length - 1] || url.searchParams.get('action');
+    let action = pathParts[pathParts.length - 1] || url.searchParams.get('action');
     
-    console.log(`DVR Manager - Method: ${req.method}, URL: ${req.url}, Action: ${action}`);
+    console.log(`DVR Manager - Method: ${req.method}, URL: ${req.url}, Path Action: ${action}`);
 
     if (req.method === 'POST') {
       let body;
@@ -140,6 +140,13 @@ serve(async (req) => {
           { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
+
+      // Usar action do body se disponível, senão usar da URL
+      if (body.action) {
+        action = body.action;
+      }
+      
+      console.log(`Using action: ${action}`);
 
       switch (action) {
         case 'test-connection':
