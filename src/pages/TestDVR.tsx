@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -6,9 +6,11 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
+import { Separator } from "@/components/ui/separator";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
-import { Loader2, CheckCircle, XCircle, Wifi, Search } from "lucide-react";
+import { Loader2, CheckCircle, XCircle, Wifi, Search, Play, Square, Activity, Eye, Users } from "lucide-react";
 
 interface TestResult {
   success: boolean;
@@ -23,6 +25,15 @@ interface NetworkDevice {
   possible_brands: string[];
 }
 
+interface AnalyticsEvent {
+  id: string;
+  type: string;
+  timestamp: string;
+  camera_id: string;
+  confidence: number;
+  description: string;
+}
+
 const TestDVR = () => {
   const [loading, setLoading] = useState(false);
   const [testResult, setTestResult] = useState<TestResult | null>(null);
@@ -30,6 +41,10 @@ const TestDVR = () => {
   const [devices, setDevices] = useState<NetworkDevice[]>([]);
   const [configs, setConfigs] = useState([]);
   const [loadingConfigs, setLoadingConfigs] = useState(false);
+  const [analyticsEnabled, setAnalyticsEnabled] = useState<{[key: string]: boolean}>({});
+  const [activeStreams, setActiveStreams] = useState<{[key: string]: boolean}>({});
+  const [liveEvents, setLiveEvents] = useState<AnalyticsEvent[]>([]);
+  const [eventCount, setEventCount] = useState({ people: 0, vehicles: 0, motion: 0 });
   
   const [formData, setFormData] = useState({
     protocol: "hikvision",
@@ -94,6 +109,83 @@ const TestDVR = () => {
       title: "Demo carregado!",
       description: `Configuração ${demo.name} foi carregada no formulário`,
     });
+  };
+
+  // Simular eventos de analytics em tempo real
+  const simulateAnalyticsEvents = (cameraId: string) => {
+    const eventTypes = [
+      { type: 'person_detected', description: 'Pessoa detectada', icon: '👤' },
+      { type: 'vehicle_detected', description: 'Veículo detectado', icon: '🚗' },
+      { type: 'motion_detected', description: 'Movimento detectado', icon: '📱' },
+      { type: 'loitering', description: 'Permanência prolongada', icon: '⏰' },
+      { type: 'crowd_detected', description: 'Aglomeração detectada', icon: '👥' },
+    ];
+
+    const generateEvent = () => {
+      if (!activeStreams[cameraId]) return;
+
+      const eventType = eventTypes[Math.floor(Math.random() * eventTypes.length)];
+      const newEvent: AnalyticsEvent = {
+        id: Date.now().toString(),
+        type: eventType.type,
+        timestamp: new Date().toLocaleTimeString(),
+        camera_id: cameraId,
+        confidence: Math.floor(Math.random() * 30) + 70, // 70-99%
+        description: `${eventType.icon} ${eventType.description}`
+      };
+
+      setLiveEvents(prev => [newEvent, ...prev.slice(0, 19)]); // Manter apenas 20 eventos
+
+      // Atualizar contadores
+      if (eventType.type.includes('person') || eventType.type.includes('crowd')) {
+        setEventCount(prev => ({ ...prev, people: prev.people + 1 }));
+      } else if (eventType.type.includes('vehicle')) {
+        setEventCount(prev => ({ ...prev, vehicles: prev.vehicles + 1 }));
+      } else {
+        setEventCount(prev => ({ ...prev, motion: prev.motion + 1 }));
+      }
+
+      // Mostrar toast para eventos importantes
+      if (newEvent.confidence > 85) {
+        toast({
+          title: `🔴 Evento detectado em ${cameraId}`,
+          description: newEvent.description,
+        });
+      }
+    };
+
+    // Gerar eventos aleatoriamente
+    const interval = setInterval(generateEvent, Math.random() * 8000 + 2000); // 2-10 segundos
+    return interval;
+  };
+
+  const toggleAnalytics = async (configId: string, enabled: boolean) => {
+    setAnalyticsEnabled(prev => ({ ...prev, [configId]: enabled }));
+    
+    if (enabled) {
+      // Simular início do analytics
+      setActiveStreams(prev => ({ ...prev, [configId]: true }));
+      
+      toast({
+        title: "🎯 Analytics ativado!",
+        description: "Iniciando análise de vídeo em tempo real...",
+      });
+
+      // Iniciar simulação de eventos
+      const interval = simulateAnalyticsEvents(configId);
+      
+      // Armazenar o interval para poder parar depois
+      setTimeout(() => {
+        if (interval) clearInterval(interval);
+      }, 300000); // Parar após 5 minutos
+      
+    } else {
+      setActiveStreams(prev => ({ ...prev, [configId]: false }));
+      toast({
+        title: "Analytics pausado",
+        description: "Análise de vídeo interrompida",
+      });
+    }
   };
 
   const testConnection = async () => {
@@ -243,17 +335,23 @@ const TestDVR = () => {
     }
   };
 
+  // Limpar eventos ao montar componente
+  useEffect(() => {
+    setEventCount({ people: 0, vehicles: 0, motion: 0 });
+    setLiveEvents([]);
+  }, []);
+
   // Carregar configurações ao montar o componente
-  useState(() => {
+  useEffect(() => {
     loadConfigs();
-  });
+  }, []);
 
   return (
     <div className="container mx-auto px-4 py-8 space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Teste de Configuração DVR</h1>
-          <p className="text-muted-foreground">Teste e configure DVRs/NVRs na sua rede</p>
+          <h1 className="text-3xl font-bold">Teste de Configuração DVR & Analytics</h1>
+          <p className="text-muted-foreground">Configure DVRs/NVRs e teste analytics em tempo real</p>
         </div>
         <div className="flex gap-2">
           <Button onClick={scanNetwork} disabled={scanning} variant="outline">
@@ -266,6 +364,56 @@ const TestDVR = () => {
           </Button>
         </div>
       </div>
+
+      {/* Estatísticas em Tempo Real */}
+      {Object.values(activeStreams).some(active => active) && (
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-muted-foreground">Pessoas</p>
+                  <p className="text-2xl font-bold">{eventCount.people}</p>
+                </div>
+                <Users className="w-8 h-8 text-blue-500" />
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-muted-foreground">Veículos</p>
+                  <p className="text-2xl font-bold">{eventCount.vehicles}</p>
+                </div>
+                <div className="text-2xl">🚗</div>
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-muted-foreground">Movimento</p>
+                  <p className="text-2xl font-bold">{eventCount.motion}</p>
+                </div>
+                <Activity className="w-8 h-8 text-green-500" />
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-muted-foreground">Streams Ativos</p>
+                  <p className="text-2xl font-bold">{Object.values(activeStreams).filter(Boolean).length}</p>
+                </div>
+                <Eye className="w-8 h-8 text-purple-500" />
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
         {/* Formulário de Teste */}
@@ -477,28 +625,82 @@ const TestDVR = () => {
             </Card>
           )}
 
-          {/* Configurações Salvas */}
+          {/* Configurações Salvas com Analytics */}
           <Card>
             <CardHeader>
-              <CardTitle>Configurações Salvas</CardTitle>
+              <CardTitle className="flex items-center gap-2">
+                <Activity className="w-5 h-5" />
+                Configurações & Analytics
+              </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-2">
+            <CardContent className="space-y-4">
               {loadingConfigs ? (
                 <div className="text-center py-4">
                   <Loader2 className="w-6 h-6 animate-spin mx-auto" />
                 </div>
               ) : configs.length > 0 ? (
                 configs.map((config: any, index) => (
-                  <div key={index} className="flex items-center justify-between p-3 border rounded">
-                    <div>
-                      <div className="font-medium">{config.name}</div>
-                      <div className="text-sm text-muted-foreground">
-                        {config.protocol} - {config.host}:{config.port}
+                  <div key={index} className="border rounded-lg p-4 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <div className="font-medium">{config.name}</div>
+                        <div className="text-sm text-muted-foreground">
+                          {config.protocol} - {config.host}:{config.port}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Badge variant={config.status === 'connected' ? 'default' : 'destructive'}>
+                          {config.status}
+                        </Badge>
+                        {activeStreams[config.id] && (
+                          <Badge variant="default" className="bg-green-500">
+                            <Activity className="w-3 h-3 mr-1" />
+                            Ativo
+                          </Badge>
+                        )}
                       </div>
                     </div>
-                    <Badge variant={config.status === 'connected' ? 'default' : 'destructive'}>
-                      {config.status}
-                    </Badge>
+                    
+                    {config.status === 'connected' && (
+                      <>
+                        <Separator />
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <Eye className="w-4 h-4" />
+                            <span className="text-sm font-medium">Analytics em Tempo Real</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Switch
+                              checked={analyticsEnabled[config.id] || false}
+                              onCheckedChange={(checked) => toggleAnalytics(config.id, checked)}
+                            />
+                            {analyticsEnabled[config.id] ? (
+                              <Badge variant="default" className="bg-blue-500">
+                                <Play className="w-3 h-3 mr-1" />
+                                Rodando
+                              </Badge>
+                            ) : (
+                              <Badge variant="outline">
+                                <Square className="w-3 h-3 mr-1" />
+                                Parado
+                              </Badge>
+                            )}
+                          </div>
+                        </div>
+                        
+                        {analyticsEnabled[config.id] && (
+                          <div className="bg-muted/50 rounded p-3 space-y-2">
+                            <div className="text-sm font-medium">Módulos Ativos:</div>
+                            <div className="flex gap-2 flex-wrap">
+                              <Badge variant="outline">👤 Detecção de Pessoas</Badge>
+                              <Badge variant="outline">🚗 Detecção de Veículos</Badge>
+                              <Badge variant="outline">📱 Detecção de Movimento</Badge>
+                              <Badge variant="outline">⏰ Anti-Loitering</Badge>
+                            </div>
+                          </div>
+                        )}
+                      </>
+                    )}
                   </div>
                 ))
               ) : (
@@ -508,6 +710,36 @@ const TestDVR = () => {
               )}
             </CardContent>
           </Card>
+
+          {/* Eventos em Tempo Real */}
+          {liveEvents.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Activity className="w-5 h-5 animate-pulse text-red-500" />
+                  Eventos em Tempo Real
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2 max-h-96 overflow-y-auto">
+                {liveEvents.map((event) => (
+                  <div key={event.id} className="flex items-center justify-between p-3 border rounded bg-card">
+                    <div className="flex items-center gap-3">
+                      <div className="text-sm font-mono">{event.timestamp}</div>
+                      <div className="text-sm">{event.description}</div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Badge variant="outline" className="text-xs">
+                        {event.camera_id}
+                      </Badge>
+                      <Badge variant={event.confidence > 85 ? 'default' : 'outline'} className="text-xs">
+                        {event.confidence}%
+                      </Badge>
+                    </div>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          )}
         </div>
       </div>
     </div>
