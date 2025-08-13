@@ -1168,6 +1168,75 @@ export type Database = {
           },
         ]
       }
+      ip_cameras: {
+        Row: {
+          brand: string | null
+          capabilities: Json | null
+          created_at: string
+          error_message: string | null
+          http_port: number | null
+          id: string
+          ip_address: unknown
+          last_tested_at: string | null
+          metadata: Json | null
+          model: string | null
+          name: string
+          onvif_port: number | null
+          org_id: string
+          password: string | null
+          port: number
+          rtsp_path: string | null
+          status: string
+          stream_urls: Json | null
+          updated_at: string
+          username: string | null
+        }
+        Insert: {
+          brand?: string | null
+          capabilities?: Json | null
+          created_at?: string
+          error_message?: string | null
+          http_port?: number | null
+          id?: string
+          ip_address: unknown
+          last_tested_at?: string | null
+          metadata?: Json | null
+          model?: string | null
+          name: string
+          onvif_port?: number | null
+          org_id: string
+          password?: string | null
+          port?: number
+          rtsp_path?: string | null
+          status?: string
+          stream_urls?: Json | null
+          updated_at?: string
+          username?: string | null
+        }
+        Update: {
+          brand?: string | null
+          capabilities?: Json | null
+          created_at?: string
+          error_message?: string | null
+          http_port?: number | null
+          id?: string
+          ip_address?: unknown
+          last_tested_at?: string | null
+          metadata?: Json | null
+          model?: string | null
+          name?: string
+          onvif_port?: number | null
+          org_id?: string
+          password?: string | null
+          port?: number
+          rtsp_path?: string | null
+          status?: string
+          stream_urls?: Json | null
+          updated_at?: string
+          username?: string | null
+        }
+        Relationships: []
+      }
       onboarding_steps: {
         Row: {
           completed: boolean
