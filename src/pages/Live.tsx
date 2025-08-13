@@ -247,6 +247,17 @@ const Live: React.FC = () => {
           >
             🎬 Usar Stream Demo
           </Button>
+          <Button 
+            onClick={() => {
+              setCameraId("webcam-real");
+              setCurrentStreamUrl("https://cph-p2p-msl.akamaized.net/hls/live/2000341/test/master.m3u8");
+              setSelectedDVR(null);
+            }} 
+            variant="outline" 
+            size="sm"
+          >
+            📹 Stream Público Real
+          </Button>
         </div>
         <div className="text-xs text-muted-foreground">
           Detecções reais: {latestDetection ? '✅' : '❌'} | Eventos legacy: {events.length}
