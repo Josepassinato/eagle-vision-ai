@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 
@@ -54,13 +55,13 @@ const Live: React.FC = () => {
       if (response.ok) {
         const result = await response.json();
         if (result.success && result.configs) {
-          const connectedDVRs = result.configs.filter((config: any) => config.status === 'connected');
-          setAvailableDVRs(connectedDVRs);
+          // Carregar TODAS as configurações salvas (não apenas connected)
+          setAvailableDVRs(result.configs);
           
-          if (connectedDVRs.length > 0) {
-            setSelectedDVR(connectedDVRs[0]);
-            setCameraId(connectedDVRs[0].id);
-            setCurrentStreamUrl(connectedDVRs[0].stream_url);
+          if (result.configs.length > 0) {
+            setSelectedDVR(result.configs[0]);
+            setCameraId(result.configs[0].id);
+            setCurrentStreamUrl(result.configs[0].stream_url);
           }
         }
       }
@@ -224,7 +225,10 @@ const Live: React.FC = () => {
               <SelectContent>
                 {availableDVRs.map((dvr) => (
                   <SelectItem key={dvr.id} value={dvr.id}>
-                    {dvr.name} ({dvr.protocol})
+                    {dvr.name} ({dvr.protocol}) 
+                    <Badge variant={dvr.status === 'connected' ? 'default' : 'secondary'} className="ml-2">
+                      {dvr.status}
+                    </Badge>
                   </SelectItem>
                 ))}
               </SelectContent>
