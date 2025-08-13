@@ -38,6 +38,15 @@ serve(async (req) => {
 
     const { camera_id, stream_url, analytics_enabled }: StreamStartRequest = await req.json();
 
+    // Get user's organization
+    const { data: orgData, error: orgError } = await supabase
+      .from('org_users')
+      .select('org_id')
+      .eq('user_id', userData.user.id)
+      .single();
+
+    const orgId = orgData?.org_id || null;
+
     // Update camera status
     const { error: cameraError } = await supabase
       .from('cameras')
@@ -47,7 +56,7 @@ serve(async (req) => {
         stream_url,
         online: true,
         last_seen: new Date().toISOString(),
-        org_id: userData.user.id // For demo, using user_id as org_id
+        org_id: orgId
       });
 
     if (cameraError) throw cameraError;
@@ -64,7 +73,7 @@ serve(async (req) => {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
             'x-api-key': 'demo-key',
-            'x-org-id': userData.user.id
+            'x-org-id': orgId
           },
           body: JSON.stringify({
             frame_id: frameId,
