@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import Hls from "hls.js";
-import { LIVE_HLS_URL } from "@/config";
+import { LIVE_HLS_URL, DEMO_VIDEO_STREAM } from "@/config";
 import { useRealtimeEvents } from "@/hooks/useRealtimeEvents";
 import { useRealtimeDetections } from "@/hooks/useRealtimeDetections";
 import type { RealtimeEvent } from "@/hooks/useRealtimeEvents";
@@ -234,6 +234,19 @@ const Live: React.FC = () => {
         <div className="flex items-center gap-2">
           <label className="text-sm text-muted-foreground" htmlFor="camera">camera_id</label>
           <Input id="camera" value={cameraId} onChange={(e) => setCameraId(e.target.value)} className="w-[220px]" placeholder="cam-real-01" />
+        </div>
+        <div className="flex items-center gap-2">
+          <Button 
+            onClick={() => {
+              setCameraId("demo-hls-stream");
+              setCurrentStreamUrl(DEMO_VIDEO_STREAM);
+              setSelectedDVR(null);
+            }} 
+            variant="outline" 
+            size="sm"
+          >
+            🎬 Usar Stream Demo
+          </Button>
         </div>
         <div className="text-xs text-muted-foreground">
           Detecções reais: {latestDetection ? '✅' : '❌'} | Eventos legacy: {events.length}
