@@ -35,12 +35,9 @@ const Navbar = () => {
           <div className="hidden md:flex items-center space-x-6">
             {isAuthed ? (
               <>
-                <TopNavLink to="/live">Live</TopNavLink>
-                <TopNavLink to="/events">Events</TopNavLink>
-                <TopNavLink to="/analytics">Analytics</TopNavLink>
-                <TopNavLink to="/test-dvr">Teste DVR</TopNavLink>
-                <TopNavLink to="/onboarding">Onboarding</TopNavLink>
-                <TopNavLink to="/app/dashboard">Admin</TopNavLink>
+                <TopNavLink to="/dashboard-simple">Painel</TopNavLink>
+                <TopNavLink to="/setup">Configurar</TopNavLink>
+                <TopNavLink to="/app/dashboard">Avançado</TopNavLink>
               </>
             ) : (
               <>
@@ -56,7 +53,7 @@ const Navbar = () => {
           <div className="hidden md:flex items-center space-x-4">
             {isAuthed ? (
               <Button variant="accent" size="sm" asChild>
-                <NavLink to="/app/dashboard" aria-label="Ir para o painel">Ir para o painel</NavLink>
+                <NavLink to="/dashboard-simple" aria-label="Ir para o painel">Ir para o painel</NavLink>
               </Button>
             ) : (
               <>
@@ -88,15 +85,12 @@ const Navbar = () => {
             <div className="flex flex-col space-y-4">
               {isAuthed ? (
                 <>
-                  <TopNavLink to="/live" mobile>Live</TopNavLink>
-                  <TopNavLink to="/events" mobile>Events</TopNavLink>
-                  <TopNavLink to="/analytics" mobile>Analytics</TopNavLink>
-                  <TopNavLink to="/test-dvr" mobile>Teste DVR</TopNavLink>
-                  <TopNavLink to="/onboarding" mobile>Onboarding</TopNavLink>
-                  <TopNavLink to="/app/dashboard" mobile>Admin</TopNavLink>
+                  <TopNavLink to="/dashboard-simple" mobile>Painel</TopNavLink>
+                  <TopNavLink to="/setup" mobile>Configurar</TopNavLink>
+                  <TopNavLink to="/app/dashboard" mobile>Avançado</TopNavLink>
                   <div className="flex flex-col space-y-2 pt-4">
                     <Button variant="accent" size="sm" asChild>
-                      <NavLink to="/app/dashboard">Ir para o painel</NavLink>
+                      <NavLink to="/dashboard-simple">Ir para o painel</NavLink>
                     </Button>
                   </div>
                 </>

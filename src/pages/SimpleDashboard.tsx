@@ -79,7 +79,7 @@ const SimpleDashboard = () => {
                   <Settings className="h-4 w-4 mr-2" />
                   Configurar
                 </Button>
-                <Button variant="outline" size="sm" onClick={() => navigate('/admin/dashboard')}>
+                <Button variant="outline" size="sm" onClick={() => navigate('/app/dashboard')}>
                   <BarChart3 className="h-4 w-4 mr-2" />
                   Modo Avançado
                 </Button>
@@ -259,7 +259,7 @@ const SimpleDashboard = () => {
                   <Button 
                     variant="outline" 
                     className="h-auto p-4 flex-col space-y-2"
-                    onClick={() => navigate('/admin/people')}
+                    onClick={() => navigate('/app/people')}
                   >
                     <Users className="h-6 w-6" />
                     <span className="font-semibold">Cadastrar Pessoas</span>
@@ -271,7 +271,7 @@ const SimpleDashboard = () => {
                   <Button 
                     variant="outline" 
                     className="h-auto p-4 flex-col space-y-2"
-                    onClick={() => navigate('/admin/config')}
+                    onClick={() => navigate('/app/config')}
                   >
                     <Settings className="h-6 w-6" />
                     <span className="font-semibold">Ajustar Alertas</span>
@@ -283,7 +283,7 @@ const SimpleDashboard = () => {
                   <Button 
                     variant="outline" 
                     className="h-auto p-4 flex-col space-y-2"
-                    onClick={() => navigate('/admin/metrics')}
+                    onClick={() => navigate('/app/metrics')}
                   >
                     <TrendingUp className="h-6 w-6" />
                     <span className="font-semibold">Ver Relatórios</span>
