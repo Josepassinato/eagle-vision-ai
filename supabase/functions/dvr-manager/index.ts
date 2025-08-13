@@ -182,6 +182,39 @@ serve(async (req) => {
             );
           }
 
+          // Get user from auth header
+          const authHeader = req.headers.get('authorization')
+          if (!authHeader?.startsWith('Bearer ')) {
+            return new Response(
+              JSON.stringify({ success: false, error: 'Unauthorized' }),
+              { status: 401, headers: corsHeaders }
+            )
+          }
+
+          const token = authHeader.substring(7)
+          
+          // Get user from token
+          const { data: { user }, error: authError } = await supabase.auth.getUser(token)
+          
+          if (authError || !user) {
+            return new Response(
+              JSON.stringify({ success: false, error: 'Invalid token' }),
+              { status: 401, headers: corsHeaders }
+            )
+          }
+
+          // Get user's organization
+          const { data: orgData, error: orgError } = await supabase
+            .from('org_users')
+            .select('org_id')
+            .eq('user_id', user.id)
+            .single()
+
+          let orgId = null;
+          if (orgData) {
+            orgId = orgData.org_id;
+          }
+
           // Construir URL do stream
           const streamUrl = buildStreamUrl(config);
           
@@ -204,7 +237,8 @@ serve(async (req) => {
               stream_url: streamUrl,
               status: testResult.success ? 'connected' : 'error',
               error_message: testResult.error || null,
-              last_tested_at: new Date().toISOString()
+              last_tested_at: new Date().toISOString(),
+              org_id: orgId
             })
             .select()
             .single();
