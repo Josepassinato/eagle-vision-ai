@@ -13,10 +13,13 @@ import {
   CheckCircle, 
   ArrowRight,
   Plus,
-  Trash2
+  Trash2,
+  Monitor,
+  Router
 } from "lucide-react";
 
 const Setup = () => {
+  const [setupType, setSetupType] = useState<'ip' | 'dvr' | null>(null);
   const [currentStep, setCurrentStep] = useState(0);
   const [savedCameras, setSavedCameras] = useState<any[]>([]);
   const navigate = useNavigate();
@@ -102,10 +105,108 @@ const Setup = () => {
 
   const progress = savedCameras.length > 0 ? 100 : 50;
 
+  // Se ainda não escolheu o tipo de setup, mostra opções
+  if (!setupType) {
+    return (
+      <>
+        <Helmet>
+          <title>Escolha o Tipo de Configuração - Visão de Águia</title>
+          <meta name="description" content="Escolha entre configurar câmeras IP ou sistemas DVR/NVR" />
+        </Helmet>
+        
+        <div className="min-h-screen bg-gradient-to-br from-background via-background/95 to-primary/5 p-4">
+          <div className="max-w-4xl mx-auto">
+            {/* Header */}
+            <div className="text-center mb-12">
+              <h1 className="text-3xl font-bold mb-2">Configuração Inicial</h1>
+              <p className="text-muted-foreground text-lg">
+                Escolha como você deseja configurar seus dispositivos de câmeras
+              </p>
+            </div>
+
+            {/* Options */}
+            <div className="grid md:grid-cols-2 gap-8 max-w-3xl mx-auto">
+              {/* Câmeras IP */}
+              <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={() => setSetupType('ip')}>
+                <CardContent className="p-8 text-center">
+                  <div className="mb-6">
+                    <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <Camera className="h-8 w-8 text-primary" />
+                    </div>
+                    <h3 className="text-xl font-semibold mb-2">Câmeras IP</h3>
+                    <p className="text-muted-foreground text-sm">
+                      Configure câmeras IP individuais conectadas diretamente à rede
+                    </p>
+                  </div>
+                  <div className="space-y-2 text-sm text-left">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle className="h-4 w-4 text-green-500" />
+                      <span>Configuração individual por câmera</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <CheckCircle className="h-4 w-4 text-green-500" />
+                      <span>Suporte ONVIF e HTTP</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <CheckCircle className="h-4 w-4 text-green-500" />
+                      <span>Detecção automática de capabilities</span>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* DVR/NVR */}
+              <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={() => setSetupType('dvr')}>
+                <CardContent className="p-8 text-center">
+                  <div className="mb-6">
+                    <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <Monitor className="h-8 w-8 text-primary" />
+                    </div>
+                    <h3 className="text-xl font-semibold mb-2">Sistema DVR/NVR</h3>
+                    <p className="text-muted-foreground text-sm">
+                      Configure sistemas DVR ou NVR com múltiplas câmeras conectadas
+                    </p>
+                  </div>
+                  <div className="space-y-2 text-sm text-left">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle className="h-4 w-4 text-green-500" />
+                      <span>Suporte para marcas populares</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <CheckCircle className="h-4 w-4 text-green-500" />
+                      <span>Configuração RTSP automática</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <CheckCircle className="h-4 w-4 text-green-500" />
+                      <span>Teste de conectividade</span>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Back button */}
+            <div className="text-center mt-8">
+              <Button variant="ghost" onClick={() => navigate('/')}>
+                Voltar ao Início
+              </Button>
+            </div>
+          </div>
+        </div>
+      </>
+    );
+  }
+
+  // Se escolheu DVR, redireciona para página específica
+  if (setupType === 'dvr') {
+    navigate('/test-dvr');
+    return null;
+  }
+
   return (
     <>
       <Helmet>
-        <title>Configuração de Câmeras - Visão de Águia</title>
+        <title>Configuração de Câmeras IP - Visão de Águia</title>
         <meta name="description" content="Configure suas câmeras IP manualmente com dados precisos" />
       </Helmet>
       
@@ -113,6 +214,11 @@ const Setup = () => {
         <div className="max-w-6xl mx-auto">
           {/* Header */}
           <div className="text-center mb-8">
+            <div className="flex items-center justify-center gap-2 mb-4">
+              <Button variant="ghost" size="sm" onClick={() => setSetupType(null)}>
+                ← Voltar
+              </Button>
+            </div>
             <h1 className="text-3xl font-bold mb-2">Configuração de Câmeras IP</h1>
             <p className="text-muted-foreground text-lg">
               Configure suas câmeras IP manualmente com seus dados de rede
