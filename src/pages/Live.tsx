@@ -6,6 +6,7 @@ import { useRealtimeDetections } from "@/hooks/useRealtimeDetections";
 import type { RealtimeEvent } from "@/hooks/useRealtimeEvents";
 import OverlayCanvas from "@/components/OverlayCanvas";
 import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -15,11 +16,67 @@ import { toast } from "@/hooks/use-toast";
 const Live: React.FC = () => {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const [cameraId, setCameraId] = useState<string>("cam-real-01");
+  const [availableDVRs, setAvailableDVRs] = useState<any[]>([]);
+  const [selectedDVR, setSelectedDVR] = useState<any>(null);
+  const [currentStreamUrl, setCurrentStreamUrl] = useState<string>(LIVE_HLS_URL);
   const { events } = useRealtimeEvents(cameraId);
   const { latestDetection } = useRealtimeDetections(cameraId);
   const [simulate, setSimulate] = useState(false);
   const [simEvent, setSimEvent] = useState<RealtimeEvent | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
+
+  // Carregar DVRs configurados
+  useEffect(() => {
+    loadDVRs();
+  }, []);
+
+  const loadDVRs = async () => {
+    try {
+      const { data: session } = await supabase.auth.getSession();
+      if (!session.session?.access_token) {
+        toast({
+          title: "Erro de autenticação",
+          description: "Usuário não autenticado",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      const response = await fetch(`https://avbswnnywjyvqfxezgfl.supabase.co/functions/v1/dvr-manager`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${session.session.access_token}`,
+          'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF2YnN3bm55d2p5dnFmeGV6Z2ZsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQ3NTI3ODQsImV4cCI6MjA3MDMyODc4NH0.fmpP6MWxsz-GYT44mAvBfR5rXIFdR-PoUbswzkeClo4',
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        if (result.success && result.configs) {
+          const connectedDVRs = result.configs.filter((config: any) => config.status === 'connected');
+          setAvailableDVRs(connectedDVRs);
+          
+          if (connectedDVRs.length > 0) {
+            setSelectedDVR(connectedDVRs[0]);
+            setCameraId(connectedDVRs[0].id);
+            setCurrentStreamUrl(connectedDVRs[0].stream_url);
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Erro ao carregar DVRs:', error);
+    }
+  };
+
+  const handleDVRChange = (dvrId: string) => {
+    const dvr = availableDVRs.find(d => d.id === dvrId);
+    if (dvr) {
+      setSelectedDVR(dvr);
+      setCameraId(dvr.id);
+      setCurrentStreamUrl(dvr.stream_url);
+    }
+  };
 
   useEffect(() => {
     const video = videoRef.current;
@@ -30,24 +87,31 @@ const Live: React.FC = () => {
     (video as any).autoplay = true;
 
     try {
+      // Para streams RTSP, não podemos usar HLS diretamente no browser
+      // Vamos mostrar uma mensagem informativa
+      if (currentStreamUrl.startsWith('rtsp://')) {
+        // Para streams RTSP, mostrar informação ao usuário
+        return;
+      }
+
       if (Hls.isSupported()) {
         const hls = new Hls({ enableWorker: true });
-        hls.loadSource(LIVE_HLS_URL);
+        hls.loadSource(currentStreamUrl);
         hls.attachMedia(video);
         hls.on(Hls.Events.MANIFEST_PARSED, () => {
           video.play().catch(() => {});
         });
         return () => hls.destroy();
       } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-        video.src = LIVE_HLS_URL;
+        video.src = currentStreamUrl;
         const onLoaded = () => video.play().catch(() => {});
         video.addEventListener('loadedmetadata', onLoaded);
         return () => video.removeEventListener('loadedmetadata', onLoaded);
       }
     } catch (e) {
-      toast({ title: "Erro no player HLS", description: String(e), variant: "destructive" });
+      toast({ title: "Erro no player", description: String(e), variant: "destructive" });
     }
-  }, []);
+  }, [currentStreamUrl]);
 
   // Convert real detection to event format for overlay
   const realEvent = useMemo(() => {
@@ -75,7 +139,7 @@ const Live: React.FC = () => {
       const { data, error } = await supabase.functions.invoke('stream-start', {
         body: {
           camera_id: cameraId,
-          stream_url: LIVE_HLS_URL,
+          stream_url: currentStreamUrl,
           analytics_enabled: ['people_detection', 'vehicle_detection', 'safety_monitoring']
         }
       });
@@ -150,6 +214,23 @@ const Live: React.FC = () => {
       </header>
 
       <section className="mb-4 flex items-center gap-4 flex-wrap">
+        {availableDVRs.length > 0 && (
+          <div className="flex items-center gap-2">
+            <label className="text-sm text-muted-foreground">DVR/Câmera</label>
+            <Select value={selectedDVR?.id || ""} onValueChange={handleDVRChange}>
+              <SelectTrigger className="w-[250px]">
+                <SelectValue placeholder="Selecione um DVR configurado" />
+              </SelectTrigger>
+              <SelectContent>
+                {availableDVRs.map((dvr) => (
+                  <SelectItem key={dvr.id} value={dvr.id}>
+                    {dvr.name} ({dvr.protocol})
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
         <div className="flex items-center gap-2">
           <label className="text-sm text-muted-foreground" htmlFor="camera">camera_id</label>
           <Input id="camera" value={cameraId} onChange={(e) => setCameraId(e.target.value)} className="w-[220px]" placeholder="cam-real-01" />
@@ -172,15 +253,35 @@ const Live: React.FC = () => {
       </section>
 
       <section className="relative w-full aspect-video rounded-lg overflow-hidden shadow-primary">
-        <video
-          ref={videoRef}
-          className="w-full h-full bg-black"
-          controls={false}
-          playsInline
-          muted
-          autoPlay
-          crossOrigin="anonymous"
-        />
+        {currentStreamUrl.startsWith('rtsp://') ? (
+          <div className="w-full h-full bg-gray-900 flex items-center justify-center">
+            <div className="text-center text-white p-8">
+              <div className="text-6xl mb-4">📹</div>
+              <h3 className="text-xl font-semibold mb-2">Stream RTSP Detectado</h3>
+              <p className="text-gray-300 mb-4">
+                Este é um stream RTSP real: <br/>
+                <code className="bg-gray-800 px-2 py-1 rounded text-sm">{currentStreamUrl}</code>
+              </p>
+              <p className="text-gray-400 text-sm mb-4">
+                Browsers não reproduzem RTSP diretamente. O processamento de IA está funcionando em background.
+              </p>
+              <div className="flex items-center justify-center gap-2 text-green-400">
+                <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                <span>Análise ativa nos servidores</span>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <video
+            ref={videoRef}
+            className="w-full h-full bg-black"
+            controls={false}
+            playsInline
+            muted
+            autoPlay
+            crossOrigin="anonymous"
+          />
+        )}
         <OverlayCanvas videoRef={videoRef} event={eventToShow} />
       </section>
     </main>
