@@ -19,7 +19,8 @@ SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
 FACE_URL = os.getenv("FACE_URL", "http://face-service:18080").rstrip('/')
 T_FACE = float(os.getenv("T_FACE", "0.65"))
 T_REID = float(os.getenv("T_REID", "0.86"))
-EMA_ALPHA = float(os.getenv("EMA_ALPHA", "0.30"))
+EMA_ALPHA = float(os.getenv("EMA_ALPHA", "0.30"))  # Temporal smoothing (EMA already exists)
+ASSOCIATION_TIMEOUT = float(os.getenv("ASSOCIATION_TIMEOUT", "1.5"))  # Clear association timeout 1.5-2.0s
 
 if not SUPABASE_URL or not SUPABASE_SERVICE_ROLE_KEY:
     logger.error("Missing Supabase configuration")
@@ -86,26 +87,26 @@ def ema_update(old: Optional[List[float]], new: List[float], alpha: float) -> Li
 
 
 def resolve_identity(face_emb: Optional[List[float]], body_emb: Optional[List[float]], prelim_person_id: Optional[str], face_sim: Optional[float], reid_sim: Optional[float]) -> Dict[str, Any]:
-    # Prefer face matching when embedding available
+    # Prefer face matching when embedding available with clear timeout
     if face_emb is not None:
         try:
-            with time_limit(3):
+            with time_limit(int(ASSOCIATION_TIMEOUT)):  # Use configurable timeout
                 res = supabase.rpc('match_face', { 'query': face_emb, 'k': 1 }).execute()
         except TimeoutError:
-            logger.warning("match_face RPC timed out (3s)")
+            logger.warning(f"match_face RPC timed out ({ASSOCIATION_TIMEOUT}s)")
             res = type('obj', (), {'data': []})()
         if res.data:
             cand = res.data[0]
             sim = float(cand['similarity'])
             if sim >= T_FACE:
                 return { 'person_id': cand['id'], 'source': 'face', 'similarity': sim, 'update_face': True }
-    # Fallback to body
+    # Fallback to body with clear timeout
     if body_emb is not None:
         try:
-            with time_limit(3):
+            with time_limit(int(ASSOCIATION_TIMEOUT)):  # Use configurable timeout
                 res = supabase.rpc('match_body', { 'query': body_emb, 'k': 1 }).execute()
         except TimeoutError:
-            logger.warning("match_body RPC timed out (3s)")
+            logger.warning(f"match_body RPC timed out ({ASSOCIATION_TIMEOUT}s)")
             res = type('obj', (), {'data': []})()
         if res.data:
             cand = res.data[0]
@@ -158,7 +159,13 @@ def resolve(req: ResolveRequest):
 
 @app.get('/health')
 def health():
-    return { 'status': 'ok', 't_face': T_FACE, 't_reid': T_REID }
+    return { 
+        'status': 'ok', 
+        't_face': T_FACE, 
+        't_reid': T_REID, 
+        'ema_alpha': EMA_ALPHA,
+        'association_timeout': ASSOCIATION_TIMEOUT
+    }
 
 
 @app.get('/metrics')

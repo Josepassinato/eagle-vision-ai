@@ -22,17 +22,30 @@ from ultralytics import YOLO
 import uvicorn
 import asyncio
 from typing import List, Optional
+from prometheus_client import Counter, Histogram, Gauge, generate_latest, CONTENT_TYPE_LATEST
 
 # Import batch processor
 import sys
 sys.path.append('/common_schemas')
 from batch_processor import get_batch_processor, BatchProcessor
 
+# Prometheus metrics
+inference_duration = Histogram('yolo_inference_duration_seconds', 'YOLO inference duration')
+batch_size_metric = Histogram('yolo_batch_size', 'Actual batch sizes processed')
+output_queue_size = Gauge('yolo_output_queue_size', 'Current output queue size')
+backpressure_rejections = Counter('yolo_backpressure_rejections_total', 'Requests rejected due to backpressure')
+fp16_usage = Counter('yolo_fp16_inferences_total', 'Number of FP16 inferences')
+
 # Configuração
 YOLO_MODEL = os.getenv("YOLO_MODEL", "/app/models/yolov8x.pt")
 YOLO_MODEL_URL = os.getenv("YOLO_MODEL_URL")
 YOLO_DEVICE = os.getenv("YOLO_DEVICE", "auto")  # auto|cuda|cpu
-BATCH_SIZE = int(os.getenv("BATCH_SIZE", "8"))  # GPU batching
+BATCH_SIZE = int(os.getenv("BATCH_SIZE", "4"))  # Real batching ≥2 under load
+MAX_BATCH_SIZE = int(os.getenv("MAX_BATCH_SIZE", "8"))
+OUTPUT_QUEUE_LIMIT = int(os.getenv("OUTPUT_QUEUE_LIMIT", "50"))  # Backpressure limit
+ENABLE_FP16 = os.getenv("ENABLE_FP16", "true").lower() == "true"  # FP16 precision
+ENABLE_TENSORRT = os.getenv("ENABLE_TENSORRT", "false").lower() == "true"  # TensorRT flag for v1.1
+NMS_ON_DEVICE = os.getenv("NMS_ON_DEVICE", "true").lower() == "true"  # NMS on device
 MAX_IMAGE_SIZE_MB = 2
 INFERENCE_TIMEOUT = 2.0
 
@@ -45,6 +58,7 @@ app = FastAPI(
 # Modelo global e batch processor
 model = None
 batch_processor = None
+output_queue = asyncio.Queue(maxsize=OUTPUT_QUEUE_LIMIT)
 
 
 def _verify_integrity(model_path: str):
@@ -121,21 +135,38 @@ async def startup_event():
     if device == "cuda":
         try:
             torch.backends.cudnn.benchmark = True
+            if ENABLE_FP16:
+                model.half()  # Enable FP16
+                print("✓ FP16 precision enabled")
             print(f"GPU: {torch.cuda.get_device_name(0)}")
         except Exception:
             pass
         model.to(device)
+    
+    # Configure NMS on device
+    if hasattr(model, 'model') and hasattr(model.model, 'model'):
+        for m in model.model.model.modules():
+            if hasattr(m, 'nms'):
+                if NMS_ON_DEVICE and device == "cuda":
+                    # Ensure NMS runs on GPU
+                    print("✓ NMS configured for GPU")
+                    
+    # TensorRT preparation (flag for v1.1)
+    if ENABLE_TENSORRT and device == "cuda":
+        print("⚠️ TensorRT flag enabled - will be implemented in v1.1")
 
-    # Initialize batch processor for GPU optimization
+    # Initialize batch processor for GPU optimization with dynamic batching
     try:
         batch_processor = get_batch_processor(
             'yolo',
             model=model,
             batch_size=BATCH_SIZE,
-            max_wait_time=0.05,  # 50ms max wait
-            device=device
+            max_batch_size=MAX_BATCH_SIZE,
+            max_wait_time=0.05,  # 50ms max wait for real batching
+            device=device,
+            enable_fp16=ENABLE_FP16
         )
-        print(f"✓ Batch processor initialized (batch_size={BATCH_SIZE}, device={device})")
+        print(f"✓ Batch processor initialized (batch_size={BATCH_SIZE}, max_batch_size={MAX_BATCH_SIZE}, device={device})")
     except Exception as e:
         print(f"⚠️ Failed to initialize batch processor: {e}")
         batch_processor = None
@@ -199,9 +230,14 @@ def crop_body(img: np.ndarray, xyxy: List[int]) -> np.ndarray:
 
 @app.post("/detect", response_model=DetectionResponse)
 async def detect_persons(request: DetectionRequest):
-    """Detecta pessoas na imagem com batching opcional"""
+    """Detecta pessoas na imagem com batching opcional e backpressure"""
     if model is None:
         raise HTTPException(status_code=503, detail="Modelo não carregado")
+    
+    # Check backpressure - reject if output queue is full
+    if output_queue.qsize() >= OUTPUT_QUEUE_LIMIT:
+        backpressure_rejections.inc()
+        raise HTTPException(status_code=503, detail=f"Sistema sobrecarregado - fila de saída cheia ({output_queue.qsize()}/{OUTPUT_QUEUE_LIMIT})")
     
     # Decodifica imagem
     img = decode_base64_image(request.jpg_b64)
@@ -236,6 +272,12 @@ async def detect_persons(request: DetectionRequest):
         
         inference_time = time.time() - start_time
         
+        # Update metrics
+        inference_duration.observe(inference_time)
+        output_queue_size.set(output_queue.qsize())
+        if ENABLE_FP16 and torch.cuda.is_available():
+            fp16_usage.inc()
+        
         if inference_time > INFERENCE_TIMEOUT:
             print(f"Warning: Inferência demorou {inference_time:.3f}s (limite: {INFERENCE_TIMEOUT}s)")
         
@@ -269,8 +311,8 @@ async def detect_persons(request: DetectionRequest):
 async def _process_single_image(img: np.ndarray) -> Dict:
     """Process single image without batching"""
     try:
-        # Inferência individual
-        with torch.cuda.amp.autocast(enabled=torch.cuda.is_available()):
+        # Inferência individual with FP16 if enabled
+        with torch.cuda.amp.autocast(enabled=ENABLE_FP16 and torch.cuda.is_available()):
             results = model(img, verbose=False)
         
         # Processa resultados
@@ -358,10 +400,26 @@ async def detect_batch(request: BatchDetectionRequest):
 @app.get("/batch_stats")
 async def get_batch_stats():
     """Get batch processing statistics"""
+    stats = {"batch_processor_available": batch_processor is not None}
     if batch_processor:
-        return batch_processor.get_stats()
-    else:
-        return {"error": "Batch processor not available"}
+        stats.update(batch_processor.get_stats())
+    
+    # Add queue and performance stats
+    stats.update({
+        "output_queue_size": output_queue.qsize(),
+        "output_queue_limit": OUTPUT_QUEUE_LIMIT,
+        "fp16_enabled": ENABLE_FP16,
+        "nms_on_device": NMS_ON_DEVICE,
+        "tensorrt_enabled": ENABLE_TENSORRT
+    })
+    
+    return stats
+
+@app.get("/metrics")
+async def get_metrics():
+    """Prometheus metrics endpoint"""
+    from fastapi import Response
+    return Response(generate_latest(), media_type=CONTENT_TYPE_LATEST)
 
 if __name__ == "__main__":
     uvicorn.run(

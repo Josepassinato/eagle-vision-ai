@@ -336,11 +336,16 @@ class BatchProcessor:
 
 
 class YOLOBatchProcessor(BatchProcessor):
-    """Specialized batch processor for YOLO detection"""
+    """Specialized batch processor for YOLO detection with real batching ≥2"""
     
-    def __init__(self, model, **kwargs):
+    def __init__(self, model, max_batch_size=8, enable_fp16=False, **kwargs):
+        # Ensure real batching with minimum batch size of 2 under load
+        if 'batch_size' in kwargs and kwargs['batch_size'] < 2:
+            kwargs['batch_size'] = 2
         super().__init__(**kwargs)
         self.model = model
+        self.max_batch_size = max_batch_size
+        self.enable_fp16 = enable_fp16
     
     def _run_batch_inference(self, processor_func: Callable, items: List[BatchItem]) -> List[Any]:
         """YOLO-specific batch inference"""
@@ -354,12 +359,22 @@ class YOLOBatchProcessor(BatchProcessor):
                     logger.warning(f"Invalid image data type for item {item.id}")
                     images.append(np.zeros((640, 640, 3), dtype=np.uint8))
             
-            # Run YOLO batch inference
-            if self.device == "cuda" and torch.cuda.is_available():
-                with torch.cuda.amp.autocast():
-                    results = self.model(images, verbose=False)
+            # Dynamic batch size based on queue load
+            actual_batch_size = min(len(images), self.max_batch_size)
+            if len(images) >= 2:  # Only use batching if we have ≥2 images
+                # Run YOLO batch inference with FP16 if enabled
+                if self.device == "cuda" and torch.cuda.is_available():
+                    with torch.cuda.amp.autocast(enabled=self.enable_fp16):
+                        results = self.model(images[:actual_batch_size], verbose=False)
+                else:
+                    results = self.model(images[:actual_batch_size], verbose=False)
             else:
-                results = self.model(images, verbose=False)
+                # Process single image
+                if self.device == "cuda" and torch.cuda.is_available():
+                    with torch.cuda.amp.autocast(enabled=self.enable_fp16):
+                        results = self.model(images[0], verbose=False)
+                else:
+                    results = self.model(images[0], verbose=False)
             
             # Process results
             processed_results = []

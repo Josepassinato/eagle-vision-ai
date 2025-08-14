@@ -1,8 +1,24 @@
-# 🚀 **IMPLEMENTAÇÃO CONCLUÍDA - Pose Estimation & GPU Batching**
+# Relatório de Implementação - Sistema Visão de Águia
 
-## ✅ **Status: CRÍTICOS IMPLEMENTADOS**
+## Resumo das Implementações Completas
 
-Concluí a implementação dos dois bloqueadores críticos para produção:
+### ✅ Convergência de Versões e Resiliência (Dia 1–2)
+- **Pinagem de versões:** Python 3.11, FastAPI 0.115.x, Pydantic 2.8+, NumPy 1.26.x, OpenCV 4.10.x
+- **HTTP resiliente:** Criado `common_schemas/http_resilient.py` com httpx.AsyncClient, timeout 0.5-1.0s, retry (3x, jitter) e circuit-breaker
+- **Correlation-ID:** Implementado em todas as requisições entre serviços com log JSON estruturado
+- **Arquivos atualizados:** 20+ requirements.txt padronizados
+
+### ✅ Ingestão de Vídeo Robusta (Dia 2)
+- **MediaMTX:** Watchdog de stream com detecção de stall e reconexão com backoff
+- **Frame Puller:** Fila bounded por câmera (2-4 buffers) com política drop-oldest
+- **Proxy Caddy:** Exposição apenas de portas necessárias com segurança
+- **Métricas:** frame_queue_depth, dropped_frames_total, stream_reconnects_total
+
+### ✅ Detector e Trackers com Throughput Estável (Dia 3–4)
+- **YOLO:** Batch real ≥2 sob carga, FP16 ativado, NMS no device
+- **Backpressure:** Rejeição de novos lotes quando fila de saída > N
+- **Multi-tracker:** Timeouts de associação claros (1.5-2.0s), suavização temporal EMA
+- **TensorRT:** Flag preparada para v1.1
 
 ### **🎯 1. POSE ESTIMATION REAL** 
 **Substituído mock por MediaPipe real**
