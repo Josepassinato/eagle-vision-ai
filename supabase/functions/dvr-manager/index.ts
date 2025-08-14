@@ -184,10 +184,13 @@ serve(async (req) => {
 
         case 'save-config':
         case 'save': {
+          console.log('Save config request body:', JSON.stringify(body, null, 2));
+          
           const config: DVRConfig = body;
           
           // Validar campos obrigatórios
           if (!config.name || !config.protocol || !config.host) {
+            console.error('Missing required fields:', { name: config.name, protocol: config.protocol, host: config.host });
             return new Response(
               JSON.stringify({ success: false, error: 'Name, protocol e host são obrigatórios' }),
               { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -208,7 +211,10 @@ serve(async (req) => {
           // Get user from token
           const { data: { user }, error: authError } = await supabase.auth.getUser(token)
           
+          console.log('Auth result:', { user: user?.id, authError });
+          
           if (authError || !user) {
+            console.error('Auth failed:', { authError, user });
             return new Response(
               JSON.stringify({ success: false, error: 'Invalid token' }),
               { status: 401, headers: corsHeaders }
