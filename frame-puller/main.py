@@ -16,10 +16,10 @@ import json
 
 import cv2
 import numpy as np
-import requests
 from PIL import Image
 from io import BytesIO
 from prometheus_client import Counter, Histogram, Gauge, generate_latest, CONTENT_TYPE_LATEST, start_http_server
+from common_schemas.http_resilient import ResilientHttpClient
 
 # Configuração de logging
 logging.basicConfig(
@@ -39,11 +39,9 @@ MAX_FPS = int(os.getenv("MAX_FPS", "10"))
 LATENCY_THRESHOLD = float(os.getenv("LATENCY_THRESHOLD", "0.5"))  # 500ms
 RECONNECT_DELAY = int(os.getenv("RECONNECT_DELAY", "5"))  # 5 segundos
 METRICS_PORT = int(os.getenv("METRICS_PORT", "9100"))
-# Resilience config
-RETRY_MAX_ATTEMPTS = int(os.getenv("RETRY_MAX_ATTEMPTS", "5"))
-RETRY_BASE_DELAY_MS = int(os.getenv("RETRY_BASE_DELAY_MS", "500"))
-CIRCUIT_BREAKER_FAIL_THRESHOLD = float(os.getenv("CIRCUIT_BREAKER_FAIL_THRESHOLD", "0.5"))
-CIRCUIT_BREAKER_OPEN_SECONDS = int(os.getenv("CIRCUIT_BREAKER_OPEN_SECONDS", "20"))
+# Resilient ingest config
+FRAME_QUEUE_SIZE = int(os.getenv("FRAME_QUEUE_SIZE", "3"))  # Bounded queue 2-4 buffers
+STREAM_HEALTH_TIMEOUT = float(os.getenv("STREAM_HEALTH_TIMEOUT", "10.0"))  # Stream stall detection
 
 # Prometheus metrics
 puller_frames_sent_total = Counter('puller_frames_sent_total', 'Total frames sent to fusion')
@@ -51,63 +49,142 @@ puller_http_errors_total = Counter('puller_http_errors_total', 'Total HTTP error
 puller_latency_seconds = Histogram('puller_latency_seconds', 'Latency of fusion requests')
 puller_backpressure_fps = Gauge('puller_backpressure_fps', 'Current FPS after backpressure adjustment')
 puller_connection_failures_total = Counter('puller_connection_failures_total', 'Total stream connection failures')
-# Resilience metrics
-service_http_failures_total = Counter('service_http_failures_total', 'HTTP failures to dependencies', ['service'])
-service_http_retries_total = Counter('service_http_retries_total', 'HTTP retries to dependencies', ['service'])
-circuit_breaker_open_total = Counter('circuit_breaker_open_total', 'Circuit breaker opened', ['service'])
+# Robust video ingest metrics
+frame_queue_depth = Gauge('frame_queue_depth', 'Current frame queue depth', ['camera_id'])
+dropped_frames_total = Counter('dropped_frames_total', 'Total dropped frames due to queue saturation', ['camera_id', 'reason'])
+stream_reconnects_total = Counter('stream_reconnects_total', 'Total stream reconnections', ['camera_id', 'reason'])
+stream_stall_detected_total = Counter('stream_stall_detected_total', 'Stream stall detections', ['camera_id'])
+
+class BoundedFrameQueue:
+    """Fila bounded para frames com política drop-oldest"""
+    
+    def __init__(self, maxsize: int = FRAME_QUEUE_SIZE):
+        self.maxsize = maxsize
+        self.queue = deque(maxlen=maxsize)
+        self.lock = asyncio.Lock()
+    
+    async def put(self, item):
+        async with self.lock:
+            if len(self.queue) >= self.maxsize:
+                # Drop oldest frame (prioriza tempo real)
+                dropped = self.queue.popleft() if self.queue else None
+                if dropped:
+                    dropped_frames_total.labels(camera_id=CAMERA_ID, reason="queue_full").inc()
+                    logger.debug(f"Dropped oldest frame due to queue saturation")
+            
+            self.queue.append(item)
+            frame_queue_depth.labels(camera_id=CAMERA_ID).set(len(self.queue))
+    
+    async def get(self):
+        async with self.lock:
+            if not self.queue:
+                return None
+            item = self.queue.popleft()
+            frame_queue_depth.labels(camera_id=CAMERA_ID).set(len(self.queue))
+            return item
+    
+    def qsize(self):
+        return len(self.queue)
+
+
+class StreamWatchdog:
+    """Watchdog para detectar stream stall"""
+    
+    def __init__(self, timeout: float = STREAM_HEALTH_TIMEOUT):
+        self.timeout = timeout
+        self.last_frame_time = time.time()
+        self.stall_count = 0
+    
+    def update(self):
+        """Atualiza timestamp do último frame"""
+        self.last_frame_time = time.time()
+    
+    def is_stalled(self) -> bool:
+        """Verifica se stream está em stall"""
+        elapsed = time.time() - self.last_frame_time
+        if elapsed > self.timeout:
+            if self.stall_count == 0:  # Log apenas na primeira detecção
+                logger.warning(f"Stream stall detected: {elapsed:.1f}s since last frame")
+                stream_stall_detected_total.labels(camera_id=CAMERA_ID).inc()
+            self.stall_count += 1
+            return True
+        
+        if self.stall_count > 0:
+            logger.info(f"Stream recovered after {self.stall_count} stall checks")
+            self.stall_count = 0
+        return False
+
 
 class FramePuller:
-    """Serviço de captura e envio de frames"""
+    """Serviço de captura e envio de frames com ingestão robusta"""
     
     def __init__(self):
         self.current_fps = PULLER_FPS
         self.cap: Optional[cv2.VideoCapture] = None
         self.running = False
         
+        # Robust ingest components
+        self.frame_queue = BoundedFrameQueue(FRAME_QUEUE_SIZE)
+        self.watchdog = StreamWatchdog(STREAM_HEALTH_TIMEOUT)
+        self.http_client = ResilientHttpClient(
+            timeout=1.0,
+            retry_attempts=3,
+            retry_base_delay=0.5
+        )
+        
         # Métricas
         self.latency_history = deque(maxlen=50)  # Últimas 50 latências
         puller_backpressure_fps.set(self.current_fps)
+        frame_queue_depth.labels(camera_id=CAMERA_ID).set(0)
         self.frame_count = 0
         self.success_count = 0
         self.error_count = 0
         self.start_time = time.time()
+        self.reconnect_count = 0
         
         # Backpressure
         self.last_fps_adjust = time.time()
         self.consecutive_slow_requests = 0
         
         logger.info(f"FramePuller initialized - Camera: {CAMERA_ID}, Stream: {STREAM_URL}")
-        logger.info(f"Target FPS: {PULLER_FPS}, Max Image: {MAX_IMAGE_MB}MB")
+        logger.info(f"Target FPS: {PULLER_FPS}, Queue Size: {FRAME_QUEUE_SIZE}, Max Image: {MAX_IMAGE_MB}MB")
     
-    def connect_to_stream(self) -> bool:
-        """Conecta ao stream de vídeo"""
+    def connect_to_stream(self, reason: str = "startup") -> bool:
+        """Conecta ao stream de vídeo com watchdog"""
         try:
             if self.cap:
                 self.cap.release()
             
-            logger.info(f"Connecting to stream: {STREAM_URL}")
+            logger.info(f"Connecting to stream: {STREAM_URL} (reason: {reason})")
             self.cap = cv2.VideoCapture(STREAM_URL)
             
             # Configurar buffer mínimo para reduzir latência
             self.cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+            # Timeout para detecção de problemas
+            self.cap.set(cv2.CAP_PROP_OPEN_TIMEOUT_MSEC, 10000)
+            self.cap.set(cv2.CAP_PROP_READ_TIMEOUT_MSEC, 5000)
             
             if not self.cap.isOpened():
                 logger.error("Failed to open video stream")
+                stream_reconnects_total.labels(camera_id=CAMERA_ID, reason=f"open_failed_{reason}").inc()
                 return False
             
             # Testar captura de frame
             ret, frame = self.cap.read()
             if not ret:
                 logger.error("Failed to read frame from stream")
+                stream_reconnects_total.labels(camera_id=CAMERA_ID, reason=f"read_failed_{reason}").inc()
                 return False
             
             height, width = frame.shape[:2]
-            logger.info(f"Stream connected successfully - Resolution: {width}x{height}")
+            self.reconnect_count += 1
+            self.watchdog.update()  # Reset watchdog
+            logger.info(f"Stream connected successfully - Resolution: {width}x{height} (reconnect #{self.reconnect_count})")
             return True
             
         except Exception as e:
             logger.error(f"Error connecting to stream: {e}")
-            puller_connection_failures_total.inc()
+            stream_reconnects_total.labels(camera_id=CAMERA_ID, reason=f"exception_{reason}").inc()
             return False
     
     def frame_to_base64(self, frame: np.ndarray, quality: int = 85) -> Optional[str]:
@@ -183,45 +260,33 @@ class SimpleBreaker:
 
 _breaker = SimpleBreaker()
 
-def send_frame_to_fusion(self, frame_b64: str, timestamp: float) -> bool:
-    """Envia frame para Fusion API com retries e circuito"""
-    service = 'fusion-ingest'
-    if not _breaker.allow():
-        circuit_breaker_open_total.labels(service=service).inc()
-        logger.warning("Circuit open for fusion, skipping send")
-        return False
-    payload = {
-        "camera_id": CAMERA_ID,
-        "ts": timestamp,
-        "jpg_b64": frame_b64,
-        "max_people": 10
-    }
-    max_attempts = RETRY_MAX_ATTEMPTS
-    for attempt in range(max_attempts):
+    async def send_frame_to_fusion(self, frame_b64: str, timestamp: float) -> bool:
+        """Envia frame para Fusion API usando client resiliente"""
+        payload = {
+            "camera_id": CAMERA_ID,
+            "ts": timestamp,
+            "jpg_b64": frame_b64,
+            "max_people": 10
+        }
+        
         try:
             with puller_latency_seconds.time():
-                response = requests.post(f"{FUSION_URL}/ingest_frame", json=payload, timeout=5.0)
-            if response.status_code == 200:
-                _breaker.on_success()
-                if attempt > 0:
-                    service_http_retries_total.labels(service=service).inc()
+                response = await self.http_client.post(
+                    f"{FUSION_URL}/ingest_frame", 
+                    json=payload
+                )
+            
+            if response and response.get("status") == "success":
                 logger.debug("Frame sent successfully")
                 puller_frames_sent_total.inc()
                 return True
-            elif 500 <= response.status_code < 600:
-                service_http_failures_total.labels(service=service).inc()
-                _breaker.on_failure()
             else:
-                puller_http_errors_total.labels(status_code=str(response.status_code)).inc()
-                _breaker.on_failure()
-                break
-        except requests.exceptions.RequestException as e:
-            service_http_failures_total.labels(service=service).inc()
-            logger.warning(f"Error sending frame to fusion (attempt {attempt+1}/{max_attempts}): {e}")
-            _breaker.on_failure()
-        if attempt < max_attempts - 1:
-            _exp_backoff_sleep(attempt)
-    return False
+                logger.warning(f"Fusion API returned error: {response}")
+                return False
+                
+        except Exception as e:
+            logger.warning(f"Error sending frame to fusion: {e}")
+            return False
     
     def handle_backpressure(self, latency: float):
         """Gerencia backpressure ajustando FPS"""
@@ -241,16 +306,16 @@ def send_frame_to_fusion(self, frame_b64: str, timestamp: float) -> bool:
         logger.debug(f"Backpressure: latency={latency:.3f}s, new_fps={self.current_fps}")
         self.latency_history.append(latency)
     
-    async def run(self):
-        """Loop principal de captura e envio"""
-        self.running = True
-        logger.info("Starting frame pulling...")
+    async def capture_loop(self):
+        """Loop de captura com watchdog e fila bounded"""
+        logger.info("Starting capture loop...")
         
         while self.running:
             try:
-                # Conectar ao stream se necessário
-                if not self.cap or not self.cap.isOpened():
-                    if not self.connect_to_stream():
+                # Conectar ao stream se necessário ou detectar stall
+                if not self.cap or not self.cap.isOpened() or self.watchdog.is_stalled():
+                    reason = "stall" if self.watchdog.is_stalled() else "disconnected"
+                    if not self.connect_to_stream(reason):
                         logger.error(f"Failed to connect, retrying in {RECONNECT_DELAY}s...")
                         await asyncio.sleep(RECONNECT_DELAY)
                         continue
@@ -262,11 +327,13 @@ def send_frame_to_fusion(self, frame_b64: str, timestamp: float) -> bool:
                 # Capturar frame
                 ret, frame = self.cap.read()
                 if not ret:
-                    logger.warning("Failed to read frame, reconnecting...")
+                    logger.warning("Failed to read frame, will reconnect...")
                     self.cap.release()
                     await asyncio.sleep(1)
                     continue
                 
+                # Update watchdog
+                self.watchdog.update()
                 self.frame_count += 1
                 timestamp = time.time()
                 
@@ -275,9 +342,48 @@ def send_frame_to_fusion(self, frame_b64: str, timestamp: float) -> bool:
                 if not frame_b64:
                     continue
                 
+                # Adicionar à fila bounded
+                await self.frame_queue.put({
+                    'frame_b64': frame_b64,
+                    'timestamp': timestamp,
+                    'frame_id': self.frame_count
+                })
+                
+                # Aguardar próximo frame
+                processing_time = time.time() - frame_start
+                sleep_time = max(0, frame_delay - processing_time)
+                
+                if sleep_time > 0:
+                    await asyncio.sleep(sleep_time)
+                
+            except KeyboardInterrupt:
+                logger.info("Received shutdown signal in capture loop")
+                break
+                
+            except Exception as e:
+                logger.error(f"Unexpected error in capture loop: {e}")
+                await asyncio.sleep(1)
+        
+        logger.info("Capture loop stopped")
+
+    async def sender_loop(self):
+        """Loop de envio separado para processar fila"""
+        logger.info("Starting sender loop...")
+        
+        while self.running:
+            try:
+                # Buscar frame da fila
+                frame_data = await self.frame_queue.get()
+                if not frame_data:
+                    await asyncio.sleep(0.01)  # Small delay if queue is empty
+                    continue
+                
                 # Enviar para Fusion
                 start_time = time.time()
-                success = self.send_frame_to_fusion(frame_b64, timestamp)
+                success = await self.send_frame_to_fusion(
+                    frame_data['frame_b64'], 
+                    frame_data['timestamp']
+                )
                 latency = time.time() - start_time
                 
                 if success:
@@ -288,26 +394,33 @@ def send_frame_to_fusion(self, frame_b64: str, timestamp: float) -> bool:
                 # Verificar backpressure
                 self.handle_backpressure(latency)
                 
-                # Aguardar próximo frame
-                processing_time = time.time() - frame_start
-                sleep_time = max(0, frame_delay - processing_time)
-                
-                if sleep_time > 0:
-                    await asyncio.sleep(sleep_time)
-                
             except KeyboardInterrupt:
-                logger.info("Received shutdown signal")
+                logger.info("Received shutdown signal in sender loop")
                 break
                 
             except Exception as e:
-                logger.error(f"Unexpected error in main loop: {e}")
-                await asyncio.sleep(1)
+                logger.error(f"Unexpected error in sender loop: {e}")
+                await asyncio.sleep(0.1)
         
-        # Limpeza
-        if self.cap:
-            self.cap.release()
+        logger.info("Sender loop stopped")
+
+    async def run(self):
+        """Loop principal com captura e envio paralelos"""
+        self.running = True
+        logger.info("Starting robust frame pulling...")
         
-        logger.info("Frame puller stopped")
+        # Start both loops concurrently
+        capture_task = asyncio.create_task(self.capture_loop())
+        sender_task = asyncio.create_task(self.sender_loop())
+        
+        try:
+            await asyncio.gather(capture_task, sender_task)
+        finally:
+            # Limpeza
+            if self.cap:
+                self.cap.release()
+            await self.http_client.close()
+            logger.info("Frame puller stopped")
     
     def stop(self):
         """Para o serviço"""
@@ -320,17 +433,22 @@ if __name__ == "__main__":
     
     puller = FramePuller()
     
-    # Health check da Fusion API antes de começar
-    try:
-        logger.info("Checking Fusion API health...")
-        response = requests.get(f"{FUSION_URL}/health", timeout=10)
-        if response.status_code == 200:
-            logger.info("✅ Fusion API is healthy")
-        else:
-            logger.warning(f"⚠️ Fusion API returned {response.status_code}")
-    except Exception as e:
-        logger.error(f"❌ Cannot reach Fusion API: {e}")
-        logger.info("Continuing anyway...")
+    # Health check da Fusion API antes de começar (async)
+    async def health_check():
+        try:
+            logger.info("Checking Fusion API health...")
+            http_client = ResilientHttpClient()
+            response = await http_client.get(f"{FUSION_URL}/health")
+            if response:
+                logger.info("✅ Fusion API is healthy")
+            else:
+                logger.warning("⚠️ Fusion API health check failed")
+            await http_client.close()
+        except Exception as e:
+            logger.error(f"❌ Cannot reach Fusion API: {e}")
+            logger.info("Continuing anyway...")
+    
+    asyncio.run(health_check())
     
     try:
         asyncio.run(puller.run())

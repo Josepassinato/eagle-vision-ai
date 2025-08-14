@@ -1,0 +1,84 @@
+# MediaMTX Reverse Proxy Configuration
+# Apenas portas necessárias expostas para segurança
+
+{$MEDIAMTX_DOMAIN:localhost} {
+  
+  # RTSP Proxy (porta 8554 -> 554)  
+  handle_path /rtsp/* {
+    reverse_proxy mediamtx:8554 {
+      transport http
+    }
+  }
+
+  # HLS Streaming (porta 8888)
+  handle_path /hls/* {
+    reverse_proxy mediamtx:8888 {
+      header_up Host {host}
+      header_up X-Real-IP {remote}
+      header_up X-Forwarded-For {remote}
+      header_up X-Forwarded-Proto {scheme}
+    }
+  }
+
+  # WebRTC Signaling API (porta 8889)
+  handle_path /webrtc/* {
+    reverse_proxy mediamtx:8889 {
+      header_up Upgrade {>Upgrade}
+      header_up Connection {>Connection}
+    }
+  }
+
+  # Management API (porta 9997) - apenas interna
+  handle_path /api/* {
+    reverse_proxy mediamtx:9997 {
+      # Apenas permitir IPs internos
+      @internal {
+        remote_ip 10.0.0.0/8 172.16.0.0/12 192.168.0.0/16
+      }
+      handle @internal {
+        header Access-Control-Allow-Origin "*"
+        header Access-Control-Allow-Methods "GET,POST,PUT,DELETE,OPTIONS"
+        header Access-Control-Allow-Headers "authorization, content-type"
+      }
+      respond "Forbidden" 403
+    }
+  }
+
+  # Security headers
+  header {
+    X-Frame-Options "DENY"
+    X-Content-Type-Options "nosniff"
+    Referrer-Policy "same-origin"
+    # Permitir streaming de mídia
+    Permissions-Policy "camera=(), microphone=(), geolocation=()"
+  }
+
+  # CORS para HLS/WebRTC
+  @cors_preflight method OPTIONS
+  handle @cors_preflight {
+    header Access-Control-Allow-Origin "*"
+    header Access-Control-Allow-Methods "GET,POST,OPTIONS"
+    header Access-Control-Allow-Headers "range, authorization, content-type"
+    header Access-Control-Max-Age "86400"
+    respond "" 204
+  }
+
+  # Rate limiting para API
+  rate_limit {
+    zone mediamtx_api {
+      key {remote}
+      events 100
+      window 1m
+    }
+    zone mediamtx_hls {
+      key {remote}
+      events 300
+      window 1m
+    }
+  }
+
+  log {
+    output file /var/log/caddy/mediamtx.log
+    level INFO
+  }
+}

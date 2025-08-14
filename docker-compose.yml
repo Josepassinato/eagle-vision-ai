@@ -1,16 +1,43 @@
 version: "3.9"
 
 services:
+  # Caddy reverse proxy for MediaMTX
+  mediamtx-proxy:
+    image: caddy:2.8-alpine
+    container_name: mediamtx-proxy
+    restart: unless-stopped
+    ports:
+      - "8554:8554"   # RTSP
+      - "8888:8888"   # HLS
+      - "8889:8889"   # WebRTC
+    volumes:
+      - ./infra/reverse-proxy/Caddyfile.mediamtx:/etc/caddy/Caddyfile:ro
+    environment:
+      - MEDIAMTX_DOMAIN=localhost
+    depends_on:
+      - mediamtx
+
   mediamtx:
     image: bluenviron/mediamtx:latest
     container_name: mediamtx
     restart: unless-stopped
-    network_mode: "host"   # simplifica WebRTC/SRT (UDP)
+    # Remove network_mode host para usar proxy
+    ports:
+      - "8554:8554"   # RTSP interno
+      - "8888:8888"   # HLS interno  
+      - "8889:8889"   # WebRTC interno
+      - "9997:9997"   # Management API interno
     volumes:
       - ./mediamtx.yml:/mediamtx.yml:ro
       - ./recordings:/recordings
     environment:
       - MTX_LOGLEVEL=info
+    healthcheck:
+      test: ["CMD-SHELL", "wget --quiet --tries=1 --spider http://localhost:9997/ || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
 
   yolo-detection:
     build: ./yolo-detection
@@ -180,9 +207,18 @@ services:
       - LATENCY_THRESHOLD=0.5
       - RECONNECT_DELAY=5
       - METRICS_PORT=9100
+      # Robust ingest config
+      - FRAME_QUEUE_SIZE=3
+      - STREAM_HEALTH_TIMEOUT=10.0
     depends_on:
       - mediamtx
       - fusion
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:9100/metrics | grep -q frame_queue_depth || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
 
   camera-sim:
     build: ./camera-sim
