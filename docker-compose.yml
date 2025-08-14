@@ -183,6 +183,31 @@ services:
       - "8087:8087"
     depends_on:
       - face-service
+    networks:
+      - eagle-network
+
+  # ONVIF Bridge Service
+  onvif-bridge:
+    build: ./onvif-bridge
+    container_name: eagle-onvif-bridge
+    restart: unless-stopped
+    environment:
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-https://panel.inigrai.com}
+      - ONVIF_DISCOVERY_TIMEOUT=15
+      - NETWORK_SCAN_RANGE=auto
+      - DEFAULT_ONVIF_PORT=80
+      - ONVIF_CONNECTION_TIMEOUT=10
+    ports:
+      - "8097:8097"
+    network_mode: host  # Required for proper network discovery
+    volumes:
+      - ./logs:/tmp/onvif-bridge
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8097/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:8087/health || exit 1"]
       interval: 30s
