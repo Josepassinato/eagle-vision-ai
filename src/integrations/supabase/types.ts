@@ -7,13 +7,43 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instanciate createClient with right options
+  // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
     PostgrestVersion: "13.0.4"
   }
   public: {
     Tables: {
+      ai_reports: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          metadata: Json | null
+          report_type: string
+          time_range: string
+          updated_at: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          id?: string
+          metadata?: Json | null
+          report_type: string
+          time_range: string
+          updated_at?: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          metadata?: Json | null
+          report_type?: string
+          time_range?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       antitheft_incidents: {
         Row: {
           camera_id: string
@@ -2343,10 +2373,10 @@ export type Database = {
       }
       get_antitheft_incidents: {
         Args: {
-          p_from?: string
-          p_to?: string
           p_camera_id?: string
+          p_from?: string
           p_severity?: string
+          p_to?: string
         }
         Returns: {
           camera_id: string
@@ -2365,8 +2395,8 @@ export type Database = {
         Args: { p_user_id?: string }
         Returns: {
           credits_remaining: number
-          trial_days_left: number
           trial_active: boolean
+          trial_days_left: number
         }[]
       }
       halfvec_avg: {
@@ -2387,8 +2417,8 @@ export type Database = {
       }
       has_role: {
         Args: {
-          _user_id: string
           _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
         }
         Returns: boolean
       }
@@ -2429,7 +2459,7 @@ export type Database = {
         Returns: unknown
       }
       match_body: {
-        Args: { query: string; k?: number }
+        Args: { k?: number; query: string }
         Returns: {
           id: string
           name: string
@@ -2437,7 +2467,7 @@ export type Database = {
         }[]
       }
       match_face: {
-        Args: { query: string; k?: number }
+        Args: { k?: number; query: string }
         Returns: {
           id: string
           name: string
@@ -2461,7 +2491,7 @@ export type Database = {
         Returns: number
       }
       user_belongs_to_org: {
-        Args: { user_id: string; org_id: string }
+        Args: { org_id: string; user_id: string }
         Returns: boolean
       }
       vector_avg: {
