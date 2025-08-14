@@ -20,3 +20,4 @@ export { default as IndustryVerticals } from "./IndustryVerticals";
 export { default as ActiveLearning } from "./ActiveLearning";
 export { default as MultiCameraFusion } from "./MultiCameraFusion";
 export { default as EdgeAI } from "./EdgeAI";
+export { default as RealTimeAnalytics } from "./RealTimeAnalytics";

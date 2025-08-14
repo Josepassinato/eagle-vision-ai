@@ -211,6 +211,54 @@ export type Database = {
           },
         ]
       }
+      behavior_patterns: {
+        Row: {
+          camera_id: string | null
+          first_detected: string
+          frequency_score: number
+          id: string
+          last_updated: string
+          location_zone: Json | null
+          metadata: Json | null
+          org_id: string
+          pattern_data: Json
+          pattern_name: string
+          pattern_type: string
+          significance_score: number
+          time_window: Json | null
+        }
+        Insert: {
+          camera_id?: string | null
+          first_detected?: string
+          frequency_score: number
+          id?: string
+          last_updated?: string
+          location_zone?: Json | null
+          metadata?: Json | null
+          org_id: string
+          pattern_data: Json
+          pattern_name: string
+          pattern_type: string
+          significance_score: number
+          time_window?: Json | null
+        }
+        Update: {
+          camera_id?: string | null
+          first_detected?: string
+          frequency_score?: number
+          id?: string
+          last_updated?: string
+          location_zone?: Json | null
+          metadata?: Json | null
+          org_id?: string
+          pattern_data?: Json
+          pattern_name?: string
+          pattern_type?: string
+          significance_score?: number
+          time_window?: Json | null
+        }
+        Relationships: []
+      }
       billing_jobs: {
         Row: {
           created_at: string | null
@@ -1058,6 +1106,51 @@ export type Database = {
           },
         ]
       }
+      flow_analysis: {
+        Row: {
+          avg_transit_time: number | null
+          camera_id: string
+          created_at: string
+          destination_zone: Json
+          flow_count: number
+          flow_direction: string | null
+          id: string
+          metadata: Json | null
+          org_id: string
+          peak_flow_time: string | null
+          source_zone: Json
+          time_bucket: string
+        }
+        Insert: {
+          avg_transit_time?: number | null
+          camera_id: string
+          created_at?: string
+          destination_zone: Json
+          flow_count?: number
+          flow_direction?: string | null
+          id?: string
+          metadata?: Json | null
+          org_id: string
+          peak_flow_time?: string | null
+          source_zone: Json
+          time_bucket: string
+        }
+        Update: {
+          avg_transit_time?: number | null
+          camera_id?: string
+          created_at?: string
+          destination_zone?: Json
+          flow_count?: number
+          flow_direction?: string | null
+          id?: string
+          metadata?: Json | null
+          org_id?: string
+          peak_flow_time?: string | null
+          source_zone?: Json
+          time_bucket?: string
+        }
+        Relationships: []
+      }
       frame_analysis: {
         Row: {
           analytics_enabled: string[]
@@ -1094,6 +1187,51 @@ export type Database = {
           people_count?: number | null
           processing_time_ms?: number
           timestamp?: string
+        }
+        Relationships: []
+      }
+      heat_map_data: {
+        Row: {
+          camera_id: string
+          created_at: string
+          data_type: string
+          dwell_time_avg: number | null
+          heat_intensity: number
+          id: string
+          metadata: Json | null
+          movement_count: number
+          org_id: string
+          peak_hour: number | null
+          time_bucket: string
+          zone_coordinates: Json
+        }
+        Insert: {
+          camera_id: string
+          created_at?: string
+          data_type?: string
+          dwell_time_avg?: number | null
+          heat_intensity: number
+          id?: string
+          metadata?: Json | null
+          movement_count?: number
+          org_id: string
+          peak_hour?: number | null
+          time_bucket: string
+          zone_coordinates: Json
+        }
+        Update: {
+          camera_id?: string
+          created_at?: string
+          data_type?: string
+          dwell_time_avg?: number | null
+          heat_intensity?: number
+          id?: string
+          metadata?: Json | null
+          movement_count?: number
+          org_id?: string
+          peak_hour?: number | null
+          time_bucket?: string
+          zone_coordinates?: Json
         }
         Relationships: []
       }
@@ -1546,6 +1684,101 @@ export type Database = {
           },
         ]
       }
+      predictions: {
+        Row: {
+          actual_value: number | null
+          camera_id: string | null
+          confidence_score: number
+          device_id: string | null
+          id: string
+          model_id: string
+          org_id: string
+          predicted_at: string
+          predicted_value: number
+          prediction_data: Json | null
+          prediction_type: string
+          validated_at: string | null
+        }
+        Insert: {
+          actual_value?: number | null
+          camera_id?: string | null
+          confidence_score: number
+          device_id?: string | null
+          id?: string
+          model_id: string
+          org_id: string
+          predicted_at?: string
+          predicted_value: number
+          prediction_data?: Json | null
+          prediction_type: string
+          validated_at?: string | null
+        }
+        Update: {
+          actual_value?: number | null
+          camera_id?: string | null
+          confidence_score?: number
+          device_id?: string | null
+          id?: string
+          model_id?: string
+          org_id?: string
+          predicted_at?: string
+          predicted_value?: number
+          prediction_data?: Json | null
+          prediction_type?: string
+          validated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "predictions_model_id_fkey"
+            columns: ["model_id"]
+            isOneToOne: false
+            referencedRelation: "predictive_models"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      predictive_models: {
+        Row: {
+          accuracy_score: number | null
+          created_at: string
+          id: string
+          model_config: Json | null
+          model_name: string
+          model_type: string
+          model_version: string
+          org_id: string
+          status: string
+          training_data_size: number | null
+          updated_at: string
+        }
+        Insert: {
+          accuracy_score?: number | null
+          created_at?: string
+          id?: string
+          model_config?: Json | null
+          model_name: string
+          model_type: string
+          model_version: string
+          org_id: string
+          status?: string
+          training_data_size?: number | null
+          updated_at?: string
+        }
+        Update: {
+          accuracy_score?: number | null
+          created_at?: string
+          id?: string
+          model_config?: Json | null
+          model_name?: string
+          model_type?: string
+          model_version?: string
+          org_id?: string
+          status?: string
+          training_data_size?: number | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       privacy_consents: {
         Row: {
           consent_date: string | null
@@ -1743,6 +1976,42 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      real_time_metrics: {
+        Row: {
+          camera_id: string | null
+          device_id: string | null
+          id: string
+          metadata: Json | null
+          metric_name: string
+          metric_type: string
+          org_id: string
+          timestamp: string
+          value: number
+        }
+        Insert: {
+          camera_id?: string | null
+          device_id?: string | null
+          id?: string
+          metadata?: Json | null
+          metric_name: string
+          metric_type: string
+          org_id: string
+          timestamp?: string
+          value: number
+        }
+        Update: {
+          camera_id?: string | null
+          device_id?: string | null
+          id?: string
+          metadata?: Json | null
+          metric_name?: string
+          metric_type?: string
+          org_id?: string
+          timestamp?: string
+          value?: number
+        }
+        Relationships: []
       }
       retention_policies: {
         Row: {
