@@ -247,10 +247,21 @@ serve(async (req) => {
 
   } catch (error) {
     console.error('RTSP→HLS Conversion Error:', error);
+    
+    // Log específico para ajudar no debug
+    if (error.message.includes('action')) {
+      console.error('Invalid action parameter:', error);
+    }
+    
     return new Response(
       JSON.stringify({ 
         success: false, 
-        error: error.message || 'Erro interno do servidor' 
+        error: error.message || 'Erro interno do servidor',
+        debug_info: {
+          url: req.url,
+          method: req.method,
+          error_type: error.constructor.name
+        }
       }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );

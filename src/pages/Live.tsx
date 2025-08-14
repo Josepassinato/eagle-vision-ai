@@ -13,6 +13,9 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
+import StreamDiagnostics from "@/components/StreamDiagnostics";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { ChevronDown, AlertTriangle } from "lucide-react";
 
 const Live: React.FC = () => {
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -194,6 +197,12 @@ const Live: React.FC = () => {
     }
 
     try {
+      console.log('Iniciando conversão RTSP→HLS:', {
+        rtsp_url: currentStreamUrl,
+        camera_id: cameraId,
+        quality: 'medium'
+      });
+
       const { data, error } = await supabase.functions.invoke('rtsp-to-hls', {
         body: {
           rtsp_url: currentStreamUrl,
@@ -203,7 +212,16 @@ const Live: React.FC = () => {
         }
       });
 
-      if (error) throw error;
+      console.log('Resposta da conversão:', { data, error });
+
+      if (error) {
+        console.error('Erro detalhado da edge function:', error);
+        throw new Error(`Edge Function Error: ${error.message || JSON.stringify(error)}`);
+      }
+
+      if (!data.success) {
+        throw new Error(data.error || 'Conversão falhou sem detalhes');
+      }
 
       toast({
         title: "🎬 Conversão RTSP→HLS iniciada!",
@@ -222,9 +240,19 @@ const Live: React.FC = () => {
       }
 
     } catch (error) {
+      console.error('Erro completo na conversão:', error);
+      
+      let errorMessage = 'Erro desconhecido na conversão';
+      
+      if (error.message) {
+        errorMessage = error.message;
+      } else if (typeof error === 'string') {
+        errorMessage = error;
+      }
+      
       toast({
         title: "Erro na conversão",
-        description: String(error),
+        description: errorMessage,
         variant: "destructive"
       });
     }
@@ -363,6 +391,24 @@ const Live: React.FC = () => {
           />
         )}
         <OverlayCanvas videoRef={videoRef} event={eventToShow} />
+      </section>
+
+      {/* Painel de Diagnóstico */}
+      <section className="mt-8">
+        <Collapsible>
+          <CollapsibleTrigger asChild>
+            <Button variant="outline" className="w-full justify-between">
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="h-4 w-4" />
+                Diagnóstico de Conectividade dos Streams
+              </div>
+              <ChevronDown className="h-4 w-4" />
+            </Button>
+          </CollapsibleTrigger>
+          <CollapsibleContent className="mt-4">
+            <StreamDiagnostics />
+          </CollapsibleContent>
+        </Collapsible>
       </section>
     </main>
   );
