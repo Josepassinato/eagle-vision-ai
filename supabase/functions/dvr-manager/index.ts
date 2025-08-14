@@ -241,37 +241,59 @@ serve(async (req) => {
             .eq('org_id', orgId)
             .maybeSingle();
 
+          let data, error;
+
           if (existingConfig) {
-            return new Response(
-              JSON.stringify({ 
-                success: false, 
-                error: `Uma configuração com o nome "${config.name}" já existe. Use um nome diferente.` 
-              }),
-              { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-            );
+            // Atualizar configuração existente
+            const result = await supabase
+              .from('dvr_configs')
+              .update({
+                protocol: config.protocol,
+                host: config.host,
+                port: config.port || 554,
+                username: config.username,
+                password: config.password,
+                channel: config.channel || 1,
+                stream_quality: config.stream_quality || 'main',
+                transport_protocol: config.transport_protocol || 'tcp',
+                stream_url: streamUrl,
+                status: testResult.success ? 'connected' : 'error',
+                error_message: testResult.error || null,
+                last_tested_at: new Date().toISOString(),
+                updated_at: new Date().toISOString()
+              })
+              .eq('id', existingConfig.id)
+              .select()
+              .single();
+            
+            data = result.data;
+            error = result.error;
+          } else {
+            // Criar nova configuração
+            const result = await supabase
+              .from('dvr_configs')
+              .insert({
+                name: config.name,
+                protocol: config.protocol,
+                host: config.host,
+                port: config.port || 554,
+                username: config.username,
+                password: config.password,
+                channel: config.channel || 1,
+                stream_quality: config.stream_quality || 'main',
+                transport_protocol: config.transport_protocol || 'tcp',
+                stream_url: streamUrl,
+                status: testResult.success ? 'connected' : 'error',
+                error_message: testResult.error || null,
+                last_tested_at: new Date().toISOString(),
+                org_id: orgId
+              })
+              .select()
+              .single();
+            
+            data = result.data;
+            error = result.error;
           }
-          
-          // Salvar configuração no banco
-          const { data, error } = await supabase
-            .from('dvr_configs')
-            .insert({
-              name: config.name,
-              protocol: config.protocol,
-              host: config.host,
-              port: config.port || 554,
-              username: config.username,
-              password: config.password,
-              channel: config.channel || 1,
-              stream_quality: config.stream_quality || 'main',
-              transport_protocol: config.transport_protocol || 'tcp',
-              stream_url: streamUrl,
-              status: testResult.success ? 'connected' : 'error',
-              error_message: testResult.error || null,
-              last_tested_at: new Date().toISOString(),
-              org_id: orgId
-            })
-            .select()
-            .single();
 
           if (error) {
             console.error('Database error:', error);
