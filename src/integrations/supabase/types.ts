@@ -310,6 +310,60 @@ export type Database = {
         }
         Relationships: []
       }
+      audit_events: {
+        Row: {
+          camera_id: string | null
+          confidence_score: number | null
+          decision_engine: string
+          event_id: string
+          event_type: string
+          explain_payload: Json
+          final_decision: string
+          id: string
+          org_id: string | null
+          processing_time_ms: number | null
+          scores: Json
+          signals_used: Json
+          temporal_windows: Json
+          thresholds: Json
+          timestamp: string | null
+        }
+        Insert: {
+          camera_id?: string | null
+          confidence_score?: number | null
+          decision_engine: string
+          event_id: string
+          event_type: string
+          explain_payload: Json
+          final_decision: string
+          id?: string
+          org_id?: string | null
+          processing_time_ms?: number | null
+          scores: Json
+          signals_used: Json
+          temporal_windows: Json
+          thresholds: Json
+          timestamp?: string | null
+        }
+        Update: {
+          camera_id?: string | null
+          confidence_score?: number | null
+          decision_engine?: string
+          event_id?: string
+          event_type?: string
+          explain_payload?: Json
+          final_decision?: string
+          id?: string
+          org_id?: string | null
+          processing_time_ms?: number | null
+          scores?: Json
+          signals_used?: Json
+          temporal_windows?: Json
+          thresholds?: Json
+          timestamp?: string | null
+        }
+        Relationships: []
+      }
       audit_logs: {
         Row: {
           action: string
@@ -3512,6 +3566,45 @@ export type Database = {
           },
         ]
       }
+      sla_metrics: {
+        Row: {
+          current_value: number
+          id: string
+          last_measurement: string | null
+          measurement_window: string
+          metadata: Json | null
+          metric_name: string
+          org_id: string | null
+          status: string
+          target_value: number
+          threshold_type: string
+        }
+        Insert: {
+          current_value: number
+          id?: string
+          last_measurement?: string | null
+          measurement_window: string
+          metadata?: Json | null
+          metric_name: string
+          org_id?: string | null
+          status: string
+          target_value: number
+          threshold_type: string
+        }
+        Update: {
+          current_value?: number
+          id?: string
+          last_measurement?: string | null
+          measurement_window?: string
+          metadata?: Json | null
+          metric_name?: string
+          org_id?: string | null
+          status?: string
+          target_value?: number
+          threshold_type?: string
+        }
+        Relationships: []
+      }
       sso_configurations: {
         Row: {
           attribute_mapping: Json | null
@@ -3627,6 +3720,54 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      system_parameters: {
+        Row: {
+          category: string
+          created_at: string | null
+          default_value: Json
+          description: string | null
+          id: string
+          is_active: boolean | null
+          last_updated_by: string | null
+          max_value: Json | null
+          min_value: Json | null
+          org_id: string | null
+          parameter_name: string
+          parameter_value: Json
+          updated_at: string | null
+        }
+        Insert: {
+          category: string
+          created_at?: string | null
+          default_value: Json
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          last_updated_by?: string | null
+          max_value?: Json | null
+          min_value?: Json | null
+          org_id?: string | null
+          parameter_name: string
+          parameter_value: Json
+          updated_at?: string | null
+        }
+        Update: {
+          category?: string
+          created_at?: string | null
+          default_value?: Json
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          last_updated_by?: string | null
+          max_value?: Json | null
+          min_value?: Json | null
+          org_id?: string | null
+          parameter_name?: string
+          parameter_value?: Json
+          updated_at?: string | null
+        }
+        Relationships: []
       }
       trial_credits: {
         Row: {
