@@ -320,22 +320,30 @@ const Live: React.FC = () => {
               setCameraId("demo-hls-stream");
               setCurrentStreamUrl(DEMO_VIDEO_STREAM);
               setSelectedDVR(null);
+              toast({
+                title: "Stream Demo Carregado",
+                description: "Usando stream de teste para demonstração",
+              });
             }} 
             variant="outline" 
             size="sm"
           >
-            🎬 Usar Stream Demo
+            🎬 Demo de Teste
           </Button>
           <Button 
             onClick={() => {
               setCameraId("webcam-real");
               setCurrentStreamUrl("https://cph-p2p-msl.akamaized.net/hls/live/2000341/test/master.m3u8");
               setSelectedDVR(null);
+              toast({
+                title: "Stream Público Carregado", 
+                description: "Usando webcam pública real para teste",
+              });
             }} 
             variant="outline" 
             size="sm"
           >
-            📹 Stream Público Real
+            📹 Webcam Pública
           </Button>
         </div>
         <div className="text-xs text-muted-foreground">
@@ -365,18 +373,25 @@ const Live: React.FC = () => {
           <div className="w-full h-full bg-gray-900 flex items-center justify-center">
             <div className="text-center text-white p-8">
               <div className="text-6xl mb-4">📹</div>
-              <h3 className="text-xl font-semibold mb-2">Stream RTSP Detectado</h3>
+              <h3 className="text-xl font-semibold mb-2">Stream RTSP Real Conectado</h3>
+              <p className="text-gray-300 mb-2">
+                DVR: <strong>{selectedDVR?.name || 'Desconhecido'}</strong>
+              </p>
               <p className="text-gray-300 mb-4">
-                Este é um stream RTSP real: <br/>
-                <code className="bg-gray-800 px-2 py-1 rounded text-sm">{currentStreamUrl}</code>
+                URL: <code className="bg-gray-800 px-2 py-1 rounded text-sm">{currentStreamUrl}</code>
               </p>
-              <p className="text-gray-400 text-sm mb-4">
-                Browsers não reproduzem RTSP diretamente. O processamento de IA está funcionando em background.
-              </p>
+              <div className="bg-blue-900/30 border border-blue-500/30 rounded-lg p-4 mb-4">
+                <p className="text-blue-200 text-sm">
+                  ℹ️ Browsers não reproduzem RTSP diretamente. O sistema está processando o stream nos servidores.
+                </p>
+              </div>
               <div className="flex items-center justify-center gap-2 text-green-400">
                 <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-                <span>Análise ativa nos servidores</span>
+                <span>Análise de IA funcionando em background</span>
               </div>
+              <p className="text-gray-400 text-xs mt-4">
+                Para ver o vídeo no browser, clique em "Converter RTSP→HLS"
+              </p>
             </div>
           </div>
         ) : (
