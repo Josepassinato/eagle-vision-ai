@@ -116,7 +116,7 @@ serve(async (req) => {
 });
 
 async function processFrame(frameData: string | undefined, analyticsEnabled: string[]) {
-  // Simulate real computer vision processing
+  // Real computer vision processing using external services
   const results = {
     people_count: 0,
     detections: [] as Array<{
@@ -128,87 +128,49 @@ async function processFrame(frameData: string | undefined, analyticsEnabled: str
     }>
   };
 
-  // Simulate different analytics services
+  if (!frameData) {
+    return results;
+  }
+
+  // Process each analytics service
   for (const analytic of analyticsEnabled) {
-    switch (analytic) {
-      case 'people_detection':
-        const peopleCount = Math.floor(Math.random() * 5);
-        results.people_count = peopleCount;
-        
-        for (let i = 0; i < peopleCount; i++) {
-          results.detections.push({
-            service: 'yolo-detection',
-            type: 'person',
-            confidence: 0.7 + Math.random() * 0.3,
-            bbox: [
-              Math.random() * 0.7,
-              Math.random() * 0.6,
-              Math.random() * 0.3 + 0.1,
-              Math.random() * 0.4 + 0.1
-            ]
-          });
-        }
-        break;
-
-      case 'vehicle_detection':
-        if (Math.random() > 0.7) {
-          const vehicleTypes = ['car', 'truck', 'motorcycle', 'bus'];
-          const vehicleType = vehicleTypes[Math.floor(Math.random() * vehicleTypes.length)];
-          
-          results.detections.push({
-            service: 'yolo-detection',
-            type: vehicleType,
-            confidence: 0.8 + Math.random() * 0.2,
-            bbox: [
-              Math.random() * 0.6,
-              Math.random() * 0.5,
-              Math.random() * 0.4 + 0.15,
-              Math.random() * 0.3 + 0.15
-            ]
-          });
-        }
-        break;
-
-      case 'safety_monitoring':
-        if (Math.random() > 0.9) {
-          results.detections.push({
-            service: 'safetyvision',
-            type: 'safety_violation',
-            confidence: 0.85,
-            bbox: [
-              Math.random() * 0.7,
-              Math.random() * 0.6,
-              Math.random() * 0.2 + 0.1,
-              Math.random() * 0.3 + 0.1
-            ],
-            metadata: {
-              violation_type: 'no_helmet',
-              severity: 'high'
-            }
-          });
-        }
-        break;
-
-      case 'behavior_analysis':
-        if (Math.random() > 0.8) {
-          results.detections.push({
-            service: 'edubehavior',
-            type: 'behavior_event',
-            confidence: 0.75,
-            bbox: [
-              Math.random() * 0.7,
-              Math.random() * 0.6,
-              Math.random() * 0.2 + 0.1,
-              Math.random() * 0.3 + 0.1
-            ],
-            metadata: {
-              behavior: 'distracted',
-              emotion: 'confused'
-            }
-          });
-        }
+    try {
+      switch (analytic) {
+        case 'people_detection':
+          const yoloResult = await callYoloDetection(frameData);
+          if (yoloResult?.boxes) {
+            results.people_count = yoloResult.boxes.length;
+            yoloResult.boxes.forEach((box: any) => {
+              results.detections.push({
+                service: 'yolo-detection',
+                type: 'person',
+                confidence: box.score,
+                bbox: box.xyxy,
+                metadata: { class: box.cls }
+              });
+            });
+          }
           break;
-        
+
+        case 'vehicle_detection':
+          const vehicleResult = await callYoloDetection(frameData);
+          if (vehicleResult?.boxes) {
+            const vehicles = vehicleResult.boxes.filter((box: any) => 
+              ['car', 'truck', 'bus', 'motorcycle'].includes(box.cls)
+            );
+            vehicles.forEach((box: any) => {
+              results.detections.push({
+                service: 'yolo-detection',
+                type: box.cls,
+                confidence: box.score,
+                bbox: box.xyxy,
+                metadata: { class: box.cls }
+              });
+            });
+          }
+          break;
+
+        case 'safety_monitoring':
         case 'safety_analysis':
           // Call SafetyVision service for PPE and safety analysis
           const safetyResult = await callSafetyVision(frameData, results.detections);
@@ -216,7 +178,7 @@ async function processFrame(frameData: string | undefined, analyticsEnabled: str
             safetyResult.signals.forEach((signal: any) => {
               results.detections.push({
                 service: 'safetyvision',
-                detection_type: signal.type,
+                type: signal.type,
                 confidence: signal.confidence || 0.8,
                 bbox: signal.bbox || [0, 0, 0, 0],
                 metadata: signal.details
@@ -224,6 +186,25 @@ async function processFrame(frameData: string | undefined, analyticsEnabled: str
             });
           }
           break;
+
+        case 'behavior_analysis':
+          // Call EduBehavior service for emotional analysis
+          const behaviorResult = await callEduBehavior(frameData, results.detections);
+          if (behaviorResult?.signals) {
+            behaviorResult.signals.forEach((signal: any) => {
+              results.detections.push({
+                service: 'edubehavior',
+                type: signal.type,
+                confidence: signal.confidence || 0.75,
+                bbox: signal.bbox || [0, 0, 0, 0],
+                metadata: signal.details
+              });
+            });
+          }
+          break;
+
+        default:
+          console.warn(`Unknown analytic type: ${analytic}`);
       }
     } catch (error) {
       console.error(`Error processing ${analytic}:`, error);
@@ -267,6 +248,27 @@ async function callSafetyVision(frameData: string, tracks: any[]) {
     }
   } catch (error) {
     console.error('SafetyVision analysis failed:', error);
+  }
+  return null;
+}
+
+async function callEduBehavior(frameData: string, tracks: any[]) {
+  try {
+    const response = await fetch('http://edubehavior:8087/analyze_frame', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        frame_jpeg_b64: frameData,
+        tracks: tracks.map(t => ({ track_id: t.service, bbox: t.bbox })),
+        class_id: 'default'
+      }),
+    });
+    
+    if (response.ok) {
+      return await response.json();
+    }
+  } catch (error) {
+    console.error('EduBehavior analysis failed:', error);
   }
   return null;
 }
