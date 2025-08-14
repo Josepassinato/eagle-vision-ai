@@ -233,6 +233,24 @@ serve(async (req) => {
           // Testar conexão primeiro
           const testResult = await testRTSPConnection(streamUrl);
           
+          // Verificar se já existe uma configuração com o mesmo nome e org_id
+          const { data: existingConfig } = await supabase
+            .from('dvr_configs')
+            .select('id')
+            .eq('name', config.name)
+            .eq('org_id', orgId)
+            .maybeSingle();
+
+          if (existingConfig) {
+            return new Response(
+              JSON.stringify({ 
+                success: false, 
+                error: `Uma configuração com o nome "${config.name}" já existe. Use um nome diferente.` 
+              }),
+              { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            );
+          }
+          
           // Salvar configuração no banco
           const { data, error } = await supabase
             .from('dvr_configs')
