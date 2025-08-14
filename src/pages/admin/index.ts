@@ -14,3 +14,6 @@ export { default as PrivacyCompliance } from "./PrivacyCompliance";
 export { default as RealTimeDashboard } from "./RealTimeDashboard";
 export { default as ExecutiveDashboard } from "./ExecutiveDashboard";
 export { default as IntelligentAlerts } from "./IntelligentAlerts";
+export { default as AIReports } from "./AIReports";
+export { default as APIMarketplace } from "./APIMarketplace";
+export { default as IndustryVerticals } from "./IndustryVerticals";
