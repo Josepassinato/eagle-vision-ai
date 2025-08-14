@@ -18,8 +18,24 @@ const Index = () => {
   const [diag, setDiag] = useState<string>("");
   const [isAuthed, setAuthed] = useState(false);
 
+  useEffect(() => {
+    console.log("Index page mounted successfully");
+    
+    // Check auth status
+    const checkAuth = async () => {
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession();
+        console.log("Auth session check:", { session: !!session, error });
+        setAuthed(!!session);
+      } catch (error) {
+        console.error("Auth check failed:", error);
+      }
+    };
+    
+    checkAuth();
+  }, []);
 
-
+  console.log("Index render - isAuthed:", isAuthed);
 
   const handleTestSupabase = async () => {
     const ts = new Date().toISOString();

@@ -326,7 +326,10 @@ const TestDVR = () => {
   };
 
   const saveConfig = async () => {
+    console.log("saveConfig called with formData:", formData);
+    
     if (!formData.name) {
+      console.log("Missing name field");
       toast({
         title: "Nome obrigatório",
         description: "Digite um nome para a configuração",
@@ -336,8 +339,14 @@ const TestDVR = () => {
     }
 
     setLoading(true);
+    console.log("Starting save config request...");
     
     try {
+      console.log("Invoking dvr-manager with body:", {
+        ...formData,
+        action: 'save-config'
+      });
+      
       const { data, error } = await supabase.functions.invoke('dvr-manager', {
         body: {
           ...formData,
@@ -345,7 +354,12 @@ const TestDVR = () => {
         }
       });
 
-      if (error) throw error;
+      console.log("DVR manager response:", { data, error });
+
+      if (error) {
+        console.error("Supabase function error:", error);
+        throw error;
+      }
       
       if (data.success) {
         toast({
