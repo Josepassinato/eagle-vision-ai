@@ -45,36 +45,27 @@ async function testHttpConnection(ip: string, port: number = 80, timeout: number
 // Test RTSP connectivity by attempting to connect to the stream
 async function testRTSPConnection(rtspUrl: string, timeout: number = 10000): Promise<{ success: boolean; error?: string }> {
   try {
-    // For real RTSP testing, we'd need RTSP libraries
-    // For now, simulate realistic connection test
     console.log(`Testing RTSP connection to: ${rtspUrl}`);
     
-    // Simulate connection delay
-    await new Promise(resolve => setTimeout(resolve, 1000 + Math.random() * 2000));
-    
-    // Simulate realistic failure scenarios
     const url = new URL(rtspUrl);
     const ip = url.hostname;
+    const port = url.port ? parseInt(url.port) : 554;
     
-    // Test basic connectivity first
-    const httpTest = await testHttpConnection(ip, 554, 3000);
+    // Test basic TCP connectivity to RTSP port
+    const httpTest = await testHttpConnection(ip, port, 3000);
     
     if (!httpTest.success) {
-      return { success: false, error: 'RTSP port (554) not accessible' };
+      return { success: false, error: `RTSP port (${port}) not accessible on ${ip}` };
     }
     
-    // Simulate authentication and stream access test
-    if (Math.random() < 0.8) { // 80% success rate for demo
-      return { success: true };
-    } else {
-      const errors = [
-        'Authentication failed',
-        'Stream not found',
-        'Connection timeout',
-        'Protocol not supported'
-      ];
-      return { success: false, error: errors[Math.floor(Math.random() * errors.length)] };
+    // Real RTSP test would require RTSP client library
+    // For now, just test TCP connectivity and URL format validation
+    if (!rtspUrl.startsWith('rtsp://')) {
+      return { success: false, error: 'Invalid RTSP URL format' };
     }
+    
+    // Basic URL validation passed
+    return { success: true };
   } catch (error) {
     return { success: false, error: error.message };
   }
@@ -113,34 +104,36 @@ function buildRTSPUrl(config: IPCameraRequest): string[] {
 async function scanNetwork(networkRange: string, ports: number[] = [80, 554, 8080]): Promise<any[]> {
   console.log(`Scanning network range: ${networkRange} on ports: ${ports.join(', ')}`);
   
-  // Simulate network scan results
+  // Real network scanning would require proper networking tools
+  // This is a simplified implementation for demonstration
   const baseIP = networkRange.split('/')[0].split('.').slice(0, 3).join('.');
   const devices = [];
   
-  // Simulate finding 2-5 devices
-  const deviceCount = 2 + Math.floor(Math.random() * 4);
+  // In production, use tools like nmap or custom port scanning
+  console.log('PRODUCTION NOTE: Implement real network scanning with nmap or similar');
   
-  for (let i = 0; i < deviceCount; i++) {
-    const lastOctet = 100 + i * 10 + Math.floor(Math.random() * 10);
-    const ip = `${baseIP}.${lastOctet}`;
+  // Return empty results to avoid false positives in production
+  return [];
+  
+  // Real implementation would scan actual network range
+  // Example real implementation:
+  /*
+  for (let i = 1; i < 255; i++) {
+    const ip = `${baseIP}.${i}`;
     
-    // Test HTTP port availability
-    const httpTest = await testHttpConnection(ip, 80, 2000);
-    
-    if (httpTest.success || Math.random() < 0.3) { // Include some devices even if HTTP fails
-      const brands = ['Hikvision', 'Dahua', 'Axis', 'Uniview', 'Generic'];
-      const models = ['DS-2CD2xxx', 'IPC-HDWxxx', 'M-Series', 'IPC-xxx', 'IP-CAM'];
-      
-      devices.push({
-        ip_address: ip,
-        brand: brands[Math.floor(Math.random() * brands.length)],
-        model: models[Math.floor(Math.random() * models.length)],
-        ports_open: ports.filter(() => Math.random() < 0.7),
-        http_accessible: httpTest.success,
-        estimated_type: 'IP Camera'
-      });
+    for (const port of ports) {
+      const test = await testHttpConnection(ip, port, 1000);
+      if (test.success) {
+        devices.push({
+          ip_address: ip,
+          port_open: port,
+          http_accessible: port === 80 ? test.success : false,
+          estimated_type: port === 554 ? 'IP Camera (RTSP)' : 'Device'
+        });
+      }
     }
   }
+  */
   
   return devices;
 }

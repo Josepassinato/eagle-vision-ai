@@ -53,10 +53,8 @@ emotion_pipeline = EmotionPipeline(
     hysteresis_threshold=5
 )
 
-# Prometheus metrics
-affect_infer_seconds = Histogram('affect_infer_seconds', 'Time spent on emotion inference')
-affect_events_total = Counter('affect_events_total', 'Total affect events generated', ['event_type', 'severity'])
-affect_quality_below_threshold_total = Counter('affect_quality_below_threshold_total', 'Faces below quality threshold')
+# Import Prometheus metrics from common schemas
+from prometheus_client import Histogram, Counter
 
 # Start Prometheus metrics server
 try:
@@ -235,9 +233,9 @@ async def analyze_frame(req: AnalyzeFrameRequest):
     with affect_infer_seconds.time():
         # Decode frame
         frame = decode_image_if_any(req.frame_jpeg_b64)
-        if frame is None and req.tracks:
-            logger.warning("No frame provided but tracks available - using placeholder")
-            frame = np.zeros((480, 640, 3), dtype=np.uint8)  # Placeholder frame
+        if frame is None:
+            logger.error("No frame provided for emotion analysis")
+            return AnalyzeFrameResponse(signals=[], incidents=[], telemetry=[])
         
         signals: List[SignalOut] = []
         telemetry: List[Dict[str, Any]] = []

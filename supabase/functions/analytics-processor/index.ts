@@ -207,12 +207,66 @@ async function processFrame(frameData: string | undefined, analyticsEnabled: str
             }
           });
         }
-        break;
+          break;
+        
+        case 'safety_analysis':
+          // Call SafetyVision service for PPE and safety analysis
+          const safetyResult = await callSafetyVision(frameData, results.detections);
+          if (safetyResult?.signals) {
+            safetyResult.signals.forEach((signal: any) => {
+              results.detections.push({
+                service: 'safetyvision',
+                detection_type: signal.type,
+                confidence: signal.confidence || 0.8,
+                bbox: signal.bbox || [0, 0, 0, 0],
+                metadata: signal.details
+              });
+            });
+          }
+          break;
+      }
+    } catch (error) {
+      console.error(`Error processing ${analytic}:`, error);
     }
   }
 
-  // Simulate processing delay
-  await new Promise(resolve => setTimeout(resolve, 100 + Math.random() * 200));
-
   return results;
+}
+
+async function callYoloDetection(frameData: string) {
+  try {
+    const response = await fetch('http://yolo-detection:8080/detect', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ jpg_b64: frameData }),
+    });
+    
+    if (response.ok) {
+      return await response.json();
+    }
+  } catch (error) {
+    console.error('YOLO detection failed:', error);
+  }
+  return null;
+}
+
+async function callSafetyVision(frameData: string, tracks: any[]) {
+  try {
+    const response = await fetch('http://safetyvision:8089/analyze_frame', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        frame_jpeg_b64: frameData,
+        tracks: tracks.map(t => ({ track_id: t.service, bbox: t.bbox })),
+        zone_type: 'industrial'
+      }),
+    });
+    
+    if (response.ok) {
+      return await response.json();
+    }
+  } catch (error) {
+    console.error('SafetyVision analysis failed:', error);
+  }
+  return null;
 }

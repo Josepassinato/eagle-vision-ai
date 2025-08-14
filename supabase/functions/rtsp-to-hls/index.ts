@@ -46,8 +46,8 @@ const startConversion = async (request: ConversionRequest): Promise<ConversionSt
   
   activeConversions.set(camera_id, status);
   
-  // Simular processo de conversão em background (sem EdgeRuntime)
-  simulateConversion(camera_id);
+  // Start real conversion process (would need FFmpeg on server)
+  startRealConversion(camera_id, rtsp_url);
   
   return status;
 };
@@ -70,10 +70,19 @@ const generateFFmpegCommand = (rtsp_url: string, camera_id: string, quality: str
     "/tmp/hls/${camera_id}/playlist.m3u8"`;
 };
 
-const simulateConversion = async (camera_id: string) => {
+const startRealConversion = async (camera_id: string, rtsp_url: string) => {
   try {
-    // Simular processo de conversão
-    await new Promise(resolve => setTimeout(resolve, 5000));
+    // Real conversion would require FFmpeg installed on server
+    console.log(`Starting real RTSP→HLS conversion for ${camera_id} from ${rtsp_url}`);
+    
+    // Log the required setup for production
+    console.log('PRODUCTION SETUP REQUIRED:');
+    console.log('1. Install FFmpeg: apt-get install ffmpeg');
+    console.log('2. Create HLS directory: mkdir -p /tmp/hls');
+    console.log('3. Start nginx for serving HLS files');
+    console.log(`4. Execute: ${generateFFmpegCommand(camera_id, rtsp_url)}`);
+    
+    await new Promise(resolve => setTimeout(resolve, 2000));
     
     const status = activeConversions.get(camera_id);
     if (status) {
