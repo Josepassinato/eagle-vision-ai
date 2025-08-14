@@ -1,5 +1,5 @@
-# Clip Exporter Service Requirements - Python 3.11
-# Version convergence: FastAPI 0.115.x, Pydantic 2.8+, NumPy 1.26.x, OpenCV 4.10.x
+# Enhanced Clip Exporter Requirements - Python 3.11
+# Version convergence: FastAPI 0.115.x, Pydantic 2.8+
 fastapi==0.115.0
 uvicorn[standard]==0.30.6
 pydantic==2.8.0
