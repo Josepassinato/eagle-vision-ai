@@ -37,6 +37,9 @@ import SystemParameters from "./pages/admin/SystemParameters";
 import DeploymentChecklist from "./pages/admin/DeploymentChecklist";
 import ONVIFManager from "./pages/admin/ONVIFManager";
 import OperationalQuality from "./pages/admin/OperationalQuality";
+import ONVIFOnboarding from "./pages/admin/ONVIFOnboarding";
+import TensorRTOptimization from "./pages/admin/TensorRTOptimization";
+import ReIDOptimization from "./pages/admin/ReIDOptimization";
 import GlobalNavActions from "./components/GlobalNavActions";
 import AIAssistant from "./components/AIAssistant";
 import { PWAInstallBanner } from "./components/PWAInstallBanner";
@@ -92,6 +95,9 @@ const App = () => (
             <Route path="health" element={<HealthMonitoring />} />
             <Route path="parameters" element={<SystemParameters />} />
             <Route path="deployment" element={<DeploymentChecklist />} />
+            <Route path="onvif-onboarding" element={<ONVIFOnboarding />} />
+            <Route path="tensorrt-optimization" element={<TensorRTOptimization />} />
+            <Route path="reid-optimization" element={<ReIDOptimization />} />
           </Route>
           <Route path="/" element={<Index />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

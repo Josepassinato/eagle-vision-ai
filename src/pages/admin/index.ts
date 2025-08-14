@@ -28,3 +28,6 @@ export { default as SystemParameters } from "./SystemParameters";
 export { default as DeploymentChecklist } from "./DeploymentChecklist";
 export { default as ONVIFManager } from "./ONVIFManager";
 export { default as OperationalQuality } from "./OperationalQuality";
+export { default as ONVIFOnboarding } from "./ONVIFOnboarding";
+export { default as TensorRTOptimization } from "./TensorRTOptimization";
+export { default as ReIDOptimization } from "./ReIDOptimization";
