@@ -33,8 +33,8 @@ const startConversion = async (request: ConversionRequest): Promise<ConversionSt
   const ffmpegCommand = generateFFmpegCommand(rtsp_url, camera_id, quality);
   console.log(`FFmpeg command: ${ffmpegCommand}`);
   
-  // Simular URL HLS resultante
-  const hls_url = `https://your-streaming-server.com/hls/${camera_id}/playlist.m3u8`;
+  // Simular URL HLS resultante - usar um stream público para demonstração
+  const hls_url = `https://demo.unified-streaming.com/k8s/features/stable/video/tears-of-steel/tears-of-steel.ism/.m3u8`;
   
   const status: ConversionStatus = {
     camera_id,
