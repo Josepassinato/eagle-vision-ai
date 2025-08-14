@@ -35,7 +35,6 @@ import PrivacyCompliance from "./pages/admin/PrivacyCompliance";
 import HealthMonitoring from "./pages/admin/HealthMonitoring";
 import SystemParameters from "./pages/admin/SystemParameters";
 import DeploymentChecklist from "./pages/admin/DeploymentChecklist";
-import DeploymentChecklist from "./pages/admin/DeploymentChecklist";
 import ONVIFManager from "./pages/admin/ONVIFManager";
 import OperationalQuality from "./pages/admin/OperationalQuality";
 import GlobalNavActions from "./components/GlobalNavActions";
