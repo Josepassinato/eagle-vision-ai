@@ -32,6 +32,7 @@ import Onboarding from "./pages/Onboarding";
 import WorkspaceManager from "./pages/WorkspaceManager";
 import EdgeDeviceManager from "./pages/EdgeDeviceManager";
 import PrivacyCompliance from "./pages/admin/PrivacyCompliance";
+import HealthMonitoring from "./pages/admin/HealthMonitoring";
 import GlobalNavActions from "./components/GlobalNavActions";
 import AIAssistant from "./components/AIAssistant";
 import { PWAInstallBanner } from "./components/PWAInstallBanner";
@@ -84,6 +85,7 @@ const App = () => (
             <Route path="safety" element={<Safety />} />
             <Route path="edubehavior" element={<EduBehavior />} />
             <Route path="privacy" element={<PrivacyCompliance />} />
+            <Route path="health" element={<HealthMonitoring />} />
           </Route>
           <Route path="/" element={<Index />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

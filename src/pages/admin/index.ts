@@ -23,3 +23,4 @@ export { default as EdgeAI } from "./EdgeAI";
 export { default as RealTimeAnalytics } from "./RealTimeAnalytics";
 export { default as SecurityCompliance } from "./SecurityCompliance";
 export { default as EnterpriseIntegrations } from "./EnterpriseIntegrations";
+export { default as HealthMonitoring } from "./HealthMonitoring";

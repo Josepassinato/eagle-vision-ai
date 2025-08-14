@@ -1,5 +1,5 @@
 import { NavLink, useLocation } from "react-router-dom";
-import { Users, Map, Settings, LayoutDashboard, List, Gauge, Shield, CreditCard, PlayCircle, HardHat, GraduationCap, ShieldCheck, HardDrive } from "lucide-react";
+import { Users, Map, Settings, LayoutDashboard, List, Gauge, Shield, CreditCard, PlayCircle, HardHat, GraduationCap, ShieldCheck, HardDrive, Activity } from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
@@ -21,6 +21,7 @@ const items = [
   { title: "SafetyVision", url: "/app/safety", icon: HardHat },
   { title: "EduBehavior", url: "/app/edubehavior", icon: GraduationCap },
   { title: "Privacidade", url: "/app/privacy", icon: ShieldCheck },
+  { title: "Saúde & Alertas", url: "/app/health", icon: Activity },
   { title: "Créditos", url: "/app/credits", icon: CreditCard },
   { title: "Demonstração", url: "/app/demo", icon: PlayCircle },
   { title: "Pessoas", url: "/app/people", icon: Users },
