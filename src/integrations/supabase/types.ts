@@ -2281,6 +2281,45 @@ export type Database = {
         }
         Relationships: []
       }
+      operational_reports: {
+        Row: {
+          csv_url: string | null
+          email_recipients: string[] | null
+          email_sent: boolean | null
+          generated_at: string
+          id: string
+          metrics_summary: Json
+          org_id: string | null
+          pdf_url: string | null
+          report_date: string
+          report_type: string
+        }
+        Insert: {
+          csv_url?: string | null
+          email_recipients?: string[] | null
+          email_sent?: boolean | null
+          generated_at?: string
+          id?: string
+          metrics_summary: Json
+          org_id?: string | null
+          pdf_url?: string | null
+          report_date: string
+          report_type?: string
+        }
+        Update: {
+          csv_url?: string | null
+          email_recipients?: string[] | null
+          email_sent?: boolean | null
+          generated_at?: string
+          id?: string
+          metrics_summary?: Json
+          org_id?: string | null
+          pdf_url?: string | null
+          report_date?: string
+          report_type?: string
+        }
+        Relationships: []
+      }
       org_api_keys: {
         Row: {
           created_at: string | null
@@ -3720,6 +3759,51 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      system_health_metrics: {
+        Row: {
+          circuit_breaker_state: string | null
+          error_count: number | null
+          id: string
+          last_failure: string | null
+          metadata: Json | null
+          org_id: string | null
+          queue_limit: number | null
+          queue_size: number | null
+          recovery_time_seconds: number | null
+          service_name: string
+          timestamp: string
+          uptime_percentage: number
+        }
+        Insert: {
+          circuit_breaker_state?: string | null
+          error_count?: number | null
+          id?: string
+          last_failure?: string | null
+          metadata?: Json | null
+          org_id?: string | null
+          queue_limit?: number | null
+          queue_size?: number | null
+          recovery_time_seconds?: number | null
+          service_name: string
+          timestamp?: string
+          uptime_percentage: number
+        }
+        Update: {
+          circuit_breaker_state?: string | null
+          error_count?: number | null
+          id?: string
+          last_failure?: string | null
+          metadata?: Json | null
+          org_id?: string | null
+          queue_limit?: number | null
+          queue_size?: number | null
+          recovery_time_seconds?: number | null
+          service_name?: string
+          timestamp?: string
+          uptime_percentage?: number
+        }
+        Relationships: []
       }
       system_parameters: {
         Row: {
