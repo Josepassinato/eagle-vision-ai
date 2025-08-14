@@ -5,9 +5,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { FileText, Download, Sparkles, TrendingUp, Shield, Activity, DollarSign } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { FileText, Download, Sparkles, TrendingUp, Shield, Activity, DollarSign, Calendar } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
+import DailyReportsManager from "@/components/DailyReportsManager";
 
 interface ReportData {
   report: string;
@@ -103,119 +105,138 @@ export default function AIReports() {
         </Badge>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Configuração do Relatório */}
-        <Card className="lg:col-span-1">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <FileText className="h-5 w-5" />
-              Configurar Relatório
-            </CardTitle>
-            <CardDescription>
-              Selecione o tipo de análise e período
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div>
-              <label className="text-sm font-medium mb-2 block">Tipo de Relatório</label>
-              <Select value={reportType} onValueChange={setReportType}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Escolha o tipo de relatório" />
-                </SelectTrigger>
-                <SelectContent>
-                  {reportTypes.map((type) => (
-                    <SelectItem key={type.value} value={type.value}>
-                      <div className="flex items-center gap-2">
-                        <type.icon className={`h-4 w-4 ${type.color}`} />
-                        {type.label}
-                      </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+      <Tabs defaultValue="daily" className="w-full">
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="daily" className="flex items-center gap-2">
+            <Calendar className="w-4 h-4" />
+            Relatórios Diários
+          </TabsTrigger>
+          <TabsTrigger value="custom" className="flex items-center gap-2">
+            <Sparkles className="w-4 h-4" />
+            Relatórios Personalizados
+          </TabsTrigger>
+        </TabsList>
 
-            <div>
-              <label className="text-sm font-medium mb-2 block">Período de Análise</label>
-              <Select value={timeRange} onValueChange={setTimeRange}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione o período" />
-                </SelectTrigger>
-                <SelectContent>
-                  {timeRanges.map((range) => (
-                    <SelectItem key={range.value} value={range.value}>
-                      {range.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+        <TabsContent value="daily" className="space-y-4">
+          <DailyReportsManager />
+        </TabsContent>
 
-            <Separator />
-
-            <Button 
-              onClick={handleGenerateReport}
-              disabled={isGenerating || !reportType || !timeRange}
-              className="w-full"
-            >
-              {isGenerating ? (
-                <>
-                  <Sparkles className="h-4 w-4 mr-2 animate-spin" />
-                  Gerando com IA...
-                </>
-              ) : (
-                <>
-                  <TrendingUp className="h-4 w-4 mr-2" />
-                  Gerar Relatório
-                </>
-              )}
-            </Button>
-
-            {currentReport && (
-              <Button 
-                variant="outline" 
-                onClick={handleDownloadReport}
-                className="w-full"
-              >
-                <Download className="h-4 w-4 mr-2" />
-                Download Relatório
-              </Button>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Visualização do Relatório */}
-        <Card className="lg:col-span-2">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              {selectedReportType && <selectedReportType.icon className={`h-5 w-5 ${selectedReportType.color}`} />}
-              {selectedReportType?.label || "Relatório"}
-            </CardTitle>
-            <CardDescription>
-              {currentReport ? "Relatório gerado com insights da IA" : "Configure e gere um relatório para visualizar"}
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {currentReport ? (
-              <ScrollArea className="h-[600px] w-full rounded-md border p-4">
-                <div className="prose prose-sm dark:prose-invert max-w-none">
-                  <pre className="whitespace-pre-wrap font-sans text-sm">
-                    {currentReport.report}
-                  </pre>
+        <TabsContent value="custom" className="space-y-4">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Configuração do Relatório */}
+            <Card className="lg:col-span-1">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <FileText className="h-5 w-5" />
+                  Configurar Relatório
+                </CardTitle>
+                <CardDescription>
+                  Selecione o tipo de análise e período
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div>
+                  <label className="text-sm font-medium mb-2 block">Tipo de Relatório</label>
+                  <Select value={reportType} onValueChange={setReportType}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Escolha o tipo de relatório" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {reportTypes.map((type) => (
+                        <SelectItem key={type.value} value={type.value}>
+                          <div className="flex items-center gap-2">
+                            <type.icon className={`h-4 w-4 ${type.color}`} />
+                            {type.label}
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
-              </ScrollArea>
-            ) : (
-              <div className="flex flex-col items-center justify-center h-[600px] text-center">
-                <FileText className="h-16 w-16 text-muted-foreground mb-4" />
-                <h3 className="text-lg font-semibold mb-2">Nenhum relatório gerado</h3>
-                <p className="text-muted-foreground">
-                  Configure os parâmetros e clique em "Gerar Relatório" para criar um relatório com IA
-                </p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+
+                <div>
+                  <label className="text-sm font-medium mb-2 block">Período de Análise</label>
+                  <Select value={timeRange} onValueChange={setTimeRange}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione o período" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {timeRanges.map((range) => (
+                        <SelectItem key={range.value} value={range.value}>
+                          {range.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <Separator />
+
+                <Button 
+                  onClick={handleGenerateReport}
+                  disabled={isGenerating || !reportType || !timeRange}
+                  className="w-full"
+                >
+                  {isGenerating ? (
+                    <>
+                      <Sparkles className="h-4 w-4 mr-2 animate-spin" />
+                      Gerando com IA...
+                    </>
+                  ) : (
+                    <>
+                      <TrendingUp className="h-4 w-4 mr-2" />
+                      Gerar Relatório
+                    </>
+                  )}
+                </Button>
+
+                {currentReport && (
+                  <Button 
+                    variant="outline" 
+                    onClick={handleDownloadReport}
+                    className="w-full"
+                  >
+                    <Download className="h-4 w-4 mr-2" />
+                    Download Relatório
+                  </Button>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Visualização do Relatório */}
+            <Card className="lg:col-span-2">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  {selectedReportType && <selectedReportType.icon className={`h-5 w-5 ${selectedReportType.color}`} />}
+                  {selectedReportType?.label || "Relatório"}
+                </CardTitle>
+                <CardDescription>
+                  {currentReport ? "Relatório gerado com insights da IA" : "Configure e gere um relatório para visualizar"}
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {currentReport ? (
+                  <ScrollArea className="h-[600px] w-full rounded-md border p-4">
+                    <div className="prose prose-sm dark:prose-invert max-w-none">
+                      <pre className="whitespace-pre-wrap font-sans text-sm">
+                        {currentReport.report}
+                      </pre>
+                    </div>
+                  </ScrollArea>
+                ) : (
+                  <div className="flex flex-col items-center justify-center h-[600px] text-center">
+                    <FileText className="h-16 w-16 text-muted-foreground mb-4" />
+                    <h3 className="text-lg font-semibold mb-2">Nenhum relatório gerado</h3>
+                    <p className="text-muted-foreground">
+                      Configure os parâmetros e clique em "Gerar Relatório" para criar um relatório com IA
+                    </p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
