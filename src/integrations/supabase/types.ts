@@ -630,6 +630,56 @@ export type Database = {
         }
         Relationships: []
       }
+      clip_processing_jobs: {
+        Row: {
+          clip_id: string
+          completed_at: string | null
+          created_at: string | null
+          error_message: string | null
+          id: string
+          input_params: Json | null
+          job_type: string
+          org_id: string
+          output_results: Json | null
+          started_at: string | null
+          status: string
+        }
+        Insert: {
+          clip_id: string
+          completed_at?: string | null
+          created_at?: string | null
+          error_message?: string | null
+          id?: string
+          input_params?: Json | null
+          job_type: string
+          org_id?: string
+          output_results?: Json | null
+          started_at?: string | null
+          status?: string
+        }
+        Update: {
+          clip_id?: string
+          completed_at?: string | null
+          created_at?: string | null
+          error_message?: string | null
+          id?: string
+          input_params?: Json | null
+          job_type?: string
+          org_id?: string
+          output_results?: Json | null
+          started_at?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "clip_processing_jobs_clip_id_fkey"
+            columns: ["clip_id"]
+            isOneToOne: false
+            referencedRelation: "edge_clips"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       consent_records: {
         Row: {
           consent_type: string
@@ -993,16 +1043,24 @@ export type Database = {
       edge_clips: {
         Row: {
           camera_id: string | null
+          checksum: string | null
           clip_path: string
           clip_url: string | null
           created_at: string
           device_id: string
           duration_seconds: number | null
           end_time: string
+          expires_at: string | null
+          faces_blurred: boolean | null
           file_size_bytes: number | null
           id: string
           metadata: Json | null
           org_id: string
+          plates_blurred: boolean | null
+          post_roll_seconds: number | null
+          pre_roll_seconds: number | null
+          privacy_applied: boolean | null
+          retention_days: number | null
           start_time: string
           upload_requested_at: string
           upload_status: string
@@ -1010,16 +1068,24 @@ export type Database = {
         }
         Insert: {
           camera_id?: string | null
+          checksum?: string | null
           clip_path: string
           clip_url?: string | null
           created_at?: string
           device_id: string
           duration_seconds?: number | null
           end_time: string
+          expires_at?: string | null
+          faces_blurred?: boolean | null
           file_size_bytes?: number | null
           id?: string
           metadata?: Json | null
           org_id: string
+          plates_blurred?: boolean | null
+          post_roll_seconds?: number | null
+          pre_roll_seconds?: number | null
+          privacy_applied?: boolean | null
+          retention_days?: number | null
           start_time: string
           upload_requested_at?: string
           upload_status?: string
@@ -1027,16 +1093,24 @@ export type Database = {
         }
         Update: {
           camera_id?: string | null
+          checksum?: string | null
           clip_path?: string
           clip_url?: string | null
           created_at?: string
           device_id?: string
           duration_seconds?: number | null
           end_time?: string
+          expires_at?: string | null
+          faces_blurred?: boolean | null
           file_size_bytes?: number | null
           id?: string
           metadata?: Json | null
           org_id?: string
+          plates_blurred?: boolean | null
+          post_roll_seconds?: number | null
+          pre_roll_seconds?: number | null
+          privacy_applied?: boolean | null
+          retention_days?: number | null
           start_time?: string
           upload_requested_at?: string
           upload_status?: string
@@ -2369,6 +2443,39 @@ export type Database = {
         }
         Relationships: []
       }
+      privacy_configurations: {
+        Row: {
+          auto_apply_privacy: boolean | null
+          blur_faces_by_default: boolean | null
+          blur_plates_by_default: boolean | null
+          created_at: string | null
+          id: string
+          org_id: string
+          retention_days: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          auto_apply_privacy?: boolean | null
+          blur_faces_by_default?: boolean | null
+          blur_plates_by_default?: boolean | null
+          created_at?: string | null
+          id?: string
+          org_id?: string
+          retention_days?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          auto_apply_privacy?: boolean | null
+          blur_faces_by_default?: boolean | null
+          blur_plates_by_default?: boolean | null
+          created_at?: string | null
+          id?: string
+          org_id?: string
+          retention_days?: number | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       privacy_consents: {
         Row: {
           consent_date: string | null
@@ -3604,6 +3711,10 @@ export type Database = {
         Args: { "": string } | { "": unknown }
         Returns: unknown
       }
+      cleanup_expired_clips: {
+        Args: Record<PropertyKey, never>
+        Returns: number
+      }
       current_org: {
         Args: Record<PropertyKey, never>
         Returns: string
@@ -3627,6 +3738,15 @@ export type Database = {
       get_media_retention_days: {
         Args: Record<PropertyKey, never>
         Returns: number
+      }
+      get_privacy_config: {
+        Args: { p_org_id?: string }
+        Returns: {
+          auto_apply_privacy: boolean
+          blur_faces_by_default: boolean
+          blur_plates_by_default: boolean
+          retention_days: number
+        }[]
       }
       get_user_trial_credits: {
         Args: { p_user_id?: string }
