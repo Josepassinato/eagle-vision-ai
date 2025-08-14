@@ -21,7 +21,7 @@ import {
   FileVideo,
   Settings
 } from 'lucide-react';
-import { privacyProcessor, applyPrivacyToImage } from '@/utils/privacyProcessor';
+import { removeBackground, loadImage, blurImage, detectFaces, detectLicensePlates } from '@/utils/privacyUtils';
 
 interface PrivacyConfig {
   blur_faces_by_default: boolean;
@@ -111,27 +111,48 @@ export const PrivacyClipManager: React.FC = () => {
     setProcessingProgress(0);
 
     try {
-      // Initialize privacy processor
-      await privacyProcessor.initialize();
       setProcessingProgress(25);
+      
+      // Load image
+      const imageElement = await loadImage(file);
+      setProcessingProgress(40);
 
-      // Process image with current privacy settings
-      const result = await applyPrivacyToImage(file, {
-        blurFaces: privacyConfig.blur_faces_by_default,
-        blurPlates: privacyConfig.blur_plates_by_default,
-        blurRadius: 15
-      });
+      let processedBlob: Blob = file;
+      let facesDetected = 0;
+      let platesDetected = 0;
 
-      setProcessingProgress(75);
+      // Process with privacy settings
+      if (privacyConfig.blur_faces_by_default || privacyConfig.blur_plates_by_default) {
+        const regions: Array<{x: number, y: number, width: number, height: number}> = [];
+        
+        if (privacyConfig.blur_faces_by_default) {
+          const faces = await detectFaces(imageElement);
+          facesDetected = faces.length;
+          regions.push(...faces);
+        }
+        
+        if (privacyConfig.blur_plates_by_default) {
+          const plates = await detectLicensePlates(imageElement);
+          platesDetected = plates.length;
+          regions.push(...plates);
+        }
+        
+        if (regions.length > 0) {
+          setProcessingProgress(70);
+          processedBlob = await blurImage(imageElement, regions, 15);
+        }
+      }
 
+      setProcessingProgress(90);
+      
       // Create preview URL
-      const previewUrl = URL.createObjectURL(result.processedBlob);
+      const previewUrl = URL.createObjectURL(processedBlob);
       setProcessedPreview(previewUrl);
       setProcessingProgress(100);
 
       toast({
         title: "Privacy Processing Complete",
-        description: `Detected ${result.stats.facesDetected} faces and ${result.stats.platesDetected} license plates`
+        description: `Detected ${facesDetected} faces and ${platesDetected} license plates`
       });
     } catch (error) {
       console.error('Privacy processing failed:', error);
