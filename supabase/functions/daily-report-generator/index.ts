@@ -1,442 +1,412 @@
-import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { Resend } from "npm:resend@4.0.0";
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-interface DailySummary {
-  totalIncidents: number;
-  incidentsByCamera: Record<string, number>;
-  incidentsByType: Record<string, number>;
-  peakHours: Array<{ hour: number; count: number }>;
-  averageDuration: number;
-  discardedPercentage: number;
-  sampleEvents: Array<{
-    id: string;
-    type: string;
+interface DailyReportData {
+  camera_stats: {
     camera_id: string;
-    timestamp: string;
-    severity: string;
-    url?: string;
-  }>;
-}
-
-const supabase = createClient(
-  Deno.env.get('SUPABASE_URL') ?? '',
-  Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-);
-
-const resend = new Resend(Deno.env.get('RESEND_API_KEY') as string);
-
-async function generateDailySummary(reportDate: string, orgId: string): Promise<DailySummary> {
-  console.log(`Generating daily summary for ${reportDate}, org: ${orgId}`);
-  
-  const startDate = `${reportDate} 00:00:00+00`;
-  const endDate = `${reportDate} 23:59:59+00`;
-
-  // Get antitheft incidents
-  const { data: antitheftIncidents, error: antitheftError } = await supabase
-    .from('antitheft_incidents')
-    .select('id, camera_id, severity, ts, meta')
-    .gte('ts', startDate)
-    .lte('ts', endDate);
-
-  if (antitheftError) {
-    console.error('Error fetching antitheft incidents:', antitheftError);
-  }
-
-  // Get edu incidents
-  const { data: eduIncidents, error: eduError } = await supabase
-    .from('edu_incidents')
-    .select('id, class_id, severity, first_ts, last_ts, status, signals_count')
-    .gte('first_ts', startDate)
-    .lte('first_ts', endDate);
-
-  if (eduError) {
-    console.error('Error fetching edu incidents:', eduError);
-  }
-
-  // Process antitheft incidents
-  const allIncidents = [
-    ...(antitheftIncidents || []).map(inc => ({
-      id: inc.id,
-      type: 'antitheft',
-      camera_id: inc.camera_id,
-      timestamp: inc.ts,
-      severity: inc.severity,
-      duration: 0, // Antitheft incidents don't have duration
-      discarded: false
-    })),
-    ...(eduIncidents || []).map(inc => ({
-      id: inc.id,
-      type: 'education',
-      camera_id: `class-${inc.class_id}`,
-      timestamp: inc.first_ts,
-      severity: inc.severity,
-      duration: inc.last_ts ? new Date(inc.last_ts).getTime() - new Date(inc.first_ts).getTime() : 0,
-      discarded: inc.status === 'dismissed'
-    }))
-  ];
-
-  // Calculate statistics
-  const totalIncidents = allIncidents.length;
-  const validIncidents = allIncidents.filter(inc => !inc.discarded);
-  
-  // Incidents by camera
-  const incidentsByCamera: Record<string, number> = {};
-  allIncidents.forEach(inc => {
-    incidentsByCamera[inc.camera_id] = (incidentsByCamera[inc.camera_id] || 0) + 1;
-  });
-
-  // Incidents by type
-  const incidentsByType: Record<string, number> = {};
-  allIncidents.forEach(inc => {
-    incidentsByType[inc.type] = (incidentsByType[inc.type] || 0) + 1;
-  });
-
-  // Peak hours analysis
-  const hourCounts: Record<number, number> = {};
-  allIncidents.forEach(inc => {
-    const hour = new Date(inc.timestamp).getHours();
-    hourCounts[hour] = (hourCounts[hour] || 0) + 1;
-  });
-
-  const peakHours = Object.entries(hourCounts)
-    .map(([hour, count]) => ({ hour: parseInt(hour), count }))
-    .sort((a, b) => b.count - a.count)
-    .slice(0, 5);
-
-  // Average duration (only for incidents with duration)
-  const incidentsWithDuration = allIncidents.filter(inc => inc.duration > 0);
-  const averageDuration = incidentsWithDuration.length > 0
-    ? incidentsWithDuration.reduce((sum, inc) => sum + inc.duration, 0) / incidentsWithDuration.length / 1000 / 60 // Convert to minutes
-    : 0;
-
-  // Discarded percentage
-  const discardedCount = allIncidents.filter(inc => inc.discarded).length;
-  const discardedPercentage = totalIncidents > 0 ? (discardedCount / totalIncidents) * 100 : 0;
-
-  // Sample events (3-5 most significant)
-  const sampleEvents = allIncidents
-    .filter(inc => !inc.discarded)
-    .sort((a, b) => {
-      const severityOrder = { 'CRITICAL': 3, 'HIGH': 2, 'MEDIUM': 1, 'LOW': 0 };
-      return (severityOrder[b.severity as keyof typeof severityOrder] || 0) - 
-             (severityOrder[a.severity as keyof typeof severityOrder] || 0);
-    })
-    .slice(0, 5)
-    .map(inc => ({
-      id: inc.id,
-      type: inc.type,
-      camera_id: inc.camera_id,
-      timestamp: inc.timestamp,
-      severity: inc.severity,
-      url: `${Deno.env.get('SUPABASE_URL')}/rest/v1/${inc.type === 'antitheft' ? 'antitheft_incidents' : 'edu_incidents'}?id=eq.${inc.id}`
-    }));
-
-  return {
-    totalIncidents,
-    incidentsByCamera,
-    incidentsByType,
-    peakHours,
-    averageDuration,
-    discardedPercentage,
-    sampleEvents
+    camera_name: string;
+    total_events: number;
+    avg_latency: number;
+    uptime_percentage: number;
+    errors_count: number;
+  }[];
+  system_performance: {
+    avg_detection_latency: number;
+    avg_fusion_latency: number;
+    avg_clip_generation_time: number;
+    total_processed_frames: number;
+    error_rate: number;
+  };
+  event_breakdown: {
+    event_type: string;
+    count: number;
+    peak_hour: string;
+  }[];
+  alerts_summary: {
+    total_alerts: number;
+    critical_alerts: number;
+    resolved_alerts: number;
+    avg_resolution_time: number;
   };
 }
 
-function generateCSVContent(summary: DailySummary, reportDate: string): string {
-  let csv = `Relatório Diário - ${reportDate}\n\n`;
+serve(async (req) => {
+  // Handle CORS preflight requests
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { headers: corsHeaders });
+  }
+
+  try {
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    );
+
+    const { report_date, email_recipients, format = 'both' } = await req.json();
+    
+    if (!report_date) {
+      throw new Error('report_date is required');
+    }
+
+    console.log(`Generating daily report for ${report_date}`);
+
+    // Get date range for the report
+    const reportDate = new Date(report_date);
+    const startDate = new Date(reportDate);
+    startDate.setHours(0, 0, 0, 0);
+    const endDate = new Date(reportDate);
+    endDate.setHours(23, 59, 59, 999);
+
+    // Fetch camera performance data
+    const { data: cameraStats } = await supabase
+      .from('performance_metrics')
+      .select(`
+        camera_id,
+        detection_latency,
+        fusion_latency,
+        clip_generation_time,
+        error_count,
+        timestamp
+      `)
+      .gte('timestamp', startDate.toISOString())
+      .lte('timestamp', endDate.toISOString());
+
+    // Fetch system health data
+    const { data: systemHealth } = await supabase
+      .from('system_health_metrics')
+      .select('*')
+      .gte('timestamp', startDate.toISOString())
+      .lte('timestamp', endDate.toISOString());
+
+    // Fetch events data
+    const { data: events } = await supabase
+      .from('audit_events')
+      .select('event_type, created_at, camera_id')
+      .gte('created_at', startDate.toISOString())
+      .lte('created_at', endDate.toISOString());
+
+    // Process camera statistics
+    const cameraStatsMap = new Map();
+    cameraStats?.forEach(metric => {
+      if (!cameraStatsMap.has(metric.camera_id)) {
+        cameraStatsMap.set(metric.camera_id, {
+          camera_id: metric.camera_id,
+          camera_name: `Camera ${metric.camera_id}`,
+          latencies: [],
+          errors: 0,
+          total_measurements: 0
+        });
+      }
+      const stats = cameraStatsMap.get(metric.camera_id);
+      stats.latencies.push(metric.detection_latency);
+      stats.errors += metric.error_count || 0;
+      stats.total_measurements++;
+    });
+
+    const processedCameraStats = Array.from(cameraStatsMap.values()).map(stats => ({
+      camera_id: stats.camera_id,
+      camera_name: stats.camera_name,
+      total_events: stats.total_measurements,
+      avg_latency: stats.latencies.reduce((a, b) => a + b, 0) / stats.latencies.length || 0,
+      uptime_percentage: Math.max(0, 100 - (stats.errors / stats.total_measurements * 100)) || 100,
+      errors_count: stats.errors
+    }));
+
+    // Process system performance
+    const avgDetectionLatency = cameraStats?.reduce((sum, m) => sum + (m.detection_latency || 0), 0) / (cameraStats?.length || 1);
+    const avgFusionLatency = cameraStats?.reduce((sum, m) => sum + (m.fusion_latency || 0), 0) / (cameraStats?.length || 1);
+    const avgClipTime = cameraStats?.reduce((sum, m) => sum + (m.clip_generation_time || 0), 0) / (cameraStats?.length || 1);
+    const totalFrames = cameraStats?.length || 0;
+    const totalErrors = cameraStats?.reduce((sum, m) => sum + (m.error_count || 0), 0) || 0;
+
+    // Process event breakdown
+    const eventBreakdown = new Map();
+    events?.forEach(event => {
+      const hour = new Date(event.created_at).getHours();
+      const key = event.event_type;
+      if (!eventBreakdown.has(key)) {
+        eventBreakdown.set(key, { count: 0, hours: new Map() });
+      }
+      const breakdown = eventBreakdown.get(key);
+      breakdown.count++;
+      breakdown.hours.set(hour, (breakdown.hours.get(hour) || 0) + 1);
+    });
+
+    const processedEventBreakdown = Array.from(eventBreakdown.entries()).map(([type, data]) => {
+      const peakHour = Array.from(data.hours.entries()).sort((a, b) => b[1] - a[1])[0];
+      return {
+        event_type: type,
+        count: data.count,
+        peak_hour: peakHour ? `${peakHour[0]}:00` : 'N/A'
+      };
+    });
+
+    // Generate report data
+    const reportData: DailyReportData = {
+      camera_stats: processedCameraStats,
+      system_performance: {
+        avg_detection_latency: Math.round(avgDetectionLatency),
+        avg_fusion_latency: Math.round(avgFusionLatency),
+        avg_clip_generation_time: Math.round(avgClipTime),
+        total_processed_frames: totalFrames,
+        error_rate: totalFrames > 0 ? Math.round((totalErrors / totalFrames) * 100 * 100) / 100 : 0
+      },
+      event_breakdown: processedEventBreakdown,
+      alerts_summary: {
+        total_alerts: events?.length || 0,
+        critical_alerts: events?.filter(e => e.event_type === 'SECURITY_ALERT')?.length || 0,
+        resolved_alerts: events?.filter(e => e.event_type === 'ALERT_RESOLVED')?.length || 0,
+        avg_resolution_time: 0 // Would need additional tracking
+      }
+    };
+
+    // Generate CSV content
+    const csvContent = generateCSV(reportData, reportDate);
+    
+    // Generate PDF content (HTML that can be converted to PDF)
+    const htmlContent = generateHTML(reportData, reportDate);
+
+    // Store report in database
+    const { data: reportRecord } = await supabase
+      .from('operational_reports')
+      .insert({
+        report_date: reportDate.toISOString().split('T')[0],
+        report_type: 'daily',
+        content: reportData,
+        generated_at: new Date().toISOString(),
+        csv_content: format === 'csv' || format === 'both' ? csvContent : null,
+        html_content: format === 'pdf' || format === 'both' ? htmlContent : null
+      })
+      .select()
+      .single();
+
+    // Send email if recipients provided
+    if (email_recipients && email_recipients.length > 0) {
+      const resendApiKey = Deno.env.get('RESEND_API_KEY');
+      if (resendApiKey) {
+        await sendEmailReport(resendApiKey, email_recipients, reportData, reportDate, csvContent, htmlContent);
+      } else {
+        console.warn('RESEND_API_KEY not found, skipping email sending');
+      }
+    }
+
+    return new Response(
+      JSON.stringify({
+        success: true,
+        report_id: reportRecord?.id,
+        report_data: reportData,
+        csv_content: format === 'csv' || format === 'both' ? csvContent : null,
+        html_content: format === 'pdf' || format === 'both' ? htmlContent : null
+      }),
+      {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 200,
+      }
+    );
+
+  } catch (error) {
+    console.error('Error generating daily report:', error);
+    return new Response(
+      JSON.stringify({ 
+        error: error.message,
+        success: false 
+      }),
+      {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 500,
+      }
+    );
+  }
+});
+
+function generateCSV(data: DailyReportData, reportDate: Date): string {
+  const dateStr = reportDate.toISOString().split('T')[0];
+  let csv = `Eagle Vision - Relatório Diário,${dateStr}\n\n`;
   
-  csv += `Resumo Geral\n`;
-  csv += `Total de Incidentes,${summary.totalIncidents}\n`;
-  csv += `Duração Média (min),${summary.averageDuration.toFixed(2)}\n`;
-  csv += `% Descartados,${summary.discardedPercentage.toFixed(2)}%\n\n`;
-  
-  csv += `Incidentes por Câmera\n`;
-  csv += `Câmera,Quantidade\n`;
-  Object.entries(summary.incidentsByCamera).forEach(([camera, count]) => {
-    csv += `${camera},${count}\n`;
+  // Camera stats
+  csv += "Estatísticas por Câmera\n";
+  csv += "ID,Nome,Total Eventos,Latência Média (ms),Uptime (%),Erros\n";
+  data.camera_stats.forEach(cam => {
+    csv += `${cam.camera_id},${cam.camera_name},${cam.total_events},${cam.avg_latency},${cam.uptime_percentage},${cam.errors_count}\n`;
   });
   
-  csv += `\nIncidentes por Tipo\n`;
-  csv += `Tipo,Quantidade\n`;
-  Object.entries(summary.incidentsByType).forEach(([type, count]) => {
-    csv += `${type},${count}\n`;
-  });
+  // System performance
+  csv += "\nPerformance do Sistema\n";
+  csv += "Métrica,Valor\n";
+  csv += `Latência Detecção Média (ms),${data.system_performance.avg_detection_latency}\n`;
+  csv += `Latência Fusão Média (ms),${data.system_performance.avg_fusion_latency}\n`;
+  csv += `Tempo Geração Clipe Médio (s),${data.system_performance.avg_clip_generation_time}\n`;
+  csv += `Total Frames Processados,${data.system_performance.total_processed_frames}\n`;
+  csv += `Taxa de Erro (%),${data.system_performance.error_rate}\n`;
   
-  csv += `\nHorários de Pico\n`;
-  csv += `Hora,Incidentes\n`;
-  summary.peakHours.forEach(({ hour, count }) => {
-    csv += `${hour}:00,${count}\n`;
-  });
-  
-  csv += `\nAmostra de Eventos\n`;
-  csv += `ID,Tipo,Câmera,Timestamp,Severidade,URL\n`;
-  summary.sampleEvents.forEach(event => {
-    csv += `${event.id},${event.type},${event.camera_id},${event.timestamp},${event.severity},${event.url || ''}\n`;
+  // Event breakdown
+  csv += "\nEventos por Tipo\n";
+  csv += "Tipo,Quantidade,Horário Pico\n";
+  data.event_breakdown.forEach(event => {
+    csv += `${event.event_type},${event.count},${event.peak_hour}\n`;
   });
   
   return csv;
 }
 
-function generateEmailHTML(summary: DailySummary, reportDate: string): string {
-  const formatDateTime = (dateStr: string) => {
-    return new Date(dateStr).toLocaleString('pt-BR', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  };
-
+function generateHTML(data: DailyReportData, reportDate: Date): string {
+  const dateStr = reportDate.toLocaleDateString('pt-BR');
+  
   return `
     <!DOCTYPE html>
     <html>
     <head>
-      <meta charset="utf-8">
+      <meta charset="UTF-8">
+      <title>Eagle Vision - Relatório Diário ${dateStr}</title>
       <style>
         body { font-family: Arial, sans-serif; margin: 20px; }
-        .header { background: #f4f4f4; padding: 20px; border-radius: 8px; margin-bottom: 20px; }
+        .header { text-align: center; border-bottom: 2px solid #333; padding-bottom: 10px; }
         .section { margin: 20px 0; }
-        .metric { display: inline-block; margin: 10px 20px 10px 0; padding: 10px; background: #f9f9f9; border-radius: 4px; }
-        .metric-value { font-size: 24px; font-weight: bold; color: #2563eb; }
-        .metric-label { font-size: 14px; color: #666; }
         table { width: 100%; border-collapse: collapse; margin: 10px 0; }
         th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-        th { background-color: #f4f4f4; }
-        .event-link { color: #2563eb; text-decoration: none; }
-        .severity-critical { color: #dc2626; font-weight: bold; }
-        .severity-high { color: #ea580c; font-weight: bold; }
-        .severity-medium { color: #d97706; }
-        .severity-low { color: #65a30d; }
+        th { background-color: #f2f2f2; }
+        .metric { display: inline-block; margin: 10px; padding: 10px; border: 1px solid #ddd; border-radius: 5px; }
       </style>
     </head>
     <body>
       <div class="header">
-        <h1>Relatório Diário de Segurança</h1>
-        <p><strong>Data:</strong> ${new Date(reportDate).toLocaleDateString('pt-BR')}</p>
+        <h1>Eagle Vision - Relatório Diário</h1>
+        <h2>${dateStr}</h2>
       </div>
-
+      
       <div class="section">
-        <h2>Resumo Executivo</h2>
+        <h3>Performance do Sistema</h3>
         <div class="metric">
-          <div class="metric-value">${summary.totalIncidents}</div>
-          <div class="metric-label">Total de Incidentes</div>
+          <strong>Latência Detecção:</strong> ${data.system_performance.avg_detection_latency}ms
         </div>
         <div class="metric">
-          <div class="metric-value">${summary.averageDuration.toFixed(1)} min</div>
-          <div class="metric-label">Duração Média</div>
+          <strong>Latência Fusão:</strong> ${data.system_performance.avg_fusion_latency}ms
         </div>
         <div class="metric">
-          <div class="metric-value">${summary.discardedPercentage.toFixed(1)}%</div>
-          <div class="metric-label">Taxa de Descarte</div>
+          <strong>Tempo Geração Clipe:</strong> ${data.system_performance.avg_clip_generation_time}s
+        </div>
+        <div class="metric">
+          <strong>Taxa de Erro:</strong> ${data.system_performance.error_rate}%
         </div>
       </div>
-
+      
       <div class="section">
-        <h2>Incidentes por Câmera</h2>
+        <h3>Estatísticas por Câmera</h3>
         <table>
-          <tr><th>Câmera</th><th>Quantidade</th></tr>
-          ${Object.entries(summary.incidentsByCamera)
-            .map(([camera, count]) => `<tr><td>${camera}</td><td>${count}</td></tr>`)
-            .join('')}
+          <tr><th>ID</th><th>Nome</th><th>Eventos</th><th>Latência Média</th><th>Uptime</th><th>Erros</th></tr>
+          ${data.camera_stats.map(cam => `
+            <tr>
+              <td>${cam.camera_id}</td>
+              <td>${cam.camera_name}</td>
+              <td>${cam.total_events}</td>
+              <td>${cam.avg_latency}ms</td>
+              <td>${cam.uptime_percentage}%</td>
+              <td>${cam.errors_count}</td>
+            </tr>
+          `).join('')}
         </table>
       </div>
-
+      
       <div class="section">
-        <h2>Distribuição por Tipo</h2>
+        <h3>Eventos por Tipo</h3>
         <table>
-          <tr><th>Tipo</th><th>Quantidade</th></tr>
-          ${Object.entries(summary.incidentsByType)
-            .map(([type, count]) => `<tr><td>${type}</td><td>${count}</td></tr>`)
-            .join('')}
+          <tr><th>Tipo</th><th>Quantidade</th><th>Horário Pico</th></tr>
+          ${data.event_breakdown.map(event => `
+            <tr>
+              <td>${event.event_type}</td>
+              <td>${event.count}</td>
+              <td>${event.peak_hour}</td>
+            </tr>
+          `).join('')}
         </table>
       </div>
-
+      
       <div class="section">
-        <h2>Horários de Pico</h2>
-        <table>
-          <tr><th>Horário</th><th>Incidentes</th></tr>
-          ${summary.peakHours
-            .map(({ hour, count }) => `<tr><td>${hour}:00 - ${hour + 1}:00</td><td>${count}</td></tr>`)
-            .join('')}
-        </table>
-      </div>
-
-      <div class="section">
-        <h2>Amostra de Eventos Significativos</h2>
-        <table>
-          <tr><th>Tipo</th><th>Câmera</th><th>Timestamp</th><th>Severidade</th><th>Link</th></tr>
-          ${summary.sampleEvents
-            .map(event => `
-              <tr>
-                <td>${event.type}</td>
-                <td>${event.camera_id}</td>
-                <td>${formatDateTime(event.timestamp)}</td>
-                <td class="severity-${event.severity.toLowerCase()}">${event.severity}</td>
-                <td><a href="${event.url}" class="event-link">Ver Detalhes</a></td>
-              </tr>
-            `)
-            .join('')}
-        </table>
-      </div>
-
-      <div class="section">
-        <p><em>Relatório gerado automaticamente em ${formatDateTime(new Date().toISOString())}</em></p>
+        <h3>Resumo de Alertas</h3>
+        <div class="metric">
+          <strong>Total:</strong> ${data.alerts_summary.total_alerts}
+        </div>
+        <div class="metric">
+          <strong>Críticos:</strong> ${data.alerts_summary.critical_alerts}
+        </div>
+        <div class="metric">
+          <strong>Resolvidos:</strong> ${data.alerts_summary.resolved_alerts}
+        </div>
       </div>
     </body>
     </html>
   `;
 }
 
-const handler = async (req: Request): Promise<Response> => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+async function sendEmailReport(
+  apiKey: string, 
+  recipients: string[], 
+  data: DailyReportData, 
+  reportDate: Date,
+  csvContent: string,
+  htmlContent: string
+) {
+  const dateStr = reportDate.toLocaleDateString('pt-BR');
+  
+  const emailBody = `
+    <h1>Eagle Vision - Relatório Diário ${dateStr}</h1>
+    
+    <h2>Resumo Executivo</h2>
+    <ul>
+      <li><strong>Latência Média de Detecção:</strong> ${data.system_performance.avg_detection_latency}ms</li>
+      <li><strong>Latência Média de Fusão:</strong> ${data.system_performance.avg_fusion_latency}ms</li>
+      <li><strong>Taxa de Erro:</strong> ${data.system_performance.error_rate}%</li>
+      <li><strong>Total de Eventos:</strong> ${data.alerts_summary.total_alerts}</li>
+    </ul>
+    
+    <h2>Status das Câmeras</h2>
+    <p>Monitorando ${data.camera_stats.length} câmeras com uptime médio de ${
+      Math.round(data.camera_stats.reduce((sum, cam) => sum + cam.uptime_percentage, 0) / data.camera_stats.length)
+    }%</p>
+    
+    <p>Relatórios detalhados em CSV e PDF anexados.</p>
+    
+    <p><em>Gerado automaticamente pelo Eagle Vision</em></p>
+  `;
+
+  const payload = {
+    from: 'noreply@eaglevision.com',
+    to: recipients,
+    subject: `Eagle Vision - Relatório Diário ${dateStr}`,
+    html: emailBody,
+    attachments: [
+      {
+        filename: `eagle-vision-daily-report-${reportDate.toISOString().split('T')[0]}.csv`,
+        content: btoa(csvContent),
+        content_type: 'text/csv'
+      },
+      {
+        filename: `eagle-vision-daily-report-${reportDate.toISOString().split('T')[0]}.html`,
+        content: btoa(htmlContent),
+        content_type: 'text/html'
+      }
+    ]
+  };
+
+  const response = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    const error = await response.text();
+    console.error('Failed to send email:', error);
+    throw new Error(`Failed to send email: ${error}`);
   }
 
-  try {
-    const { reportDate, orgId } = await req.json();
-    const targetDate = reportDate || new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-    const targetOrgId = orgId || 'default';
-
-    console.log(`Starting daily report generation for ${targetDate}, org: ${targetOrgId}`);
-
-    // Create report job record
-    const { data: reportJob, error: jobError } = await supabase
-      .from('report_jobs')
-      .insert({
-        org_id: targetOrgId,
-        report_type: 'daily',
-        report_date: targetDate,
-        status: 'generating'
-      })
-      .select()
-      .single();
-
-    if (jobError) {
-      console.error('Error creating report job:', jobError);
-      return new Response(JSON.stringify({ error: 'Failed to create report job' }), {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
-    }
-
-    // Generate summary data
-    const summary = await generateDailySummary(targetDate, targetOrgId);
-    
-    // Generate CSV content
-    const csvContent = generateCSVContent(summary, targetDate);
-    
-    // Generate email HTML
-    const emailHTML = generateEmailHTML(summary, targetDate);
-
-    // Get recipients
-    const { data: recipients, error: recipientsError } = await supabase
-      .from('report_recipients')
-      .select('email, phone')
-      .eq('org_id', targetOrgId)
-      .eq('is_active', true)
-      .contains('report_types', ['daily']);
-
-    if (recipientsError) {
-      console.error('Error fetching recipients:', recipientsError);
-    }
-
-    const emailRecipients = recipients?.map(r => r.email).filter(Boolean) || [];
-    
-    if (emailRecipients.length === 0) {
-      console.log('No email recipients found');
-      
-      // Update job status
-      await supabase
-        .from('report_jobs')
-        .update({
-          status: 'completed',
-          generated_at: new Date().toISOString(),
-          metadata: { summary, warning: 'No recipients found' }
-        })
-        .eq('id', reportJob.id);
-
-      return new Response(JSON.stringify({ 
-        message: 'Report generated but no recipients found',
-        summary 
-      }), {
-        status: 200,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
-    }
-
-    // Send email with Resend
-    const emailSubject = `Relatório Diário de Segurança - ${new Date(targetDate).toLocaleDateString('pt-BR')}`;
-    
-    const { data: emailResult, error: emailError } = await resend.emails.send({
-      from: 'Eagle Vision <reports@eaglevision.com>',
-      to: emailRecipients,
-      subject: emailSubject,
-      html: emailHTML,
-      attachments: [
-        {
-          filename: `relatorio-diario-${targetDate}.csv`,
-          content: btoa(csvContent)
-        }
-      ]
-    });
-
-    if (emailError) {
-      console.error('Error sending email:', emailError);
-      
-      // Update job with error
-      await supabase
-        .from('report_jobs')
-        .update({
-          status: 'failed',
-          error_message: emailError.message,
-          metadata: { summary }
-        })
-        .eq('id', reportJob.id);
-
-      return new Response(JSON.stringify({ error: 'Failed to send email' }), {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
-    }
-
-    // Update job as completed
-    await supabase
-      .from('report_jobs')
-      .update({
-        status: 'completed',
-        generated_at: new Date().toISOString(),
-        sent_at: new Date().toISOString(),
-        recipients_count: emailRecipients.length,
-        metadata: { summary, emailResult }
-      })
-      .eq('id', reportJob.id);
-
-    console.log(`Daily report sent successfully to ${emailRecipients.length} recipients`);
-
-    return new Response(JSON.stringify({
-      success: true,
-      message: `Report sent to ${emailRecipients.length} recipients`,
-      summary,
-      jobId: reportJob.id
-    }), {
-      status: 200,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-    });
-
-  } catch (error) {
-    console.error('Error in daily report generator:', error);
-    return new Response(JSON.stringify({ error: error.message }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-    });
-  }
-};
-
-serve(handler);
+  console.log('Daily report email sent successfully');
+}

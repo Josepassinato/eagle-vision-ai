@@ -50,3 +50,9 @@ verify_jwt = true
 
 [functions.usage-summary]
 verify_jwt = true
+
+[functions.operational-quality]
+verify_jwt = true
+
+[functions.daily-report-generator]
+verify_jwt = true
