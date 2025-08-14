@@ -3,13 +3,14 @@ groups:
   rules:
   # Performance alerts
   - alert: FusionLatencyHigh
-    expr: histogram_quantile(0.90, sum(rate(fusion_infer_seconds_bucket[5m])) by (le,stage)) > 1.5
-    for: 5m
+    expr: histogram_quantile(0.95, rate(fusion_processing_duration_seconds_bucket[5m])) > 0.6
+    for: 2m
     labels: 
       severity: warning
+      service: fusion
     annotations:
-      summary: "Latência alta na Fusion (p90 > 1.5s)"
-      description: "A latência do p90 da Fusion está acima de 1.5s por mais de 5 minutos"
+      summary: "Fusion latency is too high"
+      description: "Fusion service p95 latency is {{ $value }}s, above 600ms threshold for 2 minutes"
       
   - alert: PullerErrorRateHigh
     expr: (sum(rate(puller_http_errors_total[5m])) / (sum(rate(puller_frames_sent_total[5m])) + sum(rate(puller_http_errors_total[5m])))) > 0.1
@@ -21,13 +22,14 @@ groups:
       description: "Taxa de erro do frame puller está acima de 10% por 5 minutos"
 
   - alert: CircuitBreakerOpen
-    expr: increase(circuit_breaker_open_total[1m]) > 0
-    for: 1m
+    expr: increase(circuit_breaker_state_changes_total{state="open"}[5m]) > 0
+    for: 0m
     labels:
-      severity: critical
+      severity: warning
+      service: "{{ $labels.service }}"
     annotations:
-      summary: "Circuit breaker opened for at least 1 minute"
-      description: "Circuit breaker foi aberto, indicando falhas no sistema"
+      summary: "Circuit breaker opened for {{ $labels.service }}"
+      description: "Circuit breaker for service {{ $labels.service }} has opened, indicating failures"
 
   # Camera and stream alerts
   - alert: CameraOffline
@@ -40,13 +42,14 @@ groups:
       description: "Câmera {{ $labels.instance }} está offline por mais de 2 minutos"
 
   - alert: StreamBacklogHigh
-    expr: worker_queue_length > 50
-    for: 30s
+    expr: fusion_stream_queue_size > 100
+    for: 1m
     labels:
-      severity: warning
+      severity: critical
+      service: fusion
     annotations:
-      summary: "Backlog alto no worker"
-      description: "Worker {{ $labels.worker }} tem backlog de {{ $value }} itens"
+      summary: "Stream processing backlog is high"
+      description: "Fusion stream queue size is {{ $value }}, indicating processing cannot keep up"
 
   - alert: ModelInferenceError
     expr: increase(model_inference_errors_total[5m]) > 10

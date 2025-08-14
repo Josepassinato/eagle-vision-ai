@@ -3,13 +3,18 @@ import time
 import logging
 from typing import Optional, Dict, Any, List
 
-import requests
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from prometheus_client import Histogram, Counter, generate_latest, CONTENT_TYPE_LATEST
 from supabase import create_client, Client
 import signal
 from contextlib import contextmanager
+
+# Import resilient HTTP components
+import sys
+sys.path.append('/common_schemas')
+from http_resilient import get_http_client, resilient_post_json
+from correlation_logger import set_correlation_context, with_correlation, generate_correlation_id
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("multi-tracker")
@@ -26,6 +31,9 @@ if not SUPABASE_URL or not SUPABASE_SERVICE_ROLE_KEY:
     logger.error("Missing Supabase configuration")
 
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
+
+# Initialize resilient HTTP client
+http_client = get_http_client(service_name="multi-tracker")
 
 mt_latency = Histogram('multi_tracker_latency_seconds', 'Latency of resolve endpoint')
 mt_resolutions = Counter('multi_tracker_resolutions_total', 'Outcomes of resolutions', ['outcome'])
@@ -46,6 +54,7 @@ class ResolveResponse(BaseModel):
     global_person_id: str
     source: str
     similarity: float
+
 @contextmanager
 def time_limit(seconds: int):
     def handler(signum, frame):
@@ -58,7 +67,9 @@ def time_limit(seconds: int):
         signal.alarm(0)
         signal.signal(signal.SIGALRM, old)
 
-def get_face_embedding_from_image(jpg_b64: str) -> Optional[List[float]]:
+@with_correlation
+async def get_face_embedding_from_image(jpg_b64: str) -> Optional[List[float]]:
+    """Extract face embedding using resilient HTTP client"""
     try:
         payload = {
             "images": {"data": [jpg_b64]},
@@ -66,25 +77,33 @@ def get_face_embedding_from_image(jpg_b64: str) -> Optional[List[float]]:
             "extract_ga": False,
             "api_ver": "1"
         }
-        r = requests.post(f"{FACE_URL}/extract", json=payload, timeout=10)
-        if not r.ok:
-            logger.warning(f"face extract failed: {r.status_code}")
-            return None
-        data = r.json().get("data", [])
+        
+        data = await resilient_post_json(
+            f"{FACE_URL}/extract",
+            json=payload,
+            service_name="multi-tracker",
+            timeout=10.0
+        )
+        
         if not data:
+            logger.warning("Empty response from face service")
             return None
-        emb = data[0].get("embedding")
+            
+        embedding_data = data.get("data", [])
+        if not embedding_data:
+            return None
+            
+        emb = embedding_data[0].get("embedding")
         return emb
+        
     except Exception as e:
         logger.error(f"get_face_embedding_from_image error: {e}")
         return None
-
 
 def ema_update(old: Optional[List[float]], new: List[float], alpha: float) -> List[float]:
     if not old or len(old) != len(new):
         return new
     return [alpha * n + (1 - alpha) * o for o, n in zip(old, new)]
-
 
 def resolve_identity(face_emb: Optional[List[float]], body_emb: Optional[List[float]], prelim_person_id: Optional[str], face_sim: Optional[float], reid_sim: Optional[float]) -> Dict[str, Any]:
     # Prefer face matching when embedding available with clear timeout
@@ -123,7 +142,6 @@ def resolve_identity(face_emb: Optional[List[float]], body_emb: Optional[List[fl
     pid = insert.data[0]['id']
     return { 'person_id': pid, 'source': 'new', 'similarity': 1.0 if face_emb or body_emb else 0.0, 'update_face': False, 'update_body': False }
 
-
 def update_embeddings(person_id: str, face_emb: Optional[List[float]], body_emb: Optional[List[float]], update_face: bool, update_body: bool):
     try:
         if not update_face and not update_body:
@@ -140,14 +158,21 @@ def update_embeddings(person_id: str, face_emb: Optional[List[float]], body_emb:
     except Exception as e:
         logger.warning(f"update_embeddings error: {e}")
 
-
 @app.post('/resolve', response_model=ResolveResponse)
-def resolve(req: ResolveRequest):
+async def resolve(req: ResolveRequest):
+    # Set up correlation context
+    correlation_id = generate_correlation_id()
+    set_correlation_context(
+        correlation_id=correlation_id,
+        service_name="multi-tracker",
+        camera_id=req.camera_id
+    )
+    
     start = time.time()
     try:
         face_emb = req.face_embedding
         if face_emb is None and req.jpg_b64:
-            face_emb = get_face_embedding_from_image(req.jpg_b64)
+            face_emb = await get_face_embedding_from_image(req.jpg_b64)
         # body_emb could be later added: req.body_embedding
         outcome = resolve_identity(face_emb, req.body_embedding, req.prelim_person_id, req.face_similarity, req.reid_similarity)
         update_embeddings(outcome['person_id'], face_emb, req.body_embedding, outcome.get('update_face', False), outcome.get('update_body', False))
@@ -156,23 +181,24 @@ def resolve(req: ResolveRequest):
     finally:
         mt_latency.observe(time.time() - start)
 
-
 @app.get('/health')
 def health():
+    # Get circuit breaker stats from HTTP client
+    circuit_stats = http_client.get_circuit_stats() if hasattr(http_client, 'get_circuit_stats') else {}
+    
     return { 
         'status': 'ok', 
         't_face': T_FACE, 
         't_reid': T_REID, 
         'ema_alpha': EMA_ALPHA,
-        'association_timeout': ASSOCIATION_TIMEOUT
+        'association_timeout': ASSOCIATION_TIMEOUT,
+        'circuit_breakers': circuit_stats
     }
-
 
 @app.get('/metrics')
 def metrics():
     from fastapi import Response
     return Response(generate_latest(), media_type=CONTENT_TYPE_LATEST)
-
 
 if __name__ == '__main__':
     import uvicorn

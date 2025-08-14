@@ -10,11 +10,16 @@ import os
 import subprocess
 import tempfile
 
-import requests
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import uvicorn
+
+# Import resilient HTTP components and outbox pattern
+import sys
+sys.path.append('/common_schemas')
+from http_resilient import get_http_client, ResilientHTTPClient
+from correlation_logger import set_correlation_context, with_correlation, generate_correlation_id
 
 # Configure logging
 logging.basicConfig(
@@ -35,7 +40,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-
 # Environment variables
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "")
@@ -52,15 +56,12 @@ rate_limit_tracker: Dict[str, List[float]] = {}
 ALERT_WINDOW_MIN = int(os.getenv("ALERT_WINDOW_MIN", "5"))
 _last_sent: Dict[str, float] = {}
 
-def should_notify(cam: str, pid: Optional[str]) -> bool:
-    key = f"{cam}:{pid or 'unknown'}"
-    now = time.time()
-    ts = _last_sent.get(key, 0.0)
-    if now - ts < ALERT_WINDOW_MIN * 60:
-        return False
-    _last_sent[key] = now
-    return True
+# Initialize resilient HTTP client for Telegram API
+http_client: ResilientHTTPClient = get_http_client(service_name="notifier")
 
+# Outbox for idempotent message delivery
+outbox_queue = asyncio.Queue()
+outbox_storage: Dict[str, Dict] = {}  # In-memory storage, replace with persistent storage in production
 
 class NotifyEventRequest(BaseModel):
     camera_id: str
@@ -76,6 +77,31 @@ class NotifyEventRequest(BaseModel):
     plate: Optional[str] = None
     clip_url: Optional[str] = None
 
+class NotifyClipRequest(BaseModel):
+    event_id: int
+    camera_id: Optional[str] = None
+    ts: Optional[str] = None
+    clip_url: str
+
+class OutboxMessage(BaseModel):
+    message_id: str
+    chat_id: str
+    text: str
+    image_data: Optional[bytes] = None
+    max_retries: int = 3
+    retry_count: int = 0
+    created_at: float
+    status: str = "pending"  # pending, processing, completed, failed
+
+def should_notify(cam: str, pid: Optional[str]) -> bool:
+    key = f"{cam}:{pid or 'unknown'}"
+    now = time.time()
+    ts = _last_sent.get(key, 0.0)
+    if now - ts < ALERT_WINDOW_MIN * 60:
+        return False
+    _last_sent[key] = now
+    return True
+
 def fetch_chat_ids_from_updates() -> List[str]:
     """Fetch chat IDs from Telegram getUpdates when TELEGRAM_CHAT_ID=auto"""
     if not TELEGRAM_BOT_TOKEN:
@@ -83,6 +109,7 @@ def fetch_chat_ids_from_updates() -> List[str]:
         return []
     base_url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/getUpdates"
     try:
+        import requests
         resp = requests.get(base_url, timeout=NOTIFIER_TIMEOUT_MS/1000)
         if resp.status_code != 200:
             logger.error(f"getUpdates error {resp.status_code}: {resp.text}")
@@ -106,7 +133,6 @@ def fetch_chat_ids_from_updates() -> List[str]:
         logger.error(f"Failed to fetch chat IDs: {e}")
         return []
 
-
 def parse_chat_ids() -> List[str]:
     """Parse TELEGRAM_CHAT_ID env; support 'auto' discovery via getUpdates"""
     cid = TELEGRAM_CHAT_ID.strip() if TELEGRAM_CHAT_ID else ""
@@ -115,6 +141,7 @@ def parse_chat_ids() -> List[str]:
     if cid.lower() == "auto":
         return fetch_chat_ids_from_updates()
     return [chat_id.strip() for chat_id in cid.split(",") if chat_id.strip()]
+
 def check_rate_limit(camera_id: str) -> bool:
     """Check if camera_id is within rate limit"""
     now = time.time()
@@ -220,85 +247,154 @@ Frames: {frames} | Move: {movement}px{plate_line_txt}{clip_line_txt}"""
     
     return text
 
-def send_telegram_message(chat_id: str, text: str, image_data: Optional[bytes] = None, retries: int = 1) -> bool:
-    """Send message to Telegram with optional image"""
+async def add_to_outbox(message_id: str, chat_id: str, text: str, image_data: Optional[bytes] = None) -> None:
+    """Add message to outbox for guaranteed delivery"""
+    outbox_msg = OutboxMessage(
+        message_id=message_id,
+        chat_id=chat_id,
+        text=text,
+        image_data=image_data,
+        created_at=time.time()
+    )
+    
+    outbox_storage[message_id] = outbox_msg.dict()
+    await outbox_queue.put(message_id)
+    logger.info(f"Added message {message_id} to outbox")
+
+@with_correlation
+async def send_telegram_message_resilient(chat_id: str, text: str, image_data: Optional[bytes] = None) -> bool:
+    """Send message to Telegram using resilient HTTP client"""
     if not TELEGRAM_BOT_TOKEN:
         logger.error("TELEGRAM_BOT_TOKEN not configured")
         return False
     
     base_url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}"
     
-    for attempt in range(retries + 1):
-        try:
-            if image_data:
-                # Send photo with caption
-                url = f"{base_url}/sendPhoto"
-                files = {
-                    'photo': ('snapshot.jpg', BytesIO(image_data), 'image/jpeg')
-                }
-                data = {
-                    'chat_id': chat_id,
-                    'caption': text,
-                    'parse_mode': TELEGRAM_PARSE_MODE
-                }
-                response = requests.post(url, files=files, data=data, timeout=NOTIFIER_TIMEOUT_MS/1000)
-            else:
-                # Send text only
-                url = f"{base_url}/sendMessage"
-                data = {
-                    'chat_id': chat_id,
-                    'text': text,
-                    'parse_mode': TELEGRAM_PARSE_MODE
-                }
-                response = requests.post(url, json=data, timeout=NOTIFIER_TIMEOUT_MS/1000)
-            
-            if response.status_code == 200:
-                logger.info(f"Message sent successfully to chat {chat_id}")
-                return True
-            elif response.status_code >= 500 and attempt < retries:
-                logger.warning(f"Server error {response.status_code}, retrying... (attempt {attempt + 1})")
-                time.sleep(0.5)
-                continue
-            else:
+    try:
+        if image_data:
+            # For file uploads, we need to use the original method temporarily
+            # TODO: Enhance resilient client to support multipart uploads
+            import requests
+            url = f"{base_url}/sendPhoto"
+            files = {
+                'photo': ('snapshot.jpg', BytesIO(image_data), 'image/jpeg')
+            }
+            data = {
+                'chat_id': chat_id,
+                'caption': text,
+                'parse_mode': TELEGRAM_PARSE_MODE
+            }
+            response = await asyncio.get_event_loop().run_in_executor(
+                None, 
+                lambda: requests.post(url, files=files, data=data, timeout=NOTIFIER_TIMEOUT_MS/1000)
+            )
+            success = response.status_code == 200
+            if not success:
                 logger.error(f"Telegram API error {response.status_code}: {response.text}")
-                return False
-                
-        except requests.exceptions.Timeout:
-            logger.error(f"Timeout sending message to chat {chat_id}")
-            if attempt < retries:
-                logger.info(f"Retrying... (attempt {attempt + 1})")
-                time.sleep(0.5)
+        else:
+            # Use resilient client for text messages
+            url = f"{base_url}/sendMessage"
+            data = {
+                'chat_id': chat_id,
+                'text': text,
+                'parse_mode': TELEGRAM_PARSE_MODE
+            }
+            response = await http_client.post(url, json=data, timeout=NOTIFIER_TIMEOUT_MS/1000)
+            success = response.status_code == 200
+            if not success:
+                logger.error(f"Telegram API error {response.status_code}: {response.text}")
+        
+        if success:
+            logger.info(f"Message sent successfully to chat {chat_id}")
+        
+        return success
+        
+    except Exception as e:
+        logger.error(f"Error sending message: {e}")
+        return False
+
+async def process_outbox():
+    """Background task to process outbox messages with guaranteed delivery"""
+    while True:
+        try:
+            # Wait for message ID from queue
+            message_id = await outbox_queue.get()
+            
+            if message_id not in outbox_storage:
                 continue
-            return False
+            
+            msg_data = outbox_storage[message_id]
+            msg = OutboxMessage(**msg_data)
+            
+            if msg.status == "completed":
+                continue
+            
+            if msg.retry_count >= msg.max_retries:
+                msg.status = "failed"
+                outbox_storage[message_id] = msg.dict()
+                logger.error(f"Message {message_id} failed after {msg.max_retries} retries")
+                continue
+            
+            # Set processing status
+            msg.status = "processing"
+            msg.retry_count += 1
+            outbox_storage[message_id] = msg.dict()
+            
+            # Attempt delivery
+            success = await send_telegram_message_resilient(
+                msg.chat_id, 
+                msg.text, 
+                msg.image_data
+            )
+            
+            if success:
+                msg.status = "completed"
+                logger.info(f"Outbox message {message_id} delivered successfully")
+            else:
+                msg.status = "pending"
+                # Exponential backoff for retry
+                retry_delay = min(2 ** msg.retry_count, 60)  # Max 60s delay
+                logger.warning(f"Message {message_id} failed, retrying in {retry_delay}s")
+                await asyncio.sleep(retry_delay)
+                await outbox_queue.put(message_id)  # Re-queue for retry
+            
+            outbox_storage[message_id] = msg.dict()
+            
         except Exception as e:
-            logger.error(f"Error sending message: {e}")
-            if attempt < retries:
-                logger.info(f"Retrying... (attempt {attempt + 1})")
-                time.sleep(0.5)
-                continue
-            return False
-    
-    return False
+            logger.error(f"Error processing outbox: {e}")
+            await asyncio.sleep(1)
+
+@app.on_event("startup")
+async def startup_event():
+    """Start background outbox processor"""
+    asyncio.create_task(process_outbox())
 
 @app.post("/notify_event")
 async def notify_event(event: NotifyEventRequest):
     """Receive event from Fusion and send Telegram notification"""
+    # Set up correlation context
+    correlation_id = generate_correlation_id()
+    set_correlation_context(
+        correlation_id=correlation_id,
+        service_name="notifier",
+        camera_id=event.camera_id
+    )
+    
     start_time = time.time()
     
     logger.info(f"Received event: camera_id={event.camera_id}, reason={event.reason}")
     
-# Check rate limit
-if not check_rate_limit(event.camera_id):
-    logger.warning(f"Rate limit exceeded for camera {event.camera_id}")
-    raise HTTPException(status_code=429, detail="Rate limit exceeded")
+    # Check rate limit
+    if not check_rate_limit(event.camera_id):
+        logger.warning(f"Rate limit exceeded for camera {event.camera_id}")
+        raise HTTPException(status_code=429, detail="Rate limit exceeded")
 
-# Deduplication by (camera, person) within ALERT_WINDOW_MIN
-if not should_notify(event.camera_id, event.person_id):
-    logger.info(
-        f"Duplicate suppressed for camera={event.camera_id} person_id={event.person_id} within {ALERT_WINDOW_MIN}min"
-    )
-    return {"status": "skipped_duplicate", "window_min": ALERT_WINDOW_MIN}
-
+    # Deduplication by (camera, person) within ALERT_WINDOW_MIN
+    if not should_notify(event.camera_id, event.person_id):
+        logger.info(
+            f"Duplicate suppressed for camera={event.camera_id} person_id={event.person_id} within {ALERT_WINDOW_MIN}min"
+        )
+        return {"status": "skipped_duplicate", "window_min": ALERT_WINDOW_MIN}
     
     # Parse chat IDs
     chat_ids = parse_chat_ids()
@@ -324,42 +420,46 @@ if not should_notify(event.camera_id, event.person_id):
     # Format message text
     text = format_notification_text(event)
     
-    # Send to all chat IDs
-    success_count = 0
+    # Add messages to outbox for guaranteed delivery
     for chat_id in chat_ids:
-        if send_telegram_message(chat_id, text, image_data, retries=1):
-            success_count += 1
+        message_id = f"{correlation_id}_{chat_id}_{int(time.time() * 1000)}"
+        await add_to_outbox(message_id, chat_id, text, image_data)
     
     # Calculate latency
     latency_ms = (time.time() - start_time) * 1000
     
     # Log structured info
     logger.info(json.dumps({
-        "event": "notification_sent",
+        "event": "notification_queued",
         "camera_id": event.camera_id,
         "reason": event.reason,
         "chat_ids": chat_ids,
-        "success_count": success_count,
         "total_chats": len(chat_ids),
         "lat_ms": round(latency_ms, 2),
-        "has_image": image_data is not None
+        "has_image": image_data is not None,
+        "correlation_id": correlation_id
     }))
     
-    if success_count == 0:
-        raise HTTPException(status_code=500, detail="Failed to send to any chat")
-    
     return {
-        "status": "ok",
-        "sent_to_chats": success_count,
+        "status": "queued",
         "total_chats": len(chat_ids),
-        "latency_ms": round(latency_ms, 2)
+        "latency_ms": round(latency_ms, 2),
+        "correlation_id": correlation_id
     }
 
 @app.post("/notify_clip")
-async def notify_clip_endpoint(req: "NotifyClipRequest"):
+async def notify_clip_endpoint(req: NotifyClipRequest):
     """Send a simple clip link notification to all chats"""
     if not req.clip_url:
         raise HTTPException(status_code=400, detail="clip_url required")
+    
+    correlation_id = generate_correlation_id()
+    set_correlation_context(
+        correlation_id=correlation_id,
+        service_name="notifier",
+        camera_id=req.camera_id or "unknown"
+    )
+    
     if TELEGRAM_PARSE_MODE == "HTML":
         text = f"""<b>[Visão de Águia]</b>
 <b>Replay disponível</b>
@@ -368,31 +468,54 @@ async def notify_clip_endpoint(req: "NotifyClipRequest"):
         text = f"""[Visão de Águia]
 Replay disponível
 Clip: {req.clip_url}"""
+    
     chat_ids = parse_chat_ids()
     if not chat_ids:
         raise HTTPException(status_code=500, detail="No chat IDs configured")
-    sent = 0
-    for cid in chat_ids:
-        if send_telegram_message(cid, text, image_data=None, retries=1):
-            sent += 1
-    return {"status": "ok", "sent_to_chats": sent, "total_chats": len(chat_ids)}
-
-class NotifyClipRequest(BaseModel):
-    event_id: int
-    camera_id: Optional[str] = None
-    ts: Optional[str] = None
-    clip_url: str
+    
+    # Add to outbox
+    for chat_id in chat_ids:
+        message_id = f"{correlation_id}_clip_{chat_id}_{int(time.time() * 1000)}"
+        await add_to_outbox(message_id, chat_id, text)
+    
+    return {
+        "status": "queued", 
+        "total_chats": len(chat_ids),
+        "correlation_id": correlation_id
+    }
 
 @app.get("/health")
 async def health():
     """Health check endpoint"""
     chat_ids = parse_chat_ids()
+    circuit_stats = http_client.get_circuit_stats() if hasattr(http_client, 'get_circuit_stats') else {}
+    
     return {
         "status": "ok",
         "telegram_configured": bool(TELEGRAM_BOT_TOKEN),
         "chat_ids_count": len(chat_ids),
         "stream_url": STREAM_SNAPSHOT_URL,
-        "timeout_ms": NOTIFIER_TIMEOUT_MS
+        "timeout_ms": NOTIFIER_TIMEOUT_MS,
+        "outbox_queue_size": outbox_queue.qsize(),
+        "outbox_storage_size": len(outbox_storage),
+        "circuit_breakers": circuit_stats
+    }
+
+@app.get("/outbox_status")
+async def outbox_status():
+    """Get outbox processing status"""
+    pending = sum(1 for msg in outbox_storage.values() if msg["status"] == "pending")
+    processing = sum(1 for msg in outbox_storage.values() if msg["status"] == "processing")
+    completed = sum(1 for msg in outbox_storage.values() if msg["status"] == "completed")
+    failed = sum(1 for msg in outbox_storage.values() if msg["status"] == "failed")
+    
+    return {
+        "queue_size": outbox_queue.qsize(),
+        "total_messages": len(outbox_storage),
+        "pending": pending,
+        "processing": processing,
+        "completed": completed,
+        "failed": failed
     }
 
 if __name__ == "__main__":

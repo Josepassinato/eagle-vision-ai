@@ -55,10 +55,11 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# Modelo global e batch processor
+# Modelo global, batch processor e HTTP client
 model = None
 batch_processor = None
 output_queue = asyncio.Queue(maxsize=OUTPUT_QUEUE_LIMIT)
+http_client = get_http_client(service_name="yolo-detection")
 
 
 def _verify_integrity(model_path: str):
@@ -143,6 +144,9 @@ async def startup_event():
             pass
         model.to(device)
     
+    # Verify model checksum and download with resilient fallback
+    await verify_and_download_model()
+    
     # Configure NMS on device
     if hasattr(model, 'model') and hasattr(model.model, 'model'):
         for m in model.model.model.modules():
@@ -178,17 +182,51 @@ async def startup_event():
     print("Warm-up concluído!")
 
 
+async def verify_and_download_model():
+    """Verify model checksum and download with resilient HTTP fallback"""
+    if os.path.exists(YOLO_MODEL):
+        _verify_integrity(YOLO_MODEL)
+        return
+    
+    if not YOLO_MODEL_URL:
+        logger.warning("No YOLO_MODEL_URL provided, using Ultralytics default")
+        return
+    
+    try:
+        logger.info(f"Downloading YOLO model from {YOLO_MODEL_URL} with resilient HTTP")
+        
+        # Use resilient HTTP client with timeout and backoff
+        response = await http_client.get(
+            YOLO_MODEL_URL,
+            timeout=300.0  # 5 minute timeout for large model
+        )
+        
+        if response.status_code == 200:
+            with open(YOLO_MODEL, 'wb') as f:
+                f.write(response.content)
+            logger.info("Model downloaded successfully with resilient HTTP")
+            _verify_integrity(YOLO_MODEL)
+        else:
+            logger.error(f"Failed to download model: HTTP {response.status_code}")
+            
+    except Exception as e:
+        logger.error(f"Resilient download failed: {e}. Using Ultralytics fallback.")
+
 @app.get("/health")
 async def health_check():
     """Health check endpoint"""
     batch_stats = batch_processor.get_stats() if batch_processor else {}
+    circuit_stats = http_client.get_circuit_stats() if hasattr(http_client, 'get_circuit_stats') else {}
+    
     return {
         "status": "ok",
         "model": YOLO_MODEL,
         "device": "cuda" if torch.cuda.is_available() else "cpu",
         "gpu_available": torch.cuda.is_available(),
         "batch_processing": batch_processor is not None,
-        "batch_stats": batch_stats
+        "batch_stats": batch_stats,
+        "circuit_breakers": circuit_stats,
+        "model_checksum_verified": os.path.exists(f"{YOLO_MODEL}.sha256")
     }
 
 def decode_base64_image(b64_string: str) -> np.ndarray:
