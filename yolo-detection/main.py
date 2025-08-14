@@ -20,11 +20,19 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 from ultralytics import YOLO
 import uvicorn
+import asyncio
+from typing import List, Optional
+
+# Import batch processor
+import sys
+sys.path.append('/common_schemas')
+from batch_processor import get_batch_processor, BatchProcessor
 
 # Configuração
 YOLO_MODEL = os.getenv("YOLO_MODEL", "/app/models/yolov8x.pt")
 YOLO_MODEL_URL = os.getenv("YOLO_MODEL_URL")
 YOLO_DEVICE = os.getenv("YOLO_DEVICE", "auto")  # auto|cuda|cpu
+BATCH_SIZE = int(os.getenv("BATCH_SIZE", "8"))  # GPU batching
 MAX_IMAGE_SIZE_MB = 2
 INFERENCE_TIMEOUT = 2.0
 
@@ -34,8 +42,9 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# Modelo global
+# Modelo global e batch processor
 model = None
+batch_processor = None
 
 
 def _verify_integrity(model_path: str):
@@ -62,6 +71,11 @@ def _verify_integrity(model_path: str):
 
 class DetectionRequest(BaseModel):
     jpg_b64: str = Field(..., description="Imagem JPEG em base64")
+    use_batch: bool = Field(default=True, description="Use batch processing for better performance")
+
+class BatchDetectionRequest(BaseModel):
+    images: List[str] = Field(..., description="Lista de imagens JPEG em base64")
+    batch_id: Optional[str] = Field(default=None, description="ID do batch para tracking")
 
 class BoundingBox(BaseModel):
     score: float = Field(..., description="Confiança da detecção")
@@ -74,8 +88,8 @@ class DetectionResponse(BaseModel):
 
 @app.on_event("startup")
 async def startup_event():
-    """Inicializa o modelo YOLO e faz warm-up"""
-    global model
+    """Inicializa o modelo YOLO e batch processor"""
+    global model, batch_processor
 
     # Garantir diretório de modelos
     os.makedirs(os.path.dirname(YOLO_MODEL), exist_ok=True)
@@ -112,6 +126,20 @@ async def startup_event():
             pass
         model.to(device)
 
+    # Initialize batch processor for GPU optimization
+    try:
+        batch_processor = get_batch_processor(
+            'yolo',
+            model=model,
+            batch_size=BATCH_SIZE,
+            max_wait_time=0.05,  # 50ms max wait
+            device=device
+        )
+        print(f"✓ Batch processor initialized (batch_size={BATCH_SIZE}, device={device})")
+    except Exception as e:
+        print(f"⚠️ Failed to initialize batch processor: {e}")
+        batch_processor = None
+
     # Warm-up com imagem dummy
     print("Fazendo warm-up...")
     dummy_img = np.random.randint(0, 255, (640, 480, 3), dtype=np.uint8)
@@ -122,11 +150,14 @@ async def startup_event():
 @app.get("/health")
 async def health_check():
     """Health check endpoint"""
+    batch_stats = batch_processor.get_stats() if batch_processor else {}
     return {
         "status": "ok",
         "model": YOLO_MODEL,
         "device": "cuda" if torch.cuda.is_available() else "cpu",
-        "gpu_available": torch.cuda.is_available()
+        "gpu_available": torch.cuda.is_available(),
+        "batch_processing": batch_processor is not None,
+        "batch_stats": batch_stats
     }
 
 def decode_base64_image(b64_string: str) -> np.ndarray:
@@ -168,7 +199,7 @@ def crop_body(img: np.ndarray, xyxy: List[int]) -> np.ndarray:
 
 @app.post("/detect", response_model=DetectionResponse)
 async def detect_persons(request: DetectionRequest):
-    """Detecta pessoas na imagem"""
+    """Detecta pessoas na imagem com batching opcional"""
     if model is None:
         raise HTTPException(status_code=503, detail="Modelo não carregado")
     
@@ -179,14 +210,68 @@ async def detect_persons(request: DetectionRequest):
     start_time = time.time()
     
     try:
-        # Inferência com timeout
-        with torch.cuda.amp.autocast(enabled=torch.cuda.is_available()):
-            results = model(img, verbose=False)
+        # Use batch processing if available and enabled
+        if batch_processor and request.use_batch:
+            # Generate unique item ID
+            item_id = f"detect_{int(time.time() * 1000000)}"
+            
+            # Add to batch queue
+            await batch_processor.add_item(
+                item_id=item_id,
+                data=img,
+                metadata={'image_shape': (h, w)}
+            )
+            
+            # Get result
+            batch_result = await batch_processor.get_result(item_id, timeout=3.0)
+            
+            if batch_result and batch_result.result:
+                yolo_results = batch_result.result
+            else:
+                # Fallback to individual processing
+                yolo_results = await _process_single_image(img)
+        else:
+            # Process individually
+            yolo_results = await _process_single_image(img)
         
         inference_time = time.time() - start_time
         
         if inference_time > INFERENCE_TIMEOUT:
             print(f"Warning: Inferência demorou {inference_time:.3f}s (limite: {INFERENCE_TIMEOUT}s)")
+        
+        # Convert to API format
+        boxes = []
+        if yolo_results and 'boxes' in yolo_results:
+            for box_data in yolo_results['boxes']:
+                # Coordenadas absolutas
+                xyxy = box_data['xyxy']
+                x1, y1, x2, y2 = xyxy
+                
+                # Coordenadas normalizadas (xywh)
+                x_center = (x1 + x2) / 2 / w
+                y_center = (y1 + y2) / 2 / h
+                width = (x2 - x1) / w
+                height = (y2 - y1) / h
+                xywhn = [x_center, y_center, width, height]
+                
+                boxes.append(BoundingBox(
+                    score=box_data['score'],
+                    cls=box_data['cls'],
+                    xyxy=xyxy,
+                    xywhn=xywhn
+                ))
+        
+        return DetectionResponse(boxes=boxes)
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro na inferência: {str(e)}")
+
+async def _process_single_image(img: np.ndarray) -> Dict:
+    """Process single image without batching"""
+    try:
+        # Inferência individual
+        with torch.cuda.amp.autocast(enabled=torch.cuda.is_available()):
+            results = model(img, verbose=False)
         
         # Processa resultados
         boxes = []
@@ -197,29 +282,86 @@ async def detect_persons(request: DetectionRequest):
                     cls_id = int(box.cls.item())
                     if cls_id == 0:  # pessoa
                         score = float(box.conf.item())
-                        
-                        # Coordenadas absolutas
                         xyxy = box.xyxy[0].cpu().numpy().astype(int).tolist()
-                        x1, y1, x2, y2 = xyxy
                         
-                        # Coordenadas normalizadas (xywh)
-                        x_center = (x1 + x2) / 2 / w
-                        y_center = (y1 + y2) / 2 / h
-                        width = (x2 - x1) / w
-                        height = (y2 - y1) / h
-                        xywhn = [x_center, y_center, width, height]
-                        
-                        boxes.append(BoundingBox(
-                            score=score,
-                            cls="person",
-                            xyxy=xyxy,
-                            xywhn=xywhn
-                        ))
+                        boxes.append({
+                            'score': score,
+                            'cls': 'person',
+                            'xyxy': xyxy
+                        })
         
-        return DetectionResponse(boxes=boxes)
+        return {'boxes': boxes}
         
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Erro na inferência: {str(e)}")
+        print(f"Error in single image processing: {e}")
+        return {'boxes': []}
+
+@app.post("/detect_batch", response_model=List[DetectionResponse])
+async def detect_batch(request: BatchDetectionRequest):
+    """Detecta pessoas em múltiplas imagens usando batching otimizado"""
+    if model is None:
+        raise HTTPException(status_code=503, detail="Modelo não carregado")
+    
+    if not batch_processor:
+        raise HTTPException(status_code=503, detail="Batch processor não disponível")
+    
+    try:
+        batch_id = request.batch_id or f"batch_{int(time.time() * 1000)}"
+        results = []
+        
+        # Process all images in batch
+        tasks = []
+        for i, img_b64 in enumerate(request.images):
+            item_id = f"{batch_id}_{i}"
+            img = decode_base64_image(img_b64)
+            h, w, _ = img.shape
+            
+            # Add to batch processor
+            task = batch_processor.add_item(
+                item_id=item_id,
+                data=img,
+                metadata={'image_shape': (h, w), 'batch_id': batch_id}
+            )
+            tasks.append((item_id, h, w))
+        
+        # Wait for all results
+        for item_id, h, w in tasks:
+            batch_result = await batch_processor.get_result(item_id, timeout=5.0)
+            
+            boxes = []
+            if batch_result and batch_result.result and 'boxes' in batch_result.result:
+                for box_data in batch_result.result['boxes']:
+                    xyxy = box_data['xyxy']
+                    x1, y1, x2, y2 = xyxy
+                    
+                    # Normalized coordinates
+                    x_center = (x1 + x2) / 2 / w
+                    y_center = (y1 + y2) / 2 / h
+                    width = (x2 - x1) / w
+                    height = (y2 - y1) / h
+                    xywhn = [x_center, y_center, width, height]
+                    
+                    boxes.append(BoundingBox(
+                        score=box_data['score'],
+                        cls=box_data['cls'],
+                        xyxy=xyxy,
+                        xywhn=xywhn
+                    ))
+            
+            results.append(DetectionResponse(boxes=boxes))
+        
+        return results
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro no batch processing: {str(e)}")
+
+@app.get("/batch_stats")
+async def get_batch_stats():
+    """Get batch processing statistics"""
+    if batch_processor:
+        return batch_processor.get_stats()
+    else:
+        return {"error": "Batch processor not available"}
 
 if __name__ == "__main__":
     uvicorn.run(
