@@ -25,3 +25,4 @@ export { default as SecurityCompliance } from "./SecurityCompliance";
 export { default as EnterpriseIntegrations } from "./EnterpriseIntegrations";
 export { default as HealthMonitoring } from "./HealthMonitoring";
 export { default as SystemParameters } from "./SystemParameters";
+export { default as DeploymentChecklist } from "./DeploymentChecklist";

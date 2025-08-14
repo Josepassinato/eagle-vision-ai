@@ -34,6 +34,7 @@ import EdgeDeviceManager from "./pages/EdgeDeviceManager";
 import PrivacyCompliance from "./pages/admin/PrivacyCompliance";
 import HealthMonitoring from "./pages/admin/HealthMonitoring";
 import SystemParameters from "./pages/admin/SystemParameters";
+import DeploymentChecklist from "./pages/admin/DeploymentChecklist";
 import GlobalNavActions from "./components/GlobalNavActions";
 import AIAssistant from "./components/AIAssistant";
 import { PWAInstallBanner } from "./components/PWAInstallBanner";
@@ -88,6 +89,7 @@ const App = () => (
             <Route path="privacy" element={<PrivacyCompliance />} />
             <Route path="health" element={<HealthMonitoring />} />
             <Route path="parameters" element={<SystemParameters />} />
+            <Route path="deployment" element={<DeploymentChecklist />} />
           </Route>
           <Route path="/" element={<Index />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
