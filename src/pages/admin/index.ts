@@ -17,3 +17,6 @@ export { default as IntelligentAlerts } from "./IntelligentAlerts";
 export { default as AIReports } from "./AIReports";
 export { default as APIMarketplace } from "./APIMarketplace";
 export { default as IndustryVerticals } from "./IndustryVerticals";
+export { default as ActiveLearning } from "./ActiveLearning";
+export { default as MultiCameraFusion } from "./MultiCameraFusion";
+export { default as EdgeAI } from "./EdgeAI";
