@@ -36,14 +36,23 @@ COPY . .
 # Criar diretório para modelos
 RUN mkdir -p /app/models
 
-# Opção de baixar o peso no build (informe ARG YOLO_MODEL_URL)
+# Build-time model download with checksum verification
 ARG YOLO_MODEL_URL
+ARG YOLO_MODEL_SHA256
 ENV YOLO_MODEL=/app/models/yolov8x.pt
+
+# Download model weights at build time if URL provided
 RUN if [ -n "$YOLO_MODEL_URL" ]; then \
-      echo "Baixando YOLO weights de $YOLO_MODEL_URL" && \
-      wget -O /app/models/yolov8x.pt "$YOLO_MODEL_URL"; \
+      echo "Downloading YOLO weights from $YOLO_MODEL_URL" && \
+      wget -O /app/models/yolov8x.pt "$YOLO_MODEL_URL" && \
+      if [ -n "$YOLO_MODEL_SHA256" ]; then \
+        echo "$YOLO_MODEL_SHA256  /app/models/yolov8x.pt" > /app/models/yolov8x.pt.sha256 && \
+        echo "Verifying model checksum..." && \
+        sha256sum -c /app/models/yolov8x.pt.sha256 && \
+        echo "✓ Model checksum verified"; \
+      fi; \
     else \
-      echo "YOLO_MODEL_URL não definido, pesos serão obtidos em runtime"; \
+      echo "YOLO_MODEL_URL not provided, weights will be obtained at runtime"; \
     fi
 
 # Expor porta

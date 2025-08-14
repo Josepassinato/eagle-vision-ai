@@ -109,14 +109,13 @@ async def startup_event():
     # Garantir diretório de modelos
     os.makedirs(os.path.dirname(YOLO_MODEL), exist_ok=True)
 
-    # Baixar pesos se não existir e URL fornecida
+    # Use build-time model if available, otherwise attempt resilient download
     if not os.path.exists(YOLO_MODEL) and YOLO_MODEL_URL:
         try:
-            import urllib.request
-            print(f"Baixando pesos YOLO de {YOLO_MODEL_URL} para {YOLO_MODEL}")
-            urllib.request.urlretrieve(YOLO_MODEL_URL, YOLO_MODEL)
+            print(f"Build-time model not found, attempting resilient download from {YOLO_MODEL_URL}")
+            await verify_and_download_model()
         except Exception as e:
-            print(f"Falha ao baixar pesos: {e}. Usando fallback do Ultralytics.")
+            print(f"Resilient download failed: {e}. Using Ultralytics fallback.")
 
     # Carregar modelo (usa fallback do Ultralytics se caminho não existir)
     load_id = YOLO_MODEL if os.path.exists(YOLO_MODEL) else "yolov8x.pt"
