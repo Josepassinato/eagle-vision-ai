@@ -4349,6 +4349,10 @@ export type Database = {
         Args: { _event_type: string; _payload: Json }
         Returns: number
       }
+      upsert_onboarding_step: {
+        Args: { p_completed?: boolean; p_step_name: string; p_user_id: string }
+        Returns: string
+      }
       user_belongs_to_org: {
         Args: { org_id: string; user_id: string }
         Returns: boolean
