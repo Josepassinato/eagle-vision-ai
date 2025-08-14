@@ -2794,6 +2794,84 @@ export type Database = {
         }
         Relationships: []
       }
+      report_jobs: {
+        Row: {
+          created_at: string | null
+          error_message: string | null
+          file_urls: Json | null
+          generated_at: string | null
+          id: string
+          metadata: Json | null
+          org_id: string
+          recipients_count: number | null
+          report_date: string
+          report_type: string
+          sent_at: string | null
+          status: string
+        }
+        Insert: {
+          created_at?: string | null
+          error_message?: string | null
+          file_urls?: Json | null
+          generated_at?: string | null
+          id?: string
+          metadata?: Json | null
+          org_id?: string
+          recipients_count?: number | null
+          report_date: string
+          report_type: string
+          sent_at?: string | null
+          status?: string
+        }
+        Update: {
+          created_at?: string | null
+          error_message?: string | null
+          file_urls?: Json | null
+          generated_at?: string | null
+          id?: string
+          metadata?: Json | null
+          org_id?: string
+          recipients_count?: number | null
+          report_date?: string
+          report_type?: string
+          sent_at?: string | null
+          status?: string
+        }
+        Relationships: []
+      }
+      report_recipients: {
+        Row: {
+          created_at: string | null
+          email: string
+          id: string
+          is_active: boolean | null
+          org_id: string
+          phone: string | null
+          report_types: string[]
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          email: string
+          id?: string
+          is_active?: boolean | null
+          org_id?: string
+          phone?: string | null
+          report_types?: string[]
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          email?: string
+          id?: string
+          is_active?: boolean | null
+          org_id?: string
+          phone?: string | null
+          report_types?: string[]
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       retention_policies: {
         Row: {
           auto_delete: boolean
