@@ -133,13 +133,21 @@ serve(async (req) => {
   try {
     console.log(`Converting RTSP to HLS for ${req.method} ${req.url}`);
     const url = new URL(req.url);
-    const action = url.searchParams.get('action') || 'status';
-    console.log(`Action: ${action}`);
+    let action = url.searchParams.get('action') || 'status';
+    console.log(`Initial action from query: ${action}`);
 
     if (req.method === 'POST') {
       console.log('Processing POST request');
       const body = await req.json();
       console.log('Request body:', body);
+      
+      // Se a ação não veio na query string, pegar do body
+      if (body.action) {
+        action = body.action;
+        console.log(`Action from body: ${action}`);
+      }
+      
+      console.log(`Final action: ${action}`);
 
       switch (action) {
         case 'start': {
