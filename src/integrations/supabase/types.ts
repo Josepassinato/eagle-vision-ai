@@ -363,6 +363,98 @@ export type Database = {
         }
         Relationships: []
       }
+      cache_invalidations: {
+        Row: {
+          cache_tags: string[] | null
+          cdn_config_id: string
+          completed_at: string | null
+          id: string
+          invalidation_type: string
+          metadata: Json | null
+          org_id: string
+          provider_request_id: string | null
+          requested_at: string
+          status: string
+          target_paths: string[] | null
+        }
+        Insert: {
+          cache_tags?: string[] | null
+          cdn_config_id: string
+          completed_at?: string | null
+          id?: string
+          invalidation_type: string
+          metadata?: Json | null
+          org_id: string
+          provider_request_id?: string | null
+          requested_at?: string
+          status?: string
+          target_paths?: string[] | null
+        }
+        Update: {
+          cache_tags?: string[] | null
+          cdn_config_id?: string
+          completed_at?: string | null
+          id?: string
+          invalidation_type?: string
+          metadata?: Json | null
+          org_id?: string
+          provider_request_id?: string | null
+          requested_at?: string
+          status?: string
+          target_paths?: string[] | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cache_invalidations_cdn_config_id_fkey"
+            columns: ["cdn_config_id"]
+            isOneToOne: false
+            referencedRelation: "cdn_configurations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cache_metrics: {
+        Row: {
+          cache_key: string
+          cache_namespace: string | null
+          cache_type: string
+          data_size_bytes: number | null
+          execution_time_ms: number | null
+          id: string
+          metadata: Json | null
+          operation: string
+          org_id: string
+          timestamp: string
+          ttl_seconds: number | null
+        }
+        Insert: {
+          cache_key: string
+          cache_namespace?: string | null
+          cache_type: string
+          data_size_bytes?: number | null
+          execution_time_ms?: number | null
+          id?: string
+          metadata?: Json | null
+          operation: string
+          org_id: string
+          timestamp?: string
+          ttl_seconds?: number | null
+        }
+        Update: {
+          cache_key?: string
+          cache_namespace?: string | null
+          cache_type?: string
+          data_size_bytes?: number | null
+          execution_time_ms?: number | null
+          id?: string
+          metadata?: Json | null
+          operation?: string
+          org_id?: string
+          timestamp?: string
+          ttl_seconds?: number | null
+        }
+        Relationships: []
+      }
       camera_configs: {
         Row: {
           camera_id: string
@@ -441,6 +533,57 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      cdn_configurations: {
+        Row: {
+          brotli_enabled: boolean | null
+          cache_policies: Json
+          cdn_provider: string
+          compression_enabled: boolean | null
+          created_at: string
+          ddos_protection: boolean | null
+          domain: string
+          edge_locations: string[] | null
+          id: string
+          minification_enabled: boolean | null
+          org_id: string
+          ssl_enabled: boolean | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          brotli_enabled?: boolean | null
+          cache_policies: Json
+          cdn_provider: string
+          compression_enabled?: boolean | null
+          created_at?: string
+          ddos_protection?: boolean | null
+          domain: string
+          edge_locations?: string[] | null
+          id?: string
+          minification_enabled?: boolean | null
+          org_id: string
+          ssl_enabled?: boolean | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          brotli_enabled?: boolean | null
+          cache_policies?: Json
+          cdn_provider?: string
+          compression_enabled?: boolean | null
+          created_at?: string
+          ddos_protection?: boolean | null
+          domain?: string
+          edge_locations?: string[] | null
+          id?: string
+          minification_enabled?: boolean | null
+          org_id?: string
+          ssl_enabled?: boolean | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       credit_ledger: {
         Row: {
@@ -1684,6 +1827,42 @@ export type Database = {
           },
         ]
       }
+      performance_metrics: {
+        Row: {
+          id: string
+          instance_id: string | null
+          metadata: Json | null
+          metric_type: string
+          org_id: string
+          service_name: string
+          timestamp: string
+          unit: string
+          value: number
+        }
+        Insert: {
+          id?: string
+          instance_id?: string | null
+          metadata?: Json | null
+          metric_type: string
+          org_id: string
+          service_name: string
+          timestamp?: string
+          unit: string
+          value: number
+        }
+        Update: {
+          id?: string
+          instance_id?: string | null
+          metadata?: Json | null
+          metric_type?: string
+          org_id?: string
+          service_name?: string
+          timestamp?: string
+          unit?: string
+          value?: number
+        }
+        Relationships: []
+      }
       predictions: {
         Row: {
           actual_value: number | null
@@ -1942,6 +2121,60 @@ export type Database = {
           phone?: string | null
           updated_at?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      query_performance: {
+        Row: {
+          cache_hit: boolean | null
+          executed_at: string
+          execution_time_ms: number
+          full_table_scan: boolean | null
+          id: string
+          index_used: string[] | null
+          org_id: string
+          query_hash: string
+          query_text: string | null
+          rows_examined: number | null
+          rows_returned: number | null
+          session_id: string | null
+          table_names: string[] | null
+          temporary_tables: number | null
+          user_id: string | null
+        }
+        Insert: {
+          cache_hit?: boolean | null
+          executed_at?: string
+          execution_time_ms: number
+          full_table_scan?: boolean | null
+          id?: string
+          index_used?: string[] | null
+          org_id: string
+          query_hash: string
+          query_text?: string | null
+          rows_examined?: number | null
+          rows_returned?: number | null
+          session_id?: string | null
+          table_names?: string[] | null
+          temporary_tables?: number | null
+          user_id?: string | null
+        }
+        Update: {
+          cache_hit?: boolean | null
+          executed_at?: string
+          execution_time_ms?: number
+          full_table_scan?: boolean | null
+          id?: string
+          index_used?: string[] | null
+          org_id?: string
+          query_hash?: string
+          query_text?: string | null
+          rows_examined?: number | null
+          rows_returned?: number | null
+          session_id?: string | null
+          table_names?: string[] | null
+          temporary_tables?: number | null
+          user_id?: string | null
         }
         Relationships: []
       }
@@ -2245,6 +2478,113 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      scaling_events: {
+        Row: {
+          completed_at: string | null
+          current_instances: number
+          error_message: string | null
+          event_type: string
+          id: string
+          metadata: Json | null
+          org_id: string
+          policy_id: string
+          started_at: string
+          status: string
+          target_instances: number
+          trigger_metric: string
+          trigger_value: number
+        }
+        Insert: {
+          completed_at?: string | null
+          current_instances: number
+          error_message?: string | null
+          event_type: string
+          id?: string
+          metadata?: Json | null
+          org_id: string
+          policy_id: string
+          started_at?: string
+          status?: string
+          target_instances: number
+          trigger_metric: string
+          trigger_value: number
+        }
+        Update: {
+          completed_at?: string | null
+          current_instances?: number
+          error_message?: string | null
+          event_type?: string
+          id?: string
+          metadata?: Json | null
+          org_id?: string
+          policy_id?: string
+          started_at?: string
+          status?: string
+          target_instances?: number
+          trigger_metric?: string
+          trigger_value?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "scaling_events_policy_id_fkey"
+            columns: ["policy_id"]
+            isOneToOne: false
+            referencedRelation: "scaling_policies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      scaling_policies: {
+        Row: {
+          cooldown_period_seconds: number | null
+          created_at: string
+          enabled: boolean | null
+          id: string
+          max_instances: number
+          min_instances: number
+          org_id: string
+          policy_name: string
+          scale_down_threshold: number | null
+          scale_up_threshold: number | null
+          service_name: string
+          target_cpu_utilization: number | null
+          target_memory_utilization: number | null
+          updated_at: string
+        }
+        Insert: {
+          cooldown_period_seconds?: number | null
+          created_at?: string
+          enabled?: boolean | null
+          id?: string
+          max_instances?: number
+          min_instances?: number
+          org_id: string
+          policy_name: string
+          scale_down_threshold?: number | null
+          scale_up_threshold?: number | null
+          service_name: string
+          target_cpu_utilization?: number | null
+          target_memory_utilization?: number | null
+          updated_at?: string
+        }
+        Update: {
+          cooldown_period_seconds?: number | null
+          created_at?: string
+          enabled?: boolean | null
+          id?: string
+          max_instances?: number
+          min_instances?: number
+          org_id?: string
+          policy_name?: string
+          scale_down_threshold?: number | null
+          scale_up_threshold?: number | null
+          service_name?: string
+          target_cpu_utilization?: number | null
+          target_memory_utilization?: number | null
+          updated_at?: string
+        }
+        Relationships: []
       }
       service_policies: {
         Row: {
