@@ -12,3 +12,5 @@ export { default as Safety } from "./Safety";
 export { default as EduBehavior } from "./EduBehavior";
 export { default as PrivacyCompliance } from "./PrivacyCompliance";
 export { default as RealTimeDashboard } from "./RealTimeDashboard";
+export { default as ExecutiveDashboard } from "./ExecutiveDashboard";
+export { default as IntelligentAlerts } from "./IntelligentAlerts";
