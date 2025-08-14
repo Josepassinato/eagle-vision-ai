@@ -1,0 +1,52 @@
+# Base Dockerfile for AI Vision Services
+# Python 3.11 with CUDA 12.1 support
+FROM python:3.11.9-slim-bullseye
+
+# Set environment variables
+ENV PYTHONUNBUFFERED=1
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PIP_NO_CACHE_DIR=1
+ENV PIP_DISABLE_PIP_VERSION_CHECK=1
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    # Essential build tools
+    build-essential \
+    cmake \
+    pkg-config \
+    # OpenCV dependencies
+    libopencv-dev \
+    libglib2.0-0 \
+    libsm6 \
+    libxext6 \
+    libxrender-dev \
+    libgomp1 \
+    # Network tools
+    curl \
+    wget \
+    # Cleanup
+    && rm -rf /var/lib/apt/lists/* \
+    && apt-get clean
+
+# Install Python dependencies with version convergence
+# FastAPI 0.115.x, Pydantic 2.8+, NumPy 1.26.x, OpenCV 4.10.x
+COPY common_schemas/requirements.txt /tmp/common_requirements.txt
+RUN pip install --no-cache-dir -r /tmp/common_requirements.txt
+
+# Create app directory
+WORKDIR /app
+
+# Create non-root user for security
+RUN groupadd -r appuser && useradd -r -g appuser appuser
+RUN chown -R appuser:appuser /app
+
+# Create directories for resilience infrastructure
+RUN mkdir -p /tmp/analytics_queue /var/log && \
+    chown -R appuser:appuser /tmp/analytics_queue /var/log
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:${PORT:-8000}/health || exit 1
+
+# Switch to non-root user
+USER appuser

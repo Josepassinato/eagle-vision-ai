@@ -1,9 +1,11 @@
-# LPR Service Requirements
+# LPR Service Requirements - Python 3.11
+# Version convergence: FastAPI 0.115.x, Pydantic 2.8+, NumPy 1.26.x, OpenCV 4.10.x
 fastapi==0.115.0
 uvicorn[standard]==0.30.6
-pydantic==2.9.2
+pydantic==2.8.0
+httpx==0.27.2
 prometheus-client==0.21.0
-requests==2.32.3
-numpy==2.0.1
-Pillow==10.4.0
+numpy==1.26.4
+pillow==10.4.0
+opencv-python-headless==4.10.0.84
 easyocr==1.7.1
