@@ -14,6 +14,62 @@ export type Database = {
   }
   public: {
     Tables: {
+      active_alerts: {
+        Row: {
+          current_value: number
+          id: string
+          metadata: Json | null
+          metric_name: string
+          notification_sent: boolean | null
+          org_id: string | null
+          resolved_at: string | null
+          rule_id: string | null
+          service_name: string
+          severity: string
+          started_at: string | null
+          status: string | null
+          threshold_value: number
+        }
+        Insert: {
+          current_value: number
+          id?: string
+          metadata?: Json | null
+          metric_name: string
+          notification_sent?: boolean | null
+          org_id?: string | null
+          resolved_at?: string | null
+          rule_id?: string | null
+          service_name: string
+          severity: string
+          started_at?: string | null
+          status?: string | null
+          threshold_value: number
+        }
+        Update: {
+          current_value?: number
+          id?: string
+          metadata?: Json | null
+          metric_name?: string
+          notification_sent?: boolean | null
+          org_id?: string | null
+          resolved_at?: string | null
+          rule_id?: string | null
+          service_name?: string
+          severity?: string
+          started_at?: string | null
+          status?: string | null
+          threshold_value?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "active_alerts_rule_id_fkey"
+            columns: ["rule_id"]
+            isOneToOne: false
+            referencedRelation: "alert_rules"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ai_reports: {
         Row: {
           content: string
@@ -41,6 +97,51 @@ export type Database = {
           report_type?: string
           time_range?: string
           updated_at?: string
+        }
+        Relationships: []
+      }
+      alert_rules: {
+        Row: {
+          alert_channels: Json | null
+          condition_type: string
+          created_at: string | null
+          duration_seconds: number | null
+          id: string
+          is_active: boolean | null
+          metric_name: string
+          org_id: string | null
+          rule_name: string
+          service_name: string | null
+          severity: string
+          threshold_value: number
+        }
+        Insert: {
+          alert_channels?: Json | null
+          condition_type: string
+          created_at?: string | null
+          duration_seconds?: number | null
+          id?: string
+          is_active?: boolean | null
+          metric_name: string
+          org_id?: string | null
+          rule_name: string
+          service_name?: string | null
+          severity: string
+          threshold_value: number
+        }
+        Update: {
+          alert_channels?: Json | null
+          condition_type?: string
+          created_at?: string | null
+          duration_seconds?: number | null
+          id?: string
+          is_active?: boolean | null
+          metric_name?: string
+          org_id?: string | null
+          rule_name?: string
+          service_name?: string | null
+          severity?: string
+          threshold_value?: number
         }
         Relationships: []
       }
@@ -1628,6 +1729,39 @@ export type Database = {
           people_count?: number | null
           processing_time_ms?: number
           timestamp?: string
+        }
+        Relationships: []
+      }
+      health_metrics: {
+        Row: {
+          id: string
+          labels: Json | null
+          metric_name: string
+          metric_type: string
+          metric_value: number
+          org_id: string | null
+          service_name: string
+          timestamp: string | null
+        }
+        Insert: {
+          id?: string
+          labels?: Json | null
+          metric_name: string
+          metric_type: string
+          metric_value: number
+          org_id?: string | null
+          service_name: string
+          timestamp?: string | null
+        }
+        Update: {
+          id?: string
+          labels?: Json | null
+          metric_name?: string
+          metric_type?: string
+          metric_value?: number
+          org_id?: string | null
+          service_name?: string
+          timestamp?: string | null
         }
         Relationships: []
       }
@@ -3293,6 +3427,42 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      service_status: {
+        Row: {
+          error_message: string | null
+          id: string
+          last_check: string | null
+          metadata: Json | null
+          org_id: string | null
+          response_time_ms: number | null
+          service_name: string
+          status: string
+          uptime_percentage: number | null
+        }
+        Insert: {
+          error_message?: string | null
+          id?: string
+          last_check?: string | null
+          metadata?: Json | null
+          org_id?: string | null
+          response_time_ms?: number | null
+          service_name: string
+          status: string
+          uptime_percentage?: number | null
+        }
+        Update: {
+          error_message?: string | null
+          id?: string
+          last_check?: string | null
+          metadata?: Json | null
+          org_id?: string | null
+          response_time_ms?: number | null
+          service_name?: string
+          status?: string
+          uptime_percentage?: number | null
+        }
+        Relationships: []
       }
       signals: {
         Row: {
