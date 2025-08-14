@@ -145,6 +145,8 @@ serve(async (req) => {
       if (body.action) {
         action = body.action;
         console.log(`Action from body: ${action}`);
+      } else {
+        console.log(`No action in body, using query action: ${action}`);
       }
       
       console.log(`Final action: ${action}`);
