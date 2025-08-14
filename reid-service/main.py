@@ -18,8 +18,12 @@ from pathlib import Path
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 import uvicorn
-import requests
-import json
+
+# Import resilient HTTP components
+import sys
+sys.path.append('/common_schemas')
+from http_resilient import get_http_client, resilient_post_json
+from correlation_logger import set_correlation_context, with_correlation, generate_correlation_id
 
 # Configuração
 REID_MODEL_PATH = os.getenv("REID_MODEL_PATH", "/models/osnet_x0_75.onnx")
@@ -36,9 +40,9 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# Sessão ONNX global
+# Sessão ONNX global e HTTP client
 ort_session = None
-
+http_client = get_http_client(service_name="reid-service")
 
 def _verify_integrity(model_path: str):
     sha_path = Path(f"{model_path}.sha256")
@@ -60,6 +64,43 @@ def _verify_integrity(model_path: str):
     except Exception as e:
         print(f"⚠️ Falha ao verificar integridade de {model_path}: {e}")
 
+@with_correlation
+async def download_model_resilient():
+    """Download model using resilient HTTP client with backoff"""
+    if not REID_MODEL_URL:
+        print("No REID_MODEL_URL provided, skipping download")
+        return
+    
+    try:
+        print(f"Downloading OSNet model from {REID_MODEL_URL} with resilient HTTP")
+        
+        # Create model directory
+        os.makedirs(os.path.dirname(REID_MODEL_PATH), exist_ok=True)
+        
+        # Use resilient HTTP client with longer timeout for model download
+        response = await http_client.get(
+            REID_MODEL_URL,
+            timeout=300.0  # 5 minute timeout for model download
+        )
+        
+        if response.status_code == 200:
+            with open(REID_MODEL_PATH, 'wb') as f:
+                f.write(response.content)
+            print("Model downloaded successfully with resilient HTTP")
+            _verify_integrity(REID_MODEL_PATH)
+        else:
+            print(f"Failed to download model: HTTP {response.status_code}")
+            
+    except Exception as e:
+        print(f"Resilient download failed: {e}. Using fallback method...")
+        # Fallback to urllib for model download
+        try:
+            import urllib.request
+            urllib.request.urlretrieve(REID_MODEL_URL, REID_MODEL_PATH)
+            print("Model downloaded successfully with urllib fallback")
+            _verify_integrity(REID_MODEL_PATH)
+        except Exception as fallback_e:
+            print(f"❌ Fallback download also failed: {fallback_e}")
 
 class EmbeddingRequest(BaseModel):
     jpg_b64: str = Field(..., description="Imagem JPEG em base64")
@@ -89,15 +130,9 @@ async def startup_event():
     
     print(f"Carregando modelo OSNet: {REID_MODEL_PATH}")
     
-    # Baixar modelo se não existir e URL fornecida
+    # Download model with resilient HTTP if not exists
     if not os.path.exists(REID_MODEL_PATH) and REID_MODEL_URL:
-        try:
-            import urllib.request
-            os.makedirs(os.path.dirname(REID_MODEL_PATH), exist_ok=True)
-            print(f"Baixando OSNet de {REID_MODEL_URL} para {REID_MODEL_PATH}")
-            urllib.request.urlretrieve(REID_MODEL_URL, REID_MODEL_PATH)
-        except Exception as e:
-            print(f"❌ Falha ao baixar modelo: {e}")
+        await download_model_resilient()
     
     if not os.path.exists(REID_MODEL_PATH):
         print(f"❌ Modelo não encontrado: {REID_MODEL_PATH}")
@@ -141,13 +176,17 @@ async def startup_event():
 @app.get("/health")
 async def health_check():
     """Health check endpoint"""
+    circuit_stats = http_client.get_circuit_stats() if hasattr(http_client, 'get_circuit_stats') else {}
+    
     return {
         "status": "ok",
         "model": REID_MODEL_PATH,
         "model_loaded": ort_session is not None,
         "input_format": REID_INPUT_FORMAT,
         "providers": ort_session.get_providers() if ort_session else [],
-        "supabase_configured": bool(SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY)
+        "supabase_configured": bool(SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY),
+        "circuit_breakers": circuit_stats,
+        "model_checksum_verified": os.path.exists(f"{REID_MODEL_PATH}.sha256")
     }
 
 def decode_base64_image(b64_string: str) -> np.ndarray:
@@ -292,6 +331,13 @@ async def match_body(request: MatchRequest):
             detail="Configuração Supabase não encontrada"
         )
     
+    # Set up correlation context
+    correlation_id = generate_correlation_id()
+    set_correlation_context(
+        correlation_id=correlation_id,
+        service_name="reid-service"
+    )
+    
     try:
         # Gerar embedding
         embedding_request = EmbeddingRequest(
@@ -300,7 +346,7 @@ async def match_body(request: MatchRequest):
         )
         embedding_response = await generate_embedding(embedding_request)
         
-        # Chamar RPC match_body no Supabase
+        # Chamar RPC match_body no Supabase usando resilient HTTP
         rpc_url = f"{SUPABASE_URL}/rest/v1/rpc/match_body"
         headers = {
             "apikey": SUPABASE_SERVICE_ROLE_KEY,
@@ -313,14 +359,21 @@ async def match_body(request: MatchRequest):
             "k": request.top_k
         }
         
-        response = requests.post(rpc_url, headers=headers, json=payload, timeout=10)
-        response.raise_for_status()
+        # Use resilient HTTP client for Supabase RPC call
+        data = await resilient_post_json(
+            rpc_url,
+            json=payload,
+            service_name="reid-service",
+            timeout=10.0,
+            headers=headers
+        )
         
-        results_data = response.json()
+        if not data:
+            raise HTTPException(status_code=500, detail="Empty response from Supabase")
         
         # Formatar resultados
         results = []
-        for row in results_data:
+        for row in data:
             results.append(MatchResult(
                 id=row["id"],
                 name=row["name"],
@@ -329,10 +382,14 @@ async def match_body(request: MatchRequest):
         
         return MatchResponse(results=results)
         
-    except requests.exceptions.RequestException as e:
-        raise HTTPException(status_code=500, detail=f"Erro ao conectar com Supabase: {e}")
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erro no matching: {str(e)}")
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    """Cleanup on shutdown"""
+    if hasattr(http_client, 'aclose'):
+        await http_client.aclose()
 
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 18090))

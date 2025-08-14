@@ -17,10 +17,15 @@ from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Tuple, Any
 from datetime import datetime, timezone
 
-import requests
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 from prometheus_client import Counter, Histogram, generate_latest, CONTENT_TYPE_LATEST
+
+# Import resilient HTTP components
+import sys
+sys.path.append('/common_schemas')
+from http_resilient import get_http_client, resilient_post_json, resilient_get_json
+from correlation_logger import set_correlation_context, with_correlation, generate_correlation_id
 
 # --- Config ---
 SUPABASE_URL = os.getenv("SUPABASE_URL")
@@ -41,6 +46,9 @@ REQUEST_TIMEOUT = float(os.getenv("REQUEST_TIMEOUT", "0.5"))
 
 # --- App ---
 app = FastAPI(title="Antitheft Service", version="1.0.0")
+
+# Initialize resilient HTTP client
+http_client = get_http_client(service_name="antitheft")
 
 # --- Métricas ---
 track_updates_total = Counter('antitheft_track_updates_total', 'Total de atualizações de tracking recebidas')
@@ -96,21 +104,29 @@ class Zone:
 zone_cache: Dict[str, Tuple[float, List[Zone]]] = {}
 ZONE_TTL = 10.0  # seconds
 
-def fetch_zones(camera_id: str) -> List[Zone]:
+@with_correlation
+async def fetch_zones(camera_id: str) -> List[Zone]:
     now = time.time()
     cached = zone_cache.get(camera_id)
     if cached and now - cached[0] < ZONE_TTL:
         return cached[1]
     if not SUPABASE_URL or not SUPABASE_SERVICE_ROLE_KEY:
         return []
-    url = f"{SUPABASE_URL}/rest/v1/antitheft_zones?camera_id=eq.{camera_id}&select=zones"
+    
     try:
-        r = requests.get(url, headers=supabase_headers(), timeout=REQUEST_TIMEOUT)
+        # Use resilient HTTP client for Supabase API calls
+        url = f"{SUPABASE_URL}/rest/v1/antitheft_zones?camera_id=eq.{camera_id}&select=zones"
+        data = await resilient_get_json(
+            url,
+            service_name="antitheft",
+            timeout=REQUEST_TIMEOUT,
+            headers=supabase_headers()
+        )
+        
         zones_json = []
-        if r.status_code == 200:
-            rows = r.json()
-            if rows:
-                zones_json = rows[0].get('zones') or []
+        if data and isinstance(data, list) and data:
+            zones_json = data[0].get('zones') or []
+            
         zones: List[Zone] = []
         for z in zones_json:
             points = z.get('points') or z.get('poly') or []
@@ -123,11 +139,12 @@ def fetch_zones(camera_id: str) -> List[Zone]:
             ))
         zone_cache[camera_id] = (now, zones)
         return zones
-    except Exception:
+    except Exception as e:
+        print(f"Error fetching zones: {e}")
         return []
 
-def locate_zone(camera_id: str, cx: float, cy: float) -> Optional[Zone]:
-    zones = fetch_zones(camera_id)
+async def locate_zone(camera_id: str, cx: float, cy: float) -> Optional[Zone]:
+    zones = await fetch_zones(camera_id)
     for z in zones:
         if len(z.poly) >= 3 and point_in_polygon((cx, cy), z.poly):
             return z
@@ -144,40 +161,58 @@ class TrackState:
 state: Dict[Tuple[str, int], TrackState] = {}
 
 # --- Persistência Supabase ---
-def insert_signal(camera_id: str, track_id: int, stype: str, meta: Dict[str, Any]):
+@with_correlation
+async def insert_signal(camera_id: str, track_id: int, stype: str, meta: Dict[str, Any]):
     if not SUPABASE_URL or not SUPABASE_SERVICE_ROLE_KEY:
         return
-    url = f"{SUPABASE_URL}/rest/v1/antitheft_signals"
-    payload = [{
-        "camera_id": camera_id,
-        "track_id": track_id,
-        "type": stype,
-        "meta": meta,
-        "ts": now_iso(),
-    }]
+    
     try:
-        requests.post(url, headers=supabase_headers(), data=json.dumps(payload), timeout=REQUEST_TIMEOUT)
-    except Exception:
-        pass
+        url = f"{SUPABASE_URL}/rest/v1/antitheft_signals"
+        payload = [{
+            "camera_id": camera_id,
+            "track_id": track_id,
+            "type": stype,
+            "meta": meta,
+            "ts": now_iso(),
+        }]
+        
+        await resilient_post_json(
+            url,
+            json=payload,
+            service_name="antitheft",
+            timeout=REQUEST_TIMEOUT,
+            headers=supabase_headers()
+        )
+    except Exception as e:
+        print(f"Error inserting signal: {e}")
 
-def insert_incident(camera_id: str, severity: str, meta: Dict[str, Any]) -> Optional[int]:
+@with_correlation
+async def insert_incident(camera_id: str, severity: str, meta: Dict[str, Any]) -> Optional[int]:
     if not SUPABASE_URL or not SUPABASE_SERVICE_ROLE_KEY:
         return None
-    url = f"{SUPABASE_URL}/rest/v1/antitheft_incidents"
-    payload = [{
-        "camera_id": camera_id,
-        "severity": severity,
-        "meta": meta,
-        "ts": now_iso(),
-    }]
+    
     try:
-        r = requests.post(url, headers=supabase_headers(), data=json.dumps(payload), timeout=REQUEST_TIMEOUT)
-        if r.status_code in (200, 201):
-            data = r.json()
-            if data and isinstance(data, list) and 'id' in data[0]:
-                return int(data[0]['id'])
+        url = f"{SUPABASE_URL}/rest/v1/antitheft_incidents"
+        payload = [{
+            "camera_id": camera_id,
+            "severity": severity,
+            "meta": meta,
+            "ts": now_iso(),
+        }]
+        
+        data = await resilient_post_json(
+            url,
+            json=payload,
+            service_name="antitheft",
+            timeout=REQUEST_TIMEOUT,
+            headers=supabase_headers()
+        )
+        
+        if data and isinstance(data, list) and data and 'id' in data[0]:
+            return int(data[0]['id'])
         return None
-    except Exception:
+    except Exception as e:
+        print(f"Error inserting incident: {e}")
         return None
 
 # --- Exportação de clipe ---
@@ -198,37 +233,62 @@ def record_clip(hls_url: str, duration: int) -> Optional[bytes]:
     except Exception:
         return None
 
-def upload_storage(path: str, content: bytes, content_type: str) -> Optional[str]:
+@with_correlation
+async def upload_storage(path: str, content: bytes, content_type: str) -> Optional[str]:
     if not SUPABASE_URL or not SUPABASE_SERVICE_ROLE_KEY:
         return None
-    url = f"{SUPABASE_URL}/storage/v1/object/{BUCKET_NAME}/{path}?upsert=true"
+    
     try:
-        r = requests.post(url, headers=supabase_headers(content_type), data=content, timeout=15)
-        if r.status_code not in (200, 201):
+        url = f"{SUPABASE_URL}/storage/v1/object/{BUCKET_NAME}/{path}?upsert=true"
+        
+        # Use resilient HTTP client for storage upload
+        response = await http_client.post(
+            url,
+            content=content,
+            headers=supabase_headers(content_type),
+            timeout=15.0
+        )
+        
+        if response.status_code not in (200, 201):
             return None
+            
         # public bucket? event_clips is public in this project
         public_url = f"{SUPABASE_URL}/storage/v1/object/public/{BUCKET_NAME}/{path}"
         return public_url
-    except Exception:
+    except Exception as e:
+        print(f"Error uploading to storage: {e}")
         return None
 
 # --- Notificações ---
-def notify_event(camera_id: str, reason: str):
+@with_correlation
+async def notify_event(camera_id: str, reason: str):
     try:
         payload = {
             "camera_id": camera_id,
             "reason": f"antitheft:{reason}",
             "ts": now_iso(),
         }
-        requests.post(f"{NOTIFIER_URL}/notify_event", json=payload, timeout=3)
-    except Exception:
-        pass
+        
+        await resilient_post_json(
+            f"{NOTIFIER_URL}/notify_event",
+            json=payload,
+            service_name="antitheft",
+            timeout=3.0
+        )
+    except Exception as e:
+        print(f"Error notifying event: {e}")
 
-def notify_clip(clip_url: str):
+@with_correlation
+async def notify_clip(clip_url: str):
     try:
-        requests.post(f"{NOTIFIER_URL}/notify_clip", json={"clip_url": clip_url}, timeout=3)
-    except Exception:
-        pass
+        await resilient_post_json(
+            f"{NOTIFIER_URL}/notify_clip",
+            json={"clip_url": clip_url},
+            service_name="antitheft",
+            timeout=3.0
+        )
+    except Exception as e:
+        print(f"Error notifying clip: {e}")
 
 # --- Engine de regras ---
 def maybe_raise_incident(cam: str, trk: int, st: TrackState, now_ts: float, move_px: float) -> Optional[Tuple[str, str]]:
@@ -262,13 +322,21 @@ def maybe_raise_incident(cam: str, trk: int, st: TrackState, now_ts: float, move
 
 # --- Endpoints ---
 @app.post('/track_update')
-def track_update(req: TrackUpdate):
+async def track_update(req: TrackUpdate):
+    # Set up correlation context
+    correlation_id = generate_correlation_id()
+    set_correlation_context(
+        correlation_id=correlation_id,
+        service_name="antitheft",
+        camera_id=req.camera_id
+    )
+    
     track_updates_total.inc()
     cam = req.camera_id
     key = (cam, req.track_id)
     cx = (req.bbox[0] + req.bbox[2]) / 2.0
     cy = (req.bbox[1] + req.bbox[3]) / 2.0
-    z = locate_zone(cam, cx, cy)
+    z = await locate_zone(cam, cx, cy)
     zid = z.id if z else None
 
     st = state.get(key)
@@ -284,7 +352,7 @@ def track_update(req: TrackUpdate):
         st.last_zone_enter_ts = req.ts if zid else None
         if zid:
             st.path.append((zid, req.ts))
-        insert_signal(cam, req.track_id, "zone_transition", {"zone_id": zid, "cx": cx, "cy": cy})
+        await insert_signal(cam, req.track_id, "zone_transition", {"zone_id": zid, "cx": cx, "cy": cy})
 
     # Checar regras
     fired = maybe_raise_incident(cam, req.track_id, st, req.ts, req.movement_px)
@@ -299,7 +367,7 @@ def track_update(req: TrackUpdate):
             "movement_px": req.movement_px,
             "ts": datetime.fromtimestamp(req.ts, tz=timezone.utc).isoformat(),
         }
-        inc_id = insert_incident(cam, severity, meta)
+        inc_id = await insert_incident(cam, severity, meta)
         if inc_id is not None:
             # Exporta clipe e notifica
             clip_url = None
@@ -307,37 +375,50 @@ def track_update(req: TrackUpdate):
                 clip = record_clip(HLS_URL, EXPORT_DURATION)
                 if clip:
                     path = f"{inc_id}/video.mp4"
-                    clip_url = upload_storage(path, clip, "video/mp4")
+                    clip_url = await upload_storage(path, clip, "video/mp4")
                     # Upload JSON de rótulos/meta
                     label_json = json.dumps(meta, ensure_ascii=False).encode()
-                    upload_storage(f"{inc_id}/labels.json", label_json, "application/json")
-            notify_event(cam, rule)
+                    await upload_storage(f"{inc_id}/labels.json", label_json, "application/json")
+            await notify_event(cam, rule)
             if clip_url:
-                notify_clip(clip_url)
+                await notify_clip(clip_url)
         return {"ok": True, "incident_id": inc_id, "rule": rule, "severity": severity}
     return {"ok": True}
 
 @app.post('/export_incident')
-def export_incident(req: ExportIncidentRequest):
+async def export_incident(req: ExportIncidentRequest):
     with export_latency_seconds.time():
         clip = record_clip(HLS_URL, req.duration_s)
         if not clip:
             raise HTTPException(status_code=500, detail="record failed")
         path = f"{req.incident_id}/video.mp4"
-        clip_url = upload_storage(path, clip, "video/mp4")
+        clip_url = await upload_storage(path, clip, "video/mp4")
         if not clip_url:
             raise HTTPException(status_code=500, detail="upload failed")
-        notify_clip(clip_url)
+        await notify_clip(clip_url)
         return {"ok": True, "incident_id": req.incident_id, "clip_url": clip_url}
 
 @app.get('/health')
-def health():
-    return {"status": "ok", "hls_url": HLS_URL, "bucket": BUCKET_NAME}
+async def health():
+    circuit_stats = http_client.get_circuit_stats() if hasattr(http_client, 'get_circuit_stats') else {}
+    
+    return {
+        "status": "ok", 
+        "hls_url": HLS_URL, 
+        "bucket": BUCKET_NAME,
+        "circuit_breakers": circuit_stats
+    }
 
 @app.get('/metrics')
 def metrics():
     from fastapi import Response
     return Response(generate_latest(), media_type=CONTENT_TYPE_LATEST)
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    """Cleanup on shutdown"""
+    if hasattr(http_client, 'aclose'):
+        await http_client.aclose()
 
 if __name__ == '__main__':
     import uvicorn

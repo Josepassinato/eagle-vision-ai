@@ -10,12 +10,17 @@ from io import BytesIO
 from typing import Optional, Tuple, Dict, Any, List, Set, Deque
 from collections import deque
 
-import requests
 from fastapi import FastAPI, Depends, HTTPException, Header, Response
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from prometheus_client import Counter, Gauge, Histogram, generate_latest, CONTENT_TYPE_LATEST
 from supabase import create_client, Client
+
+# Import resilient HTTP components
+import sys
+sys.path.append('/common_schemas')
+from http_resilient import get_http_client, resilient_post_json
+from correlation_logger import set_correlation_context, with_correlation, generate_correlation_id
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger("enricher")
@@ -38,6 +43,9 @@ if not SUPABASE_URL or not SUPABASE_SERVICE_ROLE_KEY:
     logger.error("SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY devem estar configurados")
 
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
+
+# Initialize resilient HTTP client
+http_client = get_http_client(service_name="enricher")
 
 # Metrics
 updates_total = Counter('enricher_updates_total', 'Total de atualizações EMA aplicadas', ['person_id'])
@@ -70,13 +78,11 @@ class AdminListResponse(BaseModel):
     total: int
     items: List[Dict[str, Any]]
 
-
 def require_admin(x_api_key: Optional[str] = Header(None)):
     if not ADMIN_API_KEY:
         raise HTTPException(status_code=403, detail="Admin API desabilitada (sem chave)")
     if x_api_key != ADMIN_API_KEY:
         raise HTTPException(status_code=401, detail="Unauthorized")
-
 
 def capture_snapshot_with_ffmpeg() -> Optional[bytes]:
     try:
@@ -93,14 +99,13 @@ def capture_snapshot_with_ffmpeg() -> Optional[bytes]:
         logger.error(f"Erro snapshot: {e}")
         return None
 
-
 def jpg_bytes_to_b64(jpg: bytes) -> str:
     return base64.b64encode(jpg).decode()
 
-
-def extract_best_face_embedding(jpg_b64: str) -> Tuple[Optional[List[float]], Optional[float], Optional[int]]:
+@with_correlation
+async def extract_best_face_embedding(jpg_b64: str) -> Tuple[Optional[List[float]], Optional[float], Optional[int]]:
     """
-    Chama InsightFace-REST /extract e retorna (embedding, det_score, face_height)
+    Chama InsightFace-REST /extract usando resilient HTTP client
     """
     try:
         payload = {
@@ -109,22 +114,33 @@ def extract_best_face_embedding(jpg_b64: str) -> Tuple[Optional[List[float]], Op
             "extract_ga": False,
             "api_ver": "1"
         }
-        resp = requests.post(f"{FACE_URL}/extract", json=payload, timeout=20)
-        if not resp.ok:
-            logger.error(f"face extract erro {resp.status_code}: {resp.text[:200]}")
-            return None, None, None
-        data = resp.json().get("data", [])
+        
+        data = await resilient_post_json(
+            f"{FACE_URL}/extract",
+            json=payload,
+            service_name="enricher",
+            timeout=20.0
+        )
+        
         if not data:
+            logger.error("Empty response from face service")
             return None, None, None
+            
+        embedding_data = data.get("data", [])
+        if not embedding_data:
+            return None, None, None
+            
         # escolher maior det_score
         best = None
-        for f in data:
+        for f in embedding_data:
             if "embedding" not in f:
                 continue
             if best is None or float(f.get("det_score", 0)) > float(best.get("det_score", 0)):
                 best = f
+                
         if not best:
             return None, None, None
+            
         emb = best.get("embedding")
         bbox = best.get("bbox", None)
         height = None
@@ -136,29 +152,26 @@ def extract_best_face_embedding(jpg_b64: str) -> Tuple[Optional[List[float]], Op
                 height = None
         det = float(best.get("det_score", 0)) if best.get("det_score") is not None else None
         return emb, det, height
+        
     except Exception as e:
         logger.error(f"Erro extract_best_face_embedding: {e}")
         return None, None, None
-
 
 def passes_quality(det_score: Optional[float], height: Optional[int]) -> bool:
     if det_score is None or height is None:
         return False
     return det_score >= 0.90 and height >= 140
 
-
 def ema_update(old: Optional[List[float]], new: List[float], alpha: float) -> List[float]:
     if not old or len(old) != len(new):
         return new
     return [alpha * n + (1 - alpha) * o for o, n in zip(old, new)]
-
 
 def _get_lock(pid: str) -> threading.Lock:
     with locks_guard:
         if pid not in person_locks:
             person_locks[pid] = threading.Lock()
         return person_locks[pid]
-
 
 def _mark_processed(ev_id: Optional[int], dedup_key: Optional[str]):
     if ev_id is not None:
@@ -175,7 +188,6 @@ def _mark_processed(ev_id: Optional[int], dedup_key: Optional[str]):
             while len(processed_hashes_set) > len(processed_hashes):
                 processed_hashes_set.discard(processed_hashes[0])
 
-
 def _is_duplicate(ev_id: Optional[int], dedup_key: Optional[str]) -> bool:
     if ev_id is not None and ev_id in processed_ids_set:
         return True
@@ -183,8 +195,7 @@ def _is_duplicate(ev_id: Optional[int], dedup_key: Optional[str]) -> bool:
         return True
     return False
 
-
-def process_event(ev: Dict[str, Any], jpg_b64: Optional[str] = None) -> bool:
+async def process_event(ev: Dict[str, Any], jpg_b64: Optional[str] = None) -> bool:
     person_id = ev.get("person_id")
     face_sim = ev.get("face_similarity") or 0
     if not person_id:
@@ -202,7 +213,7 @@ def process_event(ev: Dict[str, Any], jpg_b64: Optional[str] = None) -> bool:
             return False
         jpg_b64 = jpg_bytes_to_b64(jpg)
 
-    emb, det, height = extract_best_face_embedding(jpg_b64)
+    emb, det, height = await extract_best_face_embedding(jpg_b64)
     if not emb:
         skipped_total.labels(reason="no_face").inc()
         return False
@@ -247,7 +258,6 @@ def process_event(ev: Dict[str, Any], jpg_b64: Optional[str] = None) -> bool:
     finally:
         lock.release()
 
-
 # Polling baseline
 last_event_id: int = 0
 
@@ -265,8 +275,7 @@ def init_last_event_id():
         logger.error(f"Erro init_last_event_id: {e}")
         last_event_id = 0
 
-
-def polling_loop():
+async def polling_loop():
     global last_event_id
     while not SUPABASE_REALTIME:
         try:
@@ -277,7 +286,7 @@ def polling_loop():
                 last_event_id = max(last_event_id, int(ev["id"]))
                 last_event_id_gauge.set(last_event_id)
                 try:
-                    process_event(ev)
+                    await process_event(ev)
                 except Exception as e:
                     logger.error(f"Erro ciclo evento: {e}")
             time.sleep(POLL_INTERVAL_SEC)
@@ -285,9 +294,8 @@ def polling_loop():
             logger.error(f"Loop erro: {e}")
             time.sleep(2)
 
-
 # Realtime
-def handle_realtime_payload(payload: Dict[str, Any]) -> bool:
+async def handle_realtime_payload(payload: Dict[str, Any]) -> bool:
     """Utilitário testável para processar payload de INSERT da tabela events."""
     new = payload.get('new') or payload.get('record') or payload
     if not isinstance(new, dict):
@@ -302,7 +310,7 @@ def handle_realtime_payload(payload: Dict[str, Any]) -> bool:
         return False
 
     start = time.time()
-    ok = process_event(new)
+    ok = await process_event(new)
     _mark_processed(ev_id, dedup_key)
     # Latência aprox: now - ts
     try:
@@ -319,7 +327,6 @@ def handle_realtime_payload(payload: Dict[str, Any]) -> bool:
     except Exception:
         pass
     return ok
-
 
 def realtime_loop():
     global realtime_connected
@@ -349,20 +356,32 @@ def realtime_loop():
             time.sleep(wait)
             backoff = wait
 
-
 @app.on_event("startup")
-def on_startup():
+async def on_startup():
     if SUPABASE_REALTIME:
-        t = threading.Thread(target=realtime_loop, daemon=True)
+        import asyncio
+        import threading
+        
+        def run_realtime():
+            asyncio.run(realtime_loop())
+        
+        t = threading.Thread(target=run_realtime, daemon=True)
         t.start()
     else:
         init_last_event_id()
-        t = threading.Thread(target=polling_loop, daemon=True)
+        import asyncio
+        import threading
+        
+        def run_polling():
+            asyncio.run(polling_loop())
+        
+        t = threading.Thread(target=run_polling, daemon=True)
         t.start()
 
-
 @app.get("/health")
-def health():
+async def health():
+    circuit_stats = http_client.get_circuit_stats() if hasattr(http_client, 'get_circuit_stats') else {}
+    
     return {
         "status": "ok",
         "threshold": ENRICH_THRESHOLD,
@@ -371,20 +390,18 @@ def health():
         "last_event_id": last_event_id,
         "realtime": SUPABASE_REALTIME,
         "realtime_connected": realtime_connected,
+        "circuit_breakers": circuit_stats
     }
-
 
 @app.get("/metrics")
 def metrics():
     return Response(generate_latest(), media_type=CONTENT_TYPE_LATEST)
-
 
 @app.get("/admin/people/{person_id}/faces", response_model=AdminListResponse, dependencies=[Depends(require_admin)])
 def list_faces(person_id: str):
     res = supabase.table("people_faces").select("id, created_at").eq("person_id", person_id).order("created_at", desc=True).limit(K).execute()
     items = res.data or []
     return {"person_id": person_id, "total": len(items), "items": items}
-
 
 @app.delete("/admin/people/{person_id}/faces/last", dependencies=[Depends(require_admin)])
 def delete_last_face(person_id: str):
@@ -395,6 +412,11 @@ def delete_last_face(person_id: str):
     supabase.table("people_faces").delete().eq("id", face_id).execute()
     return {"deleted": face_id}
 
+@app.on_event("shutdown")
+async def shutdown_event():
+    """Cleanup on shutdown"""
+    if hasattr(http_client, 'aclose'):
+        await http_client.aclose()
 
 if __name__ == "__main__":
     import uvicorn
