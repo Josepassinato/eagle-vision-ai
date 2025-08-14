@@ -44,6 +44,51 @@ export type Database = {
         }
         Relationships: []
       }
+      anonymization_jobs: {
+        Row: {
+          anonymization_rules: Json
+          completed_at: string | null
+          created_at: string
+          error_message: string | null
+          id: string
+          job_type: string
+          metadata: Json | null
+          org_id: string | null
+          records_processed: number | null
+          started_at: string | null
+          status: string
+          target_table: string
+        }
+        Insert: {
+          anonymization_rules?: Json
+          completed_at?: string | null
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          job_type: string
+          metadata?: Json | null
+          org_id?: string | null
+          records_processed?: number | null
+          started_at?: string | null
+          status?: string
+          target_table: string
+        }
+        Update: {
+          anonymization_rules?: Json
+          completed_at?: string | null
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          job_type?: string
+          metadata?: Json | null
+          org_id?: string | null
+          records_processed?: number | null
+          started_at?: string | null
+          status?: string
+          target_table?: string
+        }
+        Relationships: []
+      }
       antitheft_incidents: {
         Row: {
           camera_id: string
@@ -585,6 +630,51 @@ export type Database = {
         }
         Relationships: []
       }
+      consent_records: {
+        Row: {
+          consent_type: string
+          created_at: string
+          data_subject_id: string
+          data_subject_type: string
+          given_at: string
+          id: string
+          is_active: boolean | null
+          legal_basis: string | null
+          metadata: Json | null
+          org_id: string | null
+          purpose: string
+          withdrawn_at: string | null
+        }
+        Insert: {
+          consent_type: string
+          created_at?: string
+          data_subject_id: string
+          data_subject_type: string
+          given_at?: string
+          id?: string
+          is_active?: boolean | null
+          legal_basis?: string | null
+          metadata?: Json | null
+          org_id?: string | null
+          purpose: string
+          withdrawn_at?: string | null
+        }
+        Update: {
+          consent_type?: string
+          created_at?: string
+          data_subject_id?: string
+          data_subject_type?: string
+          given_at?: string
+          id?: string
+          is_active?: boolean | null
+          legal_basis?: string | null
+          metadata?: Json | null
+          org_id?: string | null
+          purpose?: string
+          withdrawn_at?: string | null
+        }
+        Relationships: []
+      }
       credit_ledger: {
         Row: {
           created_at: string
@@ -609,6 +699,57 @@ export type Database = {
           metadata?: Json | null
           reason?: string | null
           user_id?: string
+        }
+        Relationships: []
+      }
+      data_access_logs: {
+        Row: {
+          access_type: string
+          data_subject_id: string | null
+          duration_ms: number | null
+          id: string
+          ip_address: unknown | null
+          legal_basis: string | null
+          metadata: Json | null
+          org_id: string | null
+          purpose: string | null
+          resource_id: string | null
+          resource_type: string
+          timestamp: string
+          user_agent: string | null
+          user_id: string | null
+        }
+        Insert: {
+          access_type: string
+          data_subject_id?: string | null
+          duration_ms?: number | null
+          id?: string
+          ip_address?: unknown | null
+          legal_basis?: string | null
+          metadata?: Json | null
+          org_id?: string | null
+          purpose?: string | null
+          resource_id?: string | null
+          resource_type: string
+          timestamp?: string
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          access_type?: string
+          data_subject_id?: string | null
+          duration_ms?: number | null
+          id?: string
+          ip_address?: unknown | null
+          legal_basis?: string | null
+          metadata?: Json | null
+          org_id?: string | null
+          purpose?: string | null
+          resource_id?: string | null
+          resource_type?: string
+          timestamp?: string
+          user_agent?: string | null
+          user_id?: string | null
         }
         Relationships: []
       }
@@ -1204,6 +1345,45 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      encryption_keys: {
+        Row: {
+          created_at: string
+          expires_at: string | null
+          id: string
+          is_active: boolean | null
+          key_hash: string
+          key_name: string
+          key_purpose: string
+          key_type: string
+          org_id: string | null
+          rotated_at: string | null
+        }
+        Insert: {
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          key_hash: string
+          key_name: string
+          key_purpose: string
+          key_type: string
+          org_id?: string | null
+          rotated_at?: string | null
+        }
+        Update: {
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          key_hash?: string
+          key_name?: string
+          key_purpose?: string
+          key_type?: string
+          org_id?: string | null
+          rotated_at?: string | null
+        }
+        Relationships: []
       }
       events: {
         Row: {
@@ -1863,6 +2043,51 @@ export type Database = {
         }
         Relationships: []
       }
+      personal_data_inventory: {
+        Row: {
+          anonymization_method: string | null
+          column_name: string
+          created_at: string
+          data_category: string
+          id: string
+          is_anonymized: boolean | null
+          legal_basis: string
+          org_id: string | null
+          purpose: string
+          retention_period_days: number | null
+          table_name: string
+          updated_at: string
+        }
+        Insert: {
+          anonymization_method?: string | null
+          column_name: string
+          created_at?: string
+          data_category: string
+          id?: string
+          is_anonymized?: boolean | null
+          legal_basis: string
+          org_id?: string | null
+          purpose: string
+          retention_period_days?: number | null
+          table_name: string
+          updated_at?: string
+        }
+        Update: {
+          anonymization_method?: string | null
+          column_name?: string
+          created_at?: string
+          data_category?: string
+          id?: string
+          is_anonymized?: boolean | null
+          legal_basis?: string
+          org_id?: string | null
+          purpose?: string
+          retention_period_days?: number | null
+          table_name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       predictions: {
         Row: {
           actual_value: number | null
@@ -2210,6 +2435,36 @@ export type Database = {
           },
         ]
       }
+      rbac_permissions: {
+        Row: {
+          action: string
+          conditions: Json | null
+          created_at: string
+          description: string | null
+          id: string
+          name: string
+          resource_type: string
+        }
+        Insert: {
+          action: string
+          conditions?: Json | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          name: string
+          resource_type: string
+        }
+        Update: {
+          action?: string
+          conditions?: Json | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          name?: string
+          resource_type?: string
+        }
+        Relationships: []
+      }
       real_time_metrics: {
         Row: {
           camera_id: string | null
@@ -2283,6 +2538,38 @@ export type Database = {
             columns: ["org_id"]
             isOneToOne: false
             referencedRelation: "orgs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      role_permissions: {
+        Row: {
+          granted_at: string
+          granted_by: string | null
+          id: string
+          permission_id: string
+          role: Database["public"]["Enums"]["app_role"]
+        }
+        Insert: {
+          granted_at?: string
+          granted_by?: string | null
+          id?: string
+          permission_id: string
+          role: Database["public"]["Enums"]["app_role"]
+        }
+        Update: {
+          granted_at?: string
+          granted_by?: string | null
+          id?: string
+          permission_id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "role_permissions_permission_id_fkey"
+            columns: ["permission_id"]
+            isOneToOne: false
+            referencedRelation: "rbac_permissions"
             referencedColumns: ["id"]
           },
         ]
@@ -3024,6 +3311,10 @@ export type Database = {
         Args: { "": unknown[] }
         Returns: number
       }
+      has_permission: {
+        Args: { _permission_name: string; _user_id: string }
+        Returns: boolean
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -3066,6 +3357,17 @@ export type Database = {
       l2_normalize: {
         Args: { "": string } | { "": unknown } | { "": unknown }
         Returns: unknown
+      }
+      log_data_access: {
+        Args: {
+          _access_type: string
+          _data_subject_id?: string
+          _legal_basis?: string
+          _purpose?: string
+          _resource_id?: string
+          _resource_type: string
+        }
+        Returns: string
       }
       match_body: {
         Args: { k?: number; query: string }
