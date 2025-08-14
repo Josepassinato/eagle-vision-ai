@@ -34,15 +34,19 @@ import EdgeDeviceManager from "./pages/EdgeDeviceManager";
 import PrivacyCompliance from "./pages/admin/PrivacyCompliance";
 import GlobalNavActions from "./components/GlobalNavActions";
 import AIAssistant from "./components/AIAssistant";
+import { PWAInstallBanner } from "./components/PWAInstallBanner";
+import { OfflineIndicator } from "./components/OfflineIndicator";
 
 const queryClient = new QueryClient();
 
 const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <PWAInstallBanner />
+        <OfflineIndicator />
+        <BrowserRouter>
         <GlobalNavActions />
         <AIAssistant />
         <Routes>
