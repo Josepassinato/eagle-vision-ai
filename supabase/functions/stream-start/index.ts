@@ -61,38 +61,41 @@ serve(async (req) => {
 
     if (cameraError) throw cameraError;
 
-    // Start frame processing simulation
-    const frameProcessingInterval = setInterval(async () => {
-      try {
-        const frameId = `frame_${camera_id}_${Date.now()}`;
-        
-        // Call analytics processor
-        const response = await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/analytics-processor`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
-            'x-api-key': 'demo-key',
-            'x-org-id': orgId
-          },
-          body: JSON.stringify({
-            frame_id: frameId,
-            camera_id,
-            timestamp: new Date().toISOString(),
-            analytics_enabled
-          })
-        });
-
-        if (!response.ok) {
-          console.error(`Analytics processing failed: ${response.status}`);
+    // Simulate analytics processing without infinite loops
+    // In a real implementation, this would start external frame processors
+    
+    // Instead of setInterval, just simulate a few detections
+    try {
+      const frameId = `frame_${camera_id}_${Date.now()}`;
+      
+      // Generate simulated detection
+      const simulatedDetection = {
+        frame_id: frameId,
+        camera_id,
+        org_id: orgId,
+        service: 'demo-analytics',
+        detection_type: Math.random() > 0.5 ? 'person' : 'vehicle',
+        confidence: 0.75 + Math.random() * 0.25,
+        bbox: [
+          Math.random() * 0.5,
+          Math.random() * 0.5, 
+          0.5 + Math.random() * 0.3,
+          0.5 + Math.random() * 0.3
+        ],
+        metadata: {
+          analytics_enabled,
+          demo_mode: true,
+          timestamp: new Date().toISOString()
         }
-      } catch (error) {
-        console.error("Frame processing error:", error);
-      }
-    }, 1000); // Process 1 frame per second
+      };
 
-    // Store interval ID for cleanup (in real implementation, use Redis or similar)
-    console.log(`Started processing for camera ${camera_id}`);
+      // Store simulated detection
+      await supabase.from('detections').insert(simulatedDetection);
+      
+      console.log(`Started processing simulation for camera ${camera_id}`);
+    } catch (error) {
+      console.error("Simulation setup error:", error);
+    }
 
     return new Response(
       JSON.stringify({

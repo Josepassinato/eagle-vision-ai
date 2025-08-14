@@ -50,26 +50,7 @@ serve(async (req) => {
     
     const processingTime = Math.round(performance.now() - startTime);
 
-    // Store frame analysis
-    const { error: analysisError } = await supabase
-      .from('frame_analysis')
-      .insert({
-        frame_id,
-        camera_id,
-        org_id: orgId,
-        timestamp,
-        people_count: results.people_count,
-        processing_time_ms: processingTime,
-        analytics_enabled,
-        metadata: {
-          analytics_results: results,
-          processing_status: 'completed'
-        }
-      });
-
-    if (analysisError) throw analysisError;
-
-    // Store detections
+    // Store detections directly - frame_analysis table doesn't exist
     if (results.detections.length > 0) {
       const { error: detectionsError } = await supabase
         .from('detections')
@@ -82,11 +63,20 @@ serve(async (req) => {
             detection_type: detection.type,
             confidence: detection.confidence,
             bbox: detection.bbox,
-            metadata: detection.metadata || {}
+            metadata: {
+              analytics_results: results,
+              processing_status: 'completed',
+              processing_time_ms: processingTime,
+              timestamp,
+              ...detection.metadata
+            }
           }))
         );
 
-      if (detectionsError) throw detectionsError;
+      if (detectionsError) {
+        console.error('Detection insert error:', detectionsError);
+        throw detectionsError;
+      }
     }
 
     return new Response(
