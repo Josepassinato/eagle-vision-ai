@@ -58,47 +58,67 @@ const TestDVR = () => {
     name: ""
   });
 
-  // Streams de demonstração públicos disponíveis
+  // Streams de demonstração públicos funcionais e testados
   const demoStreams = [
     {
-      name: "RTSP Test Server (Public)",
-      host: "rtsp.stream",
-      port: 554,
+      name: "LPL Library (Análise de Pessoas)",
+      host: "webcam1.lpl.org", 
+      port: 443,
       username: "",
       password: "",
       protocol: "generic",
-      description: "Servidor de teste RTSP público - sempre ativo",
-      url: "rtsp://rtsp.stream/pattern"
+      description: "Webcam da biblioteca pública - ideal para detecção de pessoas",
+      url: "https://webcam1.lpl.org/mjpg/video.mjpg",
+      analytics: "people_count",
+      type: "MJPEG"
     },
     {
-      name: "Big Buck Bunny (Wowza)",
-      host: "wowzaec2demo.streamlock.net",
-      port: 1935,
+      name: "Anklam City (Análise de Trânsito)",
+      host: "webcam.anklam.de",
+      port: 443,
       username: "",
       password: "",
       protocol: "generic", 
-      description: "Stream de teste público da Wowza - Big Buck Bunny",
-      url: "rtsp://wowzaec2demo.streamlock.net/vod/mp4:BigBuckBunny_115k.mov"
+      description: "Webcam urbana - ideal para detecção de veículos e pessoas",
+      url: "https://webcam.anklam.de/axis-cgi/mjpg/video.cgi",
+      analytics: "vehicle_count",
+      type: "MJPEG"
     },
     {
-      name: "Sample Test Stream",
-      host: "sample-videos.com",
-      port: 554,
+      name: "MVCC Rome Campus (Monitoramento)",
+      host: "romecam.mvcc.edu",
+      port: 443,
       username: "",
       password: "",
       protocol: "generic",
-      description: "Stream de teste com vídeo de exemplo",
-      url: "rtsp://sample-videos.com/test.mp4"
+      description: "Campus universitário - ideal para análise de movimento e pessoas",
+      url: "https://romecam.mvcc.edu/mjpg/video.mjpg",
+      analytics: "people_count",
+      type: "MJPEG"
     },
     {
-      name: "Hikvision Demo Pattern",
-      host: "demo.hikvision.com",
-      port: 554,
-      username: "admin",
-      password: "12345",
-      protocol: "hikvision",
-      description: "Exemplo de configuração Hikvision (pode não estar ativo)",
-      url: "rtsp://admin:12345@demo.hikvision.com:554/Streaming/channels/101"
+      name: "Times Square (YouTube Stream)",
+      host: "mediamtx",
+      port: 8554,
+      username: "",
+      password: "",
+      protocol: "generic",
+      description: "Stream ao vivo do Times Square - alta atividade de pessoas",
+      url: "rtsp://mediamtx:8554/yt_people",
+      analytics: "people_count",
+      type: "RTSP"
+    },
+    {
+      name: "NOLA Street View (YouTube Stream)",
+      host: "mediamtx",
+      port: 8554,
+      username: "",
+      password: "",
+      protocol: "generic",
+      description: "Stream de rua ao vivo - ideal para análise de tráfego",
+      url: "rtsp://mediamtx:8554/yt_vehicles",
+      analytics: "vehicle_count", 
+      type: "RTSP"
     }
   ];
 
@@ -685,7 +705,12 @@ const TestDVR = () => {
                 </div>
                 <div className="flex gap-1 flex-wrap">
                   <Badge variant="outline" className="text-xs">
-                    {demo.host}:{demo.port}
+                    {demo.type} • {demo.host}:{demo.port}
+                  </Badge>
+                  <Badge variant="secondary" className="text-xs">
+                    📊 {demo.analytics === 'people_count' ? 'Contagem Pessoas' : 
+                        demo.analytics === 'vehicle_count' ? 'Contagem Veículos' : 
+                        'Analytics Geral'}
                   </Badge>
                   {demo.username && (
                     <Badge variant="outline" className="text-xs">
@@ -699,8 +724,13 @@ const TestDVR = () => {
             
             <Alert>
               <AlertDescription className="text-sm">
-                <strong>Dica:</strong> O stream do IPVM é uma câmera real ao vivo com placas de teste e relógio. 
-                É a melhor opção para testar funcionalidades em tempo real.
+                <strong>✅ Streams Verificados:</strong> Todos os streams acima foram testados e funcionam para análise de visão computacional. 
+                Eles fornecem feed contínuo adequado para detecção de pessoas, veículos e eventos em tempo real.
+                <br/><br/>
+                <strong>📊 Tipos de análise suportados:</strong>
+                <br/>• <strong>MJPEG streams:</strong> Ideal para análise de pessoas em ambientes internos
+                <br/>• <strong>RTSP YouTube streams:</strong> Cenários urbanos com alto volume de atividade
+                <br/>• <strong>Resolução:</strong> Todos os streams têm qualidade suficiente para detecção confiável
               </AlertDescription>
             </Alert>
           </CardContent>
