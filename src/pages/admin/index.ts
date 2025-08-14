@@ -11,3 +11,4 @@ export { default as Demo } from "./Demo";
 export { default as Safety } from "./Safety";
 export { default as EduBehavior } from "./EduBehavior";
 export { default as PrivacyCompliance } from "./PrivacyCompliance";
+export { default as RealTimeDashboard } from "./RealTimeDashboard";

@@ -1,0 +1,48 @@
+apm-server:
+  host: "0.0.0.0:8200"
+  rum:
+    enabled: true
+    event_rate:
+      limit: 300
+      lru_size: 1000
+    allow_origins: ['*']
+    library_pattern: "node_modules|bower_components|~"
+    exclude_from_grouping: "^/webpack"
+    source_mapping:
+      enabled: true
+      cache:
+        expiration: 5m
+      index_pattern: "apm-*-sourcemap*"
+
+queue:
+  mem:
+    events: 4096
+    flush.min_events: 8
+    flush.timeout: 1s
+
+max_procs: 4
+
+output.elasticsearch:
+  hosts: ["elasticsearch:9200"]
+  protocol: "http"
+  username: "elastic"
+  password: "changeme"
+
+setup.ilm:
+  enabled: auto
+  rollover_alias: "apm-%{[observer.version]}"
+  pattern: "000001"
+  policy: "apm-rollover-30-days"
+
+setup.template:
+  enabled: true
+  pattern: "apm-%{[observer.version]}-*"
+
+logging:
+  level: info
+  to_files: true
+  files:
+    path: /var/log/apm-server
+    name: apm-server
+    keepfiles: 7
+    permissions: 0644
