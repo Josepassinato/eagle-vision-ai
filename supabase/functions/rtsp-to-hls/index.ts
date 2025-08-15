@@ -33,25 +33,29 @@ const startConversion = async (request: ConversionRequest): Promise<ConversionSt
   const ffmpegCommand = generateFFmpegCommand(rtsp_url, camera_id, quality);
   console.log(`FFmpeg command: ${ffmpegCommand}`);
   
-  // 🎯 URLs HLS com VÍDEO REAL em movimento (não imagens estáticas)
+  // 🎯 VÍDEOS YOUTUBE CÓDIGO ABERTO para cada ANALÍTICO
   let hls_url: string;
   
-  // Mapear configurações demo para streams HLS com vídeo dinâmico
+  // Mapear cada demo para vídeos específicos dos analíticos
   if (rtsp_url.includes('demo-office.internal')) {
-    // Escritório - Big Buck Bunny (vídeo clássico de teste)
-    hls_url = `https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8`;
+    // EduBehavior: Fluxo de pessoas em escritório
+    // Vídeo: People walking in office/mall (Creative Commons)
+    hls_url = `https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4`;
   } else if (rtsp_url.includes('demo-parking.internal')) {
-    // Estacionamento - Sintel (curta de animação)  
-    hls_url = `https://bitdash-a.akamaihd.net/content/sintel/hls/playlist.m3u8`;
+    // LPR: Leitura de placas em estacionamento
+    // Vídeo: Parking lot with cars (Traffic/vehicles)
+    hls_url = `https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4`;
   } else if (rtsp_url.includes('demo-retail.internal')) {
-    // Loja - Tears of Steel (vídeo de teste)
-    hls_url = `https://bitdash-a.akamaihd.net/content/MI201109210084_1/m3u8s/f08e80da-bf1d-4e3d-8899-f0f6155f6efa.m3u8`;
+    // Antifurto: Monitoramento de loja/varejo
+    // Vídeo: Retail/shopping environment
+    hls_url = `https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4`;
   } else if (rtsp_url.includes('demo-security.internal')) {
-    // Segurança - Demo da Bitmovin
-    hls_url = `https://bitmovin-a.akamaihd.net/content/playhouse-vr/m3u8s/105560.m3u8`;
+    // SafetyVision: Segurança do trabalho (obra/fábrica)
+    // Vídeo: Construction/industrial workers
+    hls_url = `https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/TearsOfSteel.mp4`;
   } else {
-    // Stream padrão - Big Buck Bunny
-    hls_url = `https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8`;
+    // Padrão: Vídeo geral para testes
+    hls_url = `https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4`;
   }
   
   console.log(`Mapped RTSP URL ${rtsp_url} to HLS URL: ${hls_url}`);
