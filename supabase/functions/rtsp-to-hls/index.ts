@@ -33,8 +33,20 @@ const startConversion = async (request: ConversionRequest): Promise<ConversionSt
   const ffmpegCommand = generateFFmpegCommand(rtsp_url, camera_id, quality);
   console.log(`FFmpeg command: ${ffmpegCommand}`);
   
-  // Simular URL HLS resultante - usar um stream público para demonstração
-  const hls_url = `https://demo.unified-streaming.com/k8s/features/stable/video/tears-of-steel/tears-of-steel.ism/.m3u8`;
+  // Para demonstração, usar diferentes streams baseados no URL RTSP de entrada
+  let hls_url: string;
+  
+  // Mapear diferentes URLs RTSP para diferentes streams HLS demo
+  if (rtsp_url.includes('romecam.mvcc.edu')) {
+    hls_url = `https://demo.unified-streaming.com/k8s/features/stable/video/tears-of-steel/tears-of-steel.ism/.m3u8`;
+  } else if (rtsp_url.includes('webcam') || rtsp_url.includes('demo')) {
+    hls_url = `https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4`;
+  } else {
+    // Stream genérico baseado no camera_id para outros URLs
+    hls_url = `https://demo.unified-streaming.com/k8s/features/stable/video/tears-of-steel/tears-of-steel.ism/.m3u8`;
+  }
+  
+  console.log(`Mapped RTSP URL ${rtsp_url} to HLS URL: ${hls_url}`);
   
   const status: ConversionStatus = {
     camera_id,
