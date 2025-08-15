@@ -74,12 +74,24 @@ export default function Live() {
         if (result.success && Array.isArray(result.configs)) {
           const configs: DVRConfig[] = result.configs;
           setDvrs(configs);
-          // Auto-selecionar a primeira configuração (preferindo conectada) se nada estiver selecionado
-          if (!cameraId && configs.length > 0) {
-            const preferred: any = (configs as any[]).find(c => (c as any).status === 'connected') || configs[0];
-            const fallbackPort = preferred.port ?? 554;
-            setCameraId(preferred.id);
-            setStreamUrl(preferred.stream_url || `rtsp://${preferred.host}:${fallbackPort}/stream`);
+
+          // Tentar pré-selecionar pelo query param (?dvr=ID) ou último salvo no localStorage
+          const urlParams = new URLSearchParams(window.location.search);
+          const preferredIdFromUrl = urlParams.get('dvr');
+          const preferredIdFromStorage = localStorage.getItem('lastDvrConfigId') || undefined;
+
+          let selected = configs.find(c => c.id === (preferredIdFromUrl || preferredIdFromStorage));
+
+          // Fallback: preferir 'connected', senão a primeira
+          if (!selected && configs.length > 0) {
+            selected = (configs as any[]).find(c => (c as any).status === 'connected') || configs[0];
+          }
+
+          if (selected) {
+            const fallbackPort = selected.port ?? 554;
+            setCameraId(selected.id);
+            // Usar stream_url salvo; se for RTSP, usuário pode converter para HLS com 1 clique
+            setStreamUrl(selected.stream_url || `rtsp://${selected.host}:${fallbackPort}/stream`);
           }
         }
       }

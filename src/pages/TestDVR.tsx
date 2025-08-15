@@ -363,6 +363,14 @@ const TestDVR = () => {
       }
       
       if (data.success) {
+        try {
+          // Persistir última configuração salva para a Live View pré-selecionar
+          localStorage.setItem('lastDvrConfigId', data.config?.id);
+          if (data.config?.stream_url) {
+            localStorage.setItem('lastDvrStreamUrl', data.config.stream_url);
+          }
+        } catch {}
+
         toast({
           title: "Configuração salva!",
           description: "DVR configurado e salvo com sucesso.",
