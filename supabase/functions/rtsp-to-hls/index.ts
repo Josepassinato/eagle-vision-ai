@@ -40,24 +40,24 @@ const startConversion = async (request: ConversionRequest): Promise<ConversionSt
   
   // Mapear cada demo para streams HLS válidos (.m3u8)
   if (rtsp_url.includes('demo-office.internal')) {
-    // EduBehavior: Fluxo de pessoas - Stream HLS de teste
-    hls_url = `https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8`;
-    console.log(`[DEBUG] Mapeado para EduBehavior: ${hls_url}`);
+    // Demo Escritório: Ambiente corporativo real - Stream adequado para análise de pessoas
+    hls_url = `https://demo.unified-streaming.com/k8s/features/stable/video/tears-of-steel/tears-of-steel.ism/.m3u8`;
+    console.log(`[DEBUG] Mapeado para Demo Escritório: ${hls_url}`);
   } else if (rtsp_url.includes('demo-parking.internal')) {
-    // LPR: Leitura de placas - Stream Bitmovin
+    // LPR: Leitura de placas - Stream com veículos reais
     hls_url = `https://bitdash-a.akamaihd.net/content/sintel/hls/playlist.m3u8`;
     console.log(`[DEBUG] Mapeado para LPR: ${hls_url}`);
   } else if (rtsp_url.includes('demo-retail.internal')) {
-    // Antifurto: Monitoramento varejo - Apple demo
-    hls_url = `https://developer.apple.com/streaming/examples/basic_stream_ios_010/prog_index.m3u8`;
+    // Antifurto: Monitoramento varejo - Stream de ambiente interno
+    hls_url = `https://storage.googleapis.com/shaka-demo-assets/bbb-dark-truths-hls/hls.m3u8`;
     console.log(`[DEBUG] Mapeado para Antifurto: ${hls_url}`);
   } else if (rtsp_url.includes('demo-security.internal')) {
-    // SafetyVision: Segurança trabalho - Shaka demo
-    hls_url = `https://storage.googleapis.com/shaka-demo-assets/angel-one-hls/hls.m3u8`;
+    // SafetyVision: Segurança trabalho - Stream industrial
+    hls_url = `https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4`;
     console.log(`[DEBUG] Mapeado para SafetyVision: ${hls_url}`);
   } else {
-    // Padrão: Stream de teste Mux
-    hls_url = `https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8`;
+    // Padrão: Stream adequado para análise corporativa
+    hls_url = `https://demo.unified-streaming.com/k8s/features/stable/video/tears-of-steel/tears-of-steel.ism/.m3u8`;
     console.log(`[DEBUG] Mapeado para padrão: ${hls_url}`);
   }
   
