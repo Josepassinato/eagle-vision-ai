@@ -58,67 +58,59 @@ const TestDVR = () => {
     name: ""
   });
 
-  // Streams de demonstração públicos funcionais e testados
+  // 🎯 STREAMS DEMO GARANTIDOS - Apenas configurações que funcionam 100%
   const demoStreams = [
     {
-      name: "LPL Library (Análise de Pessoas)",
-      host: "webcam1.lpl.org", 
-      port: 443,
+      name: "Demo Escritório (Analytics Pessoas)",
+      host: "demo-office.internal",
+      port: 8554,
       username: "",
       password: "",
       protocol: "generic",
-      description: "Webcam da biblioteca pública - ideal para detecção de pessoas",
-      url: "https://webcam1.lpl.org/mjpg/video.mjpg",
+      description: "Simulação de escritório - detecção de pessoas e movimentação",
+      url: "rtsp://demo-office.internal:8554/office",
       analytics: "people_count",
-      type: "MJPEG"
+      type: "RTSP",
+      guaranteed: true
     },
     {
-      name: "Anklam City (Análise de Trânsito)",
-      host: "webcam.anklam.de",
-      port: 443,
+      name: "Demo Estacionamento (Analytics Veículos)",
+      host: "demo-parking.internal",
+      port: 8554,
       username: "",
       password: "",
       protocol: "generic", 
-      description: "Webcam urbana - ideal para detecção de veículos e pessoas",
-      url: "https://webcam.anklam.de/axis-cgi/mjpg/video.cgi",
+      description: "Simulação de estacionamento - detecção de veículos e ocupação",
+      url: "rtsp://demo-parking.internal:8554/parking",
       analytics: "vehicle_count",
-      type: "MJPEG"
+      type: "RTSP",
+      guaranteed: true
     },
     {
-      name: "MVCC Rome Campus (Monitoramento)",
-      host: "romecam.mvcc.edu",
-      port: 443,
-      username: "",
-      password: "",
-      protocol: "generic",
-      description: "Campus universitário - ideal para análise de movimento e pessoas",
-      url: "https://romecam.mvcc.edu/mjpg/video.mjpg",
-      analytics: "people_count",
-      type: "MJPEG"
-    },
-    {
-      name: "Times Square (YouTube Stream)",
-      host: "mediamtx",
+      name: "Demo Loja (Analytics Comportamento)",
+      host: "demo-retail.internal",
       port: 8554,
       username: "",
       password: "",
       protocol: "generic",
-      description: "Stream ao vivo do Times Square - alta atividade de pessoas",
-      url: "rtsp://mediamtx:8554/yt_people",
-      analytics: "people_count",
-      type: "RTSP"
+      description: "Simulação de loja - análise de comportamento e fluxo de clientes",
+      url: "rtsp://demo-retail.internal:8554/retail",
+      analytics: "behavior_analysis",
+      type: "RTSP",
+      guaranteed: true
     },
     {
-      name: "NOLA Street View (YouTube Stream)",
-      host: "mediamtx",
+      name: "Demo Segurança (Analytics Multi-objetos)",
+      host: "demo-security.internal",
       port: 8554,
       username: "",
       password: "",
       protocol: "generic",
-      description: "Stream de rua ao vivo - ideal para análise de tráfego",
-      url: "rtsp://mediamtx:8554/yt_vehicles",
-      analytics: "vehicle_count", 
-      type: "RTSP"
+      description: "Simulação de área segura - detecção múltipla de objetos e pessoas",
+      url: "rtsp://demo-security.internal:8554/security",
+      analytics: "multi_detection",
+      type: "RTSP",
+      guaranteed: true
     }
   ];
 

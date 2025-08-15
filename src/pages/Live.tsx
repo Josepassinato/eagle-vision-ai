@@ -329,34 +329,40 @@ const Live: React.FC = () => {
   useEffect(() => {
     if (!simulate) { setSimEvent(null); return; }
     
-    // Cenários realistas baseados na câmera selecionada
+    // Cenários realistas baseados na configuração demo selecionada
     const scenarios = {
-      'webcam1.lpl.org': {
-        labels: ["person", "book", "backpack", "chair"] as const,
-        name: "Biblioteca",
+      'demo-office.internal': {
+        labels: ["person", "laptop", "chair", "backpack"] as const,
+        name: "Escritório",
         zones: [[0.1, 0.2, 0.4, 0.6], [0.5, 0.1, 0.8, 0.5], [0.2, 0.6, 0.6, 0.9]]
       },
-      'romecam.mvcc.edu': {
-        labels: ["person", "car", "bicycle", "truck"] as const,
-        name: "Campus", 
+      'demo-parking.internal': {
+        labels: ["car", "truck", "motorcycle", "person"] as const,
+        name: "Estacionamento", 
         zones: [[0.0, 0.3, 0.3, 0.8], [0.4, 0.2, 0.7, 0.7], [0.6, 0.4, 0.9, 0.9]]
       },
-      'hikvision': {
-        labels: ["person", "car", "motorcycle", "truck"] as const,
-        name: "Segurança",
+      'demo-retail.internal': {
+        labels: ["person", "shopping_cart", "backpack", "handbag"] as const,
+        name: "Loja",
         zones: [[0.1, 0.1, 0.4, 0.4], [0.5, 0.3, 0.8, 0.7], [0.2, 0.5, 0.6, 0.9]]
       },
-      'mediamtx': {
-        labels: ["person", "car", "bus", "bicycle", "motorcycle"] as const,
-        name: "Cidade",
+      'demo-security.internal': {
+        labels: ["person", "car", "motorcycle", "truck", "bicycle"] as const,
+        name: "Segurança",
         zones: [[0.0, 0.2, 0.3, 0.6], [0.3, 0.1, 0.6, 0.5], [0.6, 0.3, 0.9, 0.8]]
+      },
+      // Fallback para configurações antigas
+      'default': {
+        labels: ["person", "car", "bicycle"] as const,
+        name: "Demo",
+        zones: [[0.2, 0.2, 0.6, 0.6], [0.1, 0.4, 0.5, 0.8], [0.5, 0.1, 0.9, 0.5]]
       }
     };
     
     // Detectar cenário baseado na URL do stream atual
     const scenarioKey = Object.keys(scenarios).find(key => 
       currentStreamUrl?.includes(key) || selectedDVR?.host?.includes(key)
-    ) || 'webcam1.lpl.org';
+    ) || 'default';
     
     const scenario = scenarios[scenarioKey];
     
