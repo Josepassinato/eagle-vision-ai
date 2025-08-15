@@ -60,39 +60,28 @@ export default function Live() {
         return;
       }
 
-      const response = await fetch(`https://avbswnnywjyvqfxezgfl.supabase.co/functions/v1/dvr-manager`, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${session.session.access_token}`,
-          'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF2YnN3bm55d2p5dnFmeGV6Z2ZsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQ3NTI3ODQsImV4cCI6MjA3MDMyODc4NH0.fmpP6MWxsz-GYT44mAvBfR5rXIFdR-PoUbswzkeClo4',
-          'Content-Type': 'application/json'
+      const { data, error } = await supabase.functions.invoke('dvr-manager');
+      if (!error && data?.success && Array.isArray(data.configs)) {
+        const configs: DVRConfig[] = data.configs;
+        setDvrs(configs);
+
+        // Tentar pré-selecionar pelo query param (?dvr=ID) ou último salvo no localStorage
+        const urlParams = new URLSearchParams(window.location.search);
+        const preferredIdFromUrl = urlParams.get('dvr');
+        const preferredIdFromStorage = localStorage.getItem('lastDvrConfigId') || undefined;
+
+        let selected = configs.find(c => c.id === (preferredIdFromUrl || preferredIdFromStorage));
+
+        // Fallback: preferir 'connected', senão a primeira
+        if (!selected && configs.length > 0) {
+          selected = (configs as any[]).find(c => (c as any).status === 'connected') || configs[0];
         }
-      });
 
-      if (response.ok) {
-        const result = await response.json();
-        if (result.success && Array.isArray(result.configs)) {
-          const configs: DVRConfig[] = result.configs;
-          setDvrs(configs);
-
-          // Tentar pré-selecionar pelo query param (?dvr=ID) ou último salvo no localStorage
-          const urlParams = new URLSearchParams(window.location.search);
-          const preferredIdFromUrl = urlParams.get('dvr');
-          const preferredIdFromStorage = localStorage.getItem('lastDvrConfigId') || undefined;
-
-          let selected = configs.find(c => c.id === (preferredIdFromUrl || preferredIdFromStorage));
-
-          // Fallback: preferir 'connected', senão a primeira
-          if (!selected && configs.length > 0) {
-            selected = (configs as any[]).find(c => (c as any).status === 'connected') || configs[0];
-          }
-
-          if (selected) {
-            const fallbackPort = selected.port ?? 554;
-            setCameraId(selected.id);
-            // Usar stream_url salvo; se for RTSP, usuário pode converter para HLS com 1 clique
-            setStreamUrl(selected.stream_url || `rtsp://${selected.host}:${fallbackPort}/stream`);
-          }
+        if (selected) {
+          const fallbackPort = selected.port ?? 554;
+          setCameraId(selected.id);
+          // Usar stream_url salvo; se for RTSP, usuário pode converter para HLS com 1 clique
+          setStreamUrl(selected.stream_url || `rtsp://${selected.host}:${fallbackPort}/stream`);
         }
       }
     } catch (error) {

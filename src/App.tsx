@@ -59,7 +59,7 @@ const App = () => (
         <AIAssistant />
         <Routes>
           <Route path="/auth" element={<AuthPage />} />
-          <Route path="/live" element={<Live />} />
+          <Route path="/live" element={<ProtectedRoute><Live /></ProtectedRoute>} />
           <Route path="/events" element={<EventsPage />} />
           <Route path="/analytics" element={<Analytics />} />
           <Route path="/demo" element={<DemoPublic />} />
