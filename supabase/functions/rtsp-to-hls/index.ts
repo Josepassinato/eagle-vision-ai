@@ -40,20 +40,20 @@ const startConversion = async (request: ConversionRequest): Promise<ConversionSt
   
   // 🎯 STREAMS REALISTAS para cada ANALÍTICO específico
   if (rtsp_url.includes('demo-office.internal')) {
-    // Demo Escritório: Pessoas caminhando em ambiente corporativo
-    hls_url = `https://cph-p2p-msl.akamaized.net/hls/live/2000341/test/master.m3u8`;
-    console.log(`[DEBUG] Mapeado para Demo Escritório (pessoas em movimento): ${hls_url}`);
+    // Demo Escritório: usar stream HLS público estável
+    hls_url = `https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8`;
+    console.log(`[DEBUG] Mapeado para Demo Escritório (HLS estável): ${hls_url}`);
   } else if (rtsp_url.includes('demo-parking.internal')) {
-    // Demo Estacionamento: Veículos e leitura de placas
+    // Demo Estacionamento: Veículos e leitura de placas (HLS estável)
     hls_url = `https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8`;
     console.log(`[DEBUG] Mapeado para Demo Estacionamento (veículos): ${hls_url}`);
   } else if (rtsp_url.includes('demo-retail.internal')) {
-    // Demo Varejo: Ambiente interno para detecção de furtos
-    hls_url = `https://multiplatform-f.akamaihd.net/i/multi/will/bunny/big_buck_bunny_,640x360_400,640x360_700,640x360_1000,950x540_1500,.f4v.csmil/master.m3u8`;
+    // Demo Varejo: Ambiente interno para detecção de furtos (HLS estável)
+    hls_url = `https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8`;
     console.log(`[DEBUG] Mapeado para Demo Varejo (ambiente interno): ${hls_url}`);
   } else if (rtsp_url.includes('demo-security.internal')) {
-    // Demo Segurança: Ambiente industrial para EPIs
-    hls_url = `https://playertest.longtailvideo.com/adaptive/bbbfull/bbbfull.m3u8`;
+    // Demo Segurança: Ambiente industrial para EPIs (HLS estável)
+    hls_url = `https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8`;
     console.log(`[DEBUG] Mapeado para Demo Segurança (ambiente industrial): ${hls_url}`);
   } else {
     // Padrão: Demo genérico para testes
@@ -107,7 +107,7 @@ const startRealConversion = async (camera_id: string, rtsp_url: string) => {
     console.log('1. Install FFmpeg: apt-get install ffmpeg');
     console.log('2. Create HLS directory: mkdir -p /tmp/hls');
     console.log('3. Start nginx for serving HLS files');
-    console.log(`4. Execute: ${generateFFmpegCommand(camera_id, rtsp_url)}`);
+    console.log(`4. Execute: ${generateFFmpegCommand(rtsp_url, camera_id, 'medium')}`);
     
     await new Promise(resolve => setTimeout(resolve, 2000));
     
