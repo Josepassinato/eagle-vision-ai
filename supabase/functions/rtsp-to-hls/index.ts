@@ -33,19 +33,22 @@ const startConversion = async (request: ConversionRequest): Promise<ConversionSt
   const ffmpegCommand = generateFFmpegCommand(rtsp_url, camera_id, quality);
   console.log(`FFmpeg command: ${ffmpegCommand}`);
   
-  // Para demonstração, usar diferentes streams HLS baseados no URL RTSP de entrada
+  // Para demonstração, usar streams HLS que representem melhor o conteúdo esperado
   let hls_url: string;
   
-  // Mapear diferentes URLs RTSP para diferentes streams HLS demo - TODOS devem ser .m3u8 para HLS
+  // Mapear URLs RTSP para streams HLS demo apropriados
   if (rtsp_url.includes('romecam.mvcc.edu')) {
+    // Campus - usar stream educacional
     hls_url = `https://demo.unified-streaming.com/k8s/features/stable/video/tears-of-steel/tears-of-steel.ism/.m3u8`;
   } else if (rtsp_url.includes('webcam1.lpl.org')) {
-    hls_url = `https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8`;
-  } else if (rtsp_url.includes('hikvision')) {
+    // Library - usar stream de biblioteca/pessoas
     hls_url = `https://bitdash-a.akamaihd.net/content/sintel/hls/playlist.m3u8`;
-  } else {
-    // Stream genérico para outros URLs - sempre HLS
+  } else if (rtsp_url.includes('hikvision')) {
+    // Hikvision - usar stream de segurança
     hls_url = `https://demo.unified-streaming.com/k8s/features/stable/video/tears-of-steel/tears-of-steel.ism/.m3u8`;
+  } else {
+    // Stream genérico - usar um stream neutro
+    hls_url = `https://bitdash-a.akamaihd.net/content/sintel/hls/playlist.m3u8`;
   }
   
   console.log(`Mapped RTSP URL ${rtsp_url} to HLS URL: ${hls_url}`);
