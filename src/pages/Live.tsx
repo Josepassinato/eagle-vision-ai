@@ -19,6 +19,8 @@ interface DVRConfig {
   name: string;
   host: string;
   protocol: string;
+  port?: number;
+  stream_url?: string;
 }
 
 
@@ -66,13 +68,14 @@ export default function Live() {
     }
   };
 
-  const handleDVRChange = (dvrId: string) => {
-    const dvr = dvrs.find(d => d.id === dvrId);
-    if (dvr) {
-      setCameraId(dvrId);
-      setStreamUrl(`rtsp://${dvr.host}:8554/stream`);
-    }
-  };
+const handleDVRChange = (dvrId: string) => {
+  const dvr = dvrs.find(d => d.id === dvrId);
+  if (dvr) {
+    setCameraId(dvrId);
+    const fallbackPort = dvr.port ?? 554;
+    setStreamUrl(dvr.stream_url || `rtsp://${dvr.host}:${fallbackPort}/stream`);
+  }
+};
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const hlsRef = useRef<Hls | null>(null);
