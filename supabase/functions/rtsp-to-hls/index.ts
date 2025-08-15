@@ -33,16 +33,18 @@ const startConversion = async (request: ConversionRequest): Promise<ConversionSt
   const ffmpegCommand = generateFFmpegCommand(rtsp_url, camera_id, quality);
   console.log(`FFmpeg command: ${ffmpegCommand}`);
   
-  // Para demonstração, usar diferentes streams baseados no URL RTSP de entrada
+  // Para demonstração, usar diferentes streams HLS baseados no URL RTSP de entrada
   let hls_url: string;
   
-  // Mapear diferentes URLs RTSP para diferentes streams HLS demo
+  // Mapear diferentes URLs RTSP para diferentes streams HLS demo - TODOS devem ser .m3u8 para HLS
   if (rtsp_url.includes('romecam.mvcc.edu')) {
     hls_url = `https://demo.unified-streaming.com/k8s/features/stable/video/tears-of-steel/tears-of-steel.ism/.m3u8`;
-  } else if (rtsp_url.includes('webcam') || rtsp_url.includes('demo')) {
-    hls_url = `https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4`;
+  } else if (rtsp_url.includes('webcam1.lpl.org')) {
+    hls_url = `https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8`;
+  } else if (rtsp_url.includes('hikvision')) {
+    hls_url = `https://bitdash-a.akamaihd.net/content/sintel/hls/playlist.m3u8`;
   } else {
-    // Stream genérico baseado no camera_id para outros URLs
+    // Stream genérico para outros URLs - sempre HLS
     hls_url = `https://demo.unified-streaming.com/k8s/features/stable/video/tears-of-steel/tears-of-steel.ism/.m3u8`;
   }
   
