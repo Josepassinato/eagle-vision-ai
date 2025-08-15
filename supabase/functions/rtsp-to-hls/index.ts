@@ -33,22 +33,22 @@ const startConversion = async (request: ConversionRequest): Promise<ConversionSt
   const ffmpegCommand = generateFFmpegCommand(rtsp_url, camera_id, quality);
   console.log(`FFmpeg command: ${ffmpegCommand}`);
   
-  // 🎯 MAPEAMENTO GARANTIDO - URLs HLS Apple que SEMPRE funcionam
+  // 🎯 MAPEAMENTO GARANTIDO - URLs HLS diferentes com vídeos distintos
   let hls_url: string;
   
-  // Mapear configurações demo para streams Apple específicos
+  // Mapear configurações demo para streams HLS visualmente diferentes
   if (rtsp_url.includes('demo-office.internal')) {
-    // Escritório - Stream com qualidade consistente
+    // Escritório - Stream Apple com múltiplas cenas/qualidades
     hls_url = `https://devstreaming-cdn.apple.com/videos/streaming/examples/img_bipbop_adv_example_fmp4/master.m3u8`;
   } else if (rtsp_url.includes('demo-parking.internal')) {
-    // Estacionamento - Stream alternativo
-    hls_url = `https://devstreaming-cdn.apple.com/videos/streaming/examples/bipbop_4x3/bipbop_4x3_variant.m3u8`;
+    // Estacionamento - Stream com formato 4:3
+    hls_url = `https://devstreaming-cdn.apple.com/videos/streaming/examples/bipbop_4x3/gear1/prog_index.m3u8`;
   } else if (rtsp_url.includes('demo-retail.internal')) {
-    // Loja - Stream horizontal
-    hls_url = `https://devstreaming-cdn.apple.com/videos/streaming/examples/bipbop_16x9/bipbop_16x9_variant.m3u8`;
+    // Loja - Stream formato 16:9 widescreen  
+    hls_url = `https://devstreaming-cdn.apple.com/videos/streaming/examples/bipbop_16x9/gear1/prog_index.m3u8`;
   } else if (rtsp_url.includes('demo-security.internal')) {
-    // Segurança - Stream com timestamps
-    hls_url = `https://devstreaming-cdn.apple.com/videos/streaming/examples/img_bipbop_adv_example_ts/master.m3u8`;
+    // Segurança - Stream TS segments (diferente do MP4)
+    hls_url = `https://devstreaming-cdn.apple.com/videos/streaming/examples/img_bipbop_adv_example_ts/v9/prog_index.m3u8`;
   } else {
     // Stream padrão para qualquer outro caso
     hls_url = `https://devstreaming-cdn.apple.com/videos/streaming/examples/img_bipbop_adv_example_fmp4/master.m3u8`;
