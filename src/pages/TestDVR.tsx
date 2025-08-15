@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -10,7 +10,8 @@ import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
-import { Loader2, CheckCircle, XCircle, Wifi, Search, Play, Square, Activity, Eye, Users, Settings, Video } from "lucide-react";
+import { Loader2, CheckCircle, XCircle, Wifi, Search, Play, Square, Activity, Eye, Users, Settings, Video, Monitor } from "lucide-react";
+import Hls from "hls.js";
 
 interface TestResult {
   success: boolean;
@@ -46,6 +47,13 @@ const TestDVR = () => {
   const [liveEvents, setLiveEvents] = useState<AnalyticsEvent[]>([]);
   const [eventCount, setEventCount] = useState({ people: 0, vehicles: 0, motion: 0 });
   const [showDemoStreams, setShowDemoStreams] = useState(false);
+  
+  // Estados para o player de vídeo
+  const [showLiveViewer, setShowLiveViewer] = useState(false);
+  const [streamUrl, setStreamUrl] = useState("");
+  const [converting, setConverting] = useState(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const hlsRef = useRef<Hls | null>(null);
   
   const [formData, setFormData] = useState({
     protocol: "hikvision",
@@ -457,6 +465,100 @@ const TestDVR = () => {
     loadConfigs();
   }, []);
 
+  // Converter RTSP para HLS e visualizar
+  const convertToHLS = async () => {
+    if (!testResult?.success || !testResult.stream_url) {
+      toast({
+        title: "Erro",
+        description: "É necessário testar a conexão primeiro",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setConverting(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('rtsp-to-hls', {
+        body: {
+          rtsp_url: testResult.stream_url,
+          camera_id: `dvr-test-${Date.now()}`
+        }
+      });
+
+      if (error) throw error;
+
+      if (data.success) {
+        setStreamUrl(data.hls_url);
+        setShowLiveViewer(true);
+        
+        toast({
+          title: "Stream convertido!",
+          description: "Visualização ao vivo iniciada",
+        });
+      } else {
+        throw new Error(data.error || "Falha na conversão");
+      }
+    } catch (error: any) {
+      toast({
+        title: "Erro na conversão",
+        description: error.message || "Não foi possível converter o stream",
+        variant: "destructive",
+      });
+    } finally {
+      setConverting(false);
+    }
+  };
+
+  // Configurar HLS player
+  useEffect(() => {
+    if (streamUrl && videoRef.current && showLiveViewer) {
+      if (Hls.isSupported()) {
+        hlsRef.current = new Hls({
+          debug: true,
+          enableWorker: true,
+          lowLatencyMode: true,
+          backBufferLength: 90
+        });
+
+        hlsRef.current.loadSource(streamUrl);
+        hlsRef.current.attachMedia(videoRef.current);
+        
+        hlsRef.current.on(Hls.Events.MANIFEST_PARSED, () => {
+          videoRef.current?.play().catch(console.error);
+        });
+
+        hlsRef.current.on(Hls.Events.ERROR, (event, data) => {
+          console.error('HLS error:', data);
+          if (data.fatal) {
+            toast({
+              title: "Erro no stream",
+              description: "Falha na reprodução do vídeo",
+              variant: "destructive",
+            });
+          }
+        });
+      } else if (videoRef.current.canPlayType('application/vnd.apple.mpegurl')) {
+        videoRef.current.src = streamUrl;
+      }
+    }
+
+    return () => {
+      if (hlsRef.current) {
+        hlsRef.current.destroy();
+        hlsRef.current = null;
+      }
+    };
+  }, [streamUrl, showLiveViewer]);
+
+  const stopViewer = () => {
+    setShowLiveViewer(false);
+    setStreamUrl("");
+    if (hlsRef.current) {
+      hlsRef.current.destroy();
+      hlsRef.current = null;
+    }
+  };
+
   return (
     <div className="container mx-auto px-4 py-8 space-y-6">
       <div className="flex items-center justify-between">
@@ -722,8 +824,66 @@ const TestDVR = () => {
                 </div>
               </Alert>
             )}
+
+            {/* Botão para visualizar ao vivo */}
+            {testResult?.success && (
+              <div className="space-y-2">
+                <Button 
+                  onClick={convertToHLS} 
+                  disabled={converting}
+                  className="w-full bg-green-600 hover:bg-green-700 text-white"
+                >
+                  {converting ? (
+                    <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                  ) : (
+                    <Monitor className="w-4 h-4 mr-2" />
+                  )}
+                  {converting ? "Convertendo..." : "Ver Ao Vivo"}
+                </Button>
+              </div>
+            )}
           </CardContent>
         </Card>
+
+        {/* Player de Vídeo Ao Vivo */}
+        {showLiveViewer && (
+          <Card className="col-span-full">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle className="flex items-center gap-2">
+                  <Monitor className="w-5 h-5 text-green-600" />
+                  Visualização Ao Vivo
+                </CardTitle>
+                <Button onClick={stopViewer} variant="outline" size="sm">
+                  <Square className="w-4 h-4 mr-2" />
+                  Parar
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="relative bg-black rounded-lg overflow-hidden">
+                <video
+                  ref={videoRef}
+                  className="w-full h-auto max-h-96 object-contain"
+                  controls
+                  muted
+                  playsInline
+                />
+                {!streamUrl && (
+                  <div className="absolute inset-0 flex items-center justify-center bg-black/50">
+                    <div className="text-white text-center">
+                      <Loader2 className="w-8 h-8 animate-spin mx-auto mb-2" />
+                      <p>Carregando stream...</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+              <div className="mt-4 text-sm text-muted-foreground">
+                <strong>Stream URL:</strong> {streamUrl || "Carregando..."}
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Streams de Demonstração */}
         <Card>
