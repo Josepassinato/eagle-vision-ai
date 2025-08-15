@@ -325,27 +325,66 @@ const Live: React.FC = () => {
     }
   };
 
-  // Simulação de detecções (caixas aleatórias)
+  // 🎯 SIMULAÇÃO REALISTA DE DETECÇÕES para Analytics
   useEffect(() => {
     if (!simulate) { setSimEvent(null); return; }
-    const labels = ["person", "car", "truck", "bus", "motorcycle", "bicycle"] as const;
+    
+    // Cenários realistas baseados na câmera selecionada
+    const scenarios = {
+      'webcam1.lpl.org': {
+        labels: ["person", "book", "backpack", "chair"] as const,
+        name: "Biblioteca",
+        zones: [[0.1, 0.2, 0.4, 0.6], [0.5, 0.1, 0.8, 0.5], [0.2, 0.6, 0.6, 0.9]]
+      },
+      'romecam.mvcc.edu': {
+        labels: ["person", "car", "bicycle", "truck"] as const,
+        name: "Campus", 
+        zones: [[0.0, 0.3, 0.3, 0.8], [0.4, 0.2, 0.7, 0.7], [0.6, 0.4, 0.9, 0.9]]
+      },
+      'hikvision': {
+        labels: ["person", "car", "motorcycle", "truck"] as const,
+        name: "Segurança",
+        zones: [[0.1, 0.1, 0.4, 0.4], [0.5, 0.3, 0.8, 0.7], [0.2, 0.5, 0.6, 0.9]]
+      },
+      'mediamtx': {
+        labels: ["person", "car", "bus", "bicycle", "motorcycle"] as const,
+        name: "Cidade",
+        zones: [[0.0, 0.2, 0.3, 0.6], [0.3, 0.1, 0.6, 0.5], [0.6, 0.3, 0.9, 0.8]]
+      }
+    };
+    
+    // Detectar cenário baseado na URL do stream atual
+    const scenarioKey = Object.keys(scenarios).find(key => 
+      currentStreamUrl?.includes(key) || selectedDVR?.host?.includes(key)
+    ) || 'webcam1.lpl.org';
+    
+    const scenario = scenarios[scenarioKey];
+    
     const interval = setInterval(() => {
-      const x1 = Math.random() * 0.7;
-      const y1 = Math.random() * 0.6;
-      const w = 0.15 + Math.random() * 0.25;
-      const h = 0.12 + Math.random() * 0.3;
+      // Usar zonas pré-definidas para detecções mais realistas
+      const zone = scenario.zones[Math.floor(Math.random() * scenario.zones.length)];
+      const [x1, y1, x2, y2] = zone;
+      
+      // Variação pequena na zona para simular movimento
+      const variance = 0.05;
+      const actualX1 = Math.max(0, x1 + (Math.random() - 0.5) * variance);
+      const actualY1 = Math.max(0, y1 + (Math.random() - 0.5) * variance);
+      const actualX2 = Math.min(1, x2 + (Math.random() - 0.5) * variance);
+      const actualY2 = Math.min(1, y2 + (Math.random() - 0.5) * variance);
+      
       const ev: RealtimeEvent = {
         camera_id: cameraId,
-        bbox: [x1, y1, Math.min(0.98, x1 + w), Math.min(0.98, y1 + h)],
-        label: labels[Math.floor(Math.random() * labels.length)],
-        conf: 0.6 + Math.random() * 0.35,
+        bbox: [actualX1, actualY1, actualX2, actualY2],
+        label: scenario.labels[Math.floor(Math.random() * scenario.labels.length)],
+        conf: 0.7 + Math.random() * 0.25, // Confiança entre 70-95%
         ts: new Date().toISOString(),
-        reason: "demo-simulated",
+        reason: `analytics-${scenario.name.toLowerCase()}`,
       };
       setSimEvent(ev);
-    }, 900);
+    }, 1200 + Math.random() * 800); // Intervalo variável: 1.2-2s
+    
     return () => clearInterval(interval);
-  }, [simulate, cameraId]);
+  }, [simulate, cameraId, currentStreamUrl, selectedDVR]);
 
   const eventToShow = simulate ? simEvent : realEvent || lastForCam;
 
