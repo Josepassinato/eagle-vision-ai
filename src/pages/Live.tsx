@@ -309,14 +309,25 @@ const handleDVRChange = (dvrId: string) => {
       setIsProcessing(true);
       console.log('Iniciando conversão RTSP→HLS:', {
         rtsp_url: streamUrl,
-        camera_id: cameraId,
-        quality: 'medium'
       });
+
+      // Garantir um camera_id válido mesmo para streams demo
+      const cameraIdToUse = (cameraId && cameraId.trim().length > 0)
+        ? cameraId
+        : (() => {
+            try {
+              const host = new URL(streamUrl.replace('rtsp://', 'http://')).hostname;
+              return host.replace('.internal', '') || 'demo-camera';
+            } catch {
+              return 'demo-camera';
+            }
+          })();
+      if (!cameraId) setCameraId(cameraIdToUse);
 
       const { data: result, error: fnError } = await supabase.functions.invoke('rtsp-to-hls', {
         body: {
           rtsp_url: streamUrl,
-          camera_id: cameraId,
+          camera_id: cameraIdToUse,
           quality: 'medium',
           action: 'start'
         }
@@ -516,7 +527,16 @@ const handleDVRChange = (dvrId: string) => {
                 {demoStreams.map((demo, idx) => (
                   <Button
                     key={idx}
-                    onClick={() => setStreamUrl(demo.url)}
+                    onClick={() => {
+                      setStreamUrl(demo.url);
+                      try {
+                        const host = new URL(demo.url.replace('rtsp://', 'http://')).hostname;
+                        const id = host.replace('.internal', '');
+                        setCameraId(id);
+                      } catch {
+                        setCameraId('demo-camera');
+                      }
+                    }}
                     variant="outline"
                     size="sm"
                     className="bg-slate-700 border-slate-600 text-white hover:bg-slate-600 text-xs"
