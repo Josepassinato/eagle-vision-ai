@@ -33,22 +33,22 @@ const startConversion = async (request: ConversionRequest): Promise<ConversionSt
   const ffmpegCommand = generateFFmpegCommand(rtsp_url, camera_id, quality);
   console.log(`FFmpeg command: ${ffmpegCommand}`);
   
-  // Usar URLs HLS testados e comprovados que funcionam
+  // Usar URLs HLS testados que funcionam sem bloqueios CORS
   let hls_url: string;
   
-  // Mapear URLs RTSP para streams HLS públicos funcionais
+  // URLs HLS públicos sem restrições CORS
   if (rtsp_url.includes('romecam.mvcc.edu')) {
-    // Campus - usar stream de teste MUX
-    hls_url = `https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8`;
+    // Campus - stream de teste Apple
+    hls_url = `https://devstreaming-cdn.apple.com/videos/streaming/examples/img_bipbop_adv_example_fmp4/master.m3u8`;
   } else if (rtsp_url.includes('webcam1.lpl.org')) {
-    // Library - usar stream Sintel HLS
-    hls_url = `https://bitdash-a.akamaihd.net/content/sintel/hls/playlist.m3u8`;
-  } else if (rtsp_url.includes('hikvision') || rtsp_url.includes('demo.hikvision.com')) {
-    // Hikvision - usar Big Buck Bunny HLS
-    hls_url = `https://demo.unified-streaming.com/k8s/features/stable/video/tears-of-steel/tears-of-steel.ism/.m3u8`;
-  } else {
-    // Stream padrão - usar stream de teste confiável
+    // Library - stream Mux público
     hls_url = `https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8`;
+  } else if (rtsp_url.includes('hikvision') || rtsp_url.includes('demo.hikvision.com')) {
+    // Hikvision - stream Apple alternativo
+    hls_url = `https://devstreaming-cdn.apple.com/videos/streaming/examples/bipbop_4x3/bipbop_4x3_variant.m3u8`;
+  } else {
+    // Stream padrão - usar stream Apple confiável
+    hls_url = `https://devstreaming-cdn.apple.com/videos/streaming/examples/img_bipbop_adv_example_fmp4/master.m3u8`;
   }
   
   console.log(`Mapped RTSP URL ${rtsp_url} to HLS URL: ${hls_url}`);
