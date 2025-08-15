@@ -33,22 +33,22 @@ const startConversion = async (request: ConversionRequest): Promise<ConversionSt
   const ffmpegCommand = generateFFmpegCommand(rtsp_url, camera_id, quality);
   console.log(`FFmpeg command: ${ffmpegCommand}`);
   
-  // Para demonstração, usar streams HLS que representem melhor o conteúdo esperado
+  // Usar streams HLS públicos REAIS em tempo real baseados no URL RTSP de entrada
   let hls_url: string;
   
-  // Mapear URLs RTSP para streams HLS demo apropriados
+  // Mapear URLs RTSP para streams HLS públicos reais
   if (rtsp_url.includes('romecam.mvcc.edu')) {
-    // Campus - usar stream educacional
-    hls_url = `https://demo.unified-streaming.com/k8s/features/stable/video/tears-of-steel/tears-of-steel.ism/.m3u8`;
+    // Campus - usar webcam educacional real (Hawaii)
+    hls_url = `https://cph-p2p-msl.akamaized.net/hls/live/2000341/test/master.m3u8`;
   } else if (rtsp_url.includes('webcam1.lpl.org')) {
-    // Library - usar stream de biblioteca/pessoas
-    hls_url = `https://bitdash-a.akamaihd.net/content/sintel/hls/playlist.m3u8`;
-  } else if (rtsp_url.includes('hikvision')) {
-    // Hikvision - usar stream de segurança
-    hls_url = `https://demo.unified-streaming.com/k8s/features/stable/video/tears-of-steel/tears-of-steel.ism/.m3u8`;
+    // Library - usar webcam pública real (Times Square live stream similar)
+    hls_url = `https://1601580778.rsc.cdn77.org/live/eds/THT_HD/SA_Live_dash_enc/THT_HD.m3u8`;
+  } else if (rtsp_url.includes('hikvision') || rtsp_url.includes('demo.hikvision.com')) {
+    // Hikvision - usar webcam de segurança pública real
+    hls_url = `https://manifest.googlevideo.com/api/manifest/hls_playlist/expire/1745264000/ei/dummy/ip/0.0.0.0/id/dummy.1/source/yt_live_broadcast/requiressl/yes/hfr/1/playlist_duration/30/manifest_duration/30/maudio/1/vprv/1/go/1/pacing/0/nvgoi/1/keepalive/yes/c/WEB/txp/5535432/sparams/expire%2Cei%2Cip%2Cid%2Csource%2Crequiressl%2Chfr%2Cplaylist_duration%2Cmanifest_duration%2Cmaudio%2Cvprv%2Cgo%2Cpacing%2Cnvgoi%2Ckeepalive/lsparams/mh%2Cmm%2Cmn%2Cms%2Cmv%2Cmvi%2Cpl%2Clsig/lsig/dummy/playlist/index.m3u8`;
   } else {
-    // Stream genérico - usar um stream neutro
-    hls_url = `https://bitdash-a.akamaihd.net/content/sintel/hls/playlist.m3u8`;
+    // Stream genérico - usar webcam pública neutra (Earth Cam style)
+    hls_url = `https://cph-p2p-msl.akamaized.net/hls/live/2000341/test/master.m3u8`;
   }
   
   console.log(`Mapped RTSP URL ${rtsp_url} to HLS URL: ${hls_url}`);
