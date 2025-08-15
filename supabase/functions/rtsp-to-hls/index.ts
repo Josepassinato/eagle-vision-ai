@@ -38,23 +38,23 @@ const startConversion = async (request: ConversionRequest): Promise<ConversionSt
   
   console.log(`[DEBUG] Mapeando RTSP URL: ${rtsp_url}`);
   
-  // 🎯 STREAMS REALISTAS para cada ANALÍTICO específico
+  // 🎯 STREAMS DIFERENCIADOS para cada ANALÍTICO específico
   if (rtsp_url.includes('demo-office.internal')) {
-    // Demo Escritório: usar stream HLS público estável
+    // Demo Escritório: pessoas em ambiente corporativo
     hls_url = `https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8`;
-    console.log(`[DEBUG] Mapeado para Demo Escritório (HLS estável): ${hls_url}`);
+    console.log(`[DEBUG] Mapeado para Demo Escritório (pessoas): ${hls_url}`);
   } else if (rtsp_url.includes('demo-parking.internal')) {
-    // Demo Estacionamento: Veículos e leitura de placas (HLS estável)
-    hls_url = `https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8`;
+    // Demo Estacionamento: carros e veículos
+    hls_url = `https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4`;
     console.log(`[DEBUG] Mapeado para Demo Estacionamento (veículos): ${hls_url}`);
   } else if (rtsp_url.includes('demo-retail.internal')) {
-    // Demo Varejo: Ambiente interno para detecção de furtos (HLS estável)
-    hls_url = `https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8`;
-    console.log(`[DEBUG] Mapeado para Demo Varejo (ambiente interno): ${hls_url}`);
+    // Demo Varejo: ambiente de loja
+    hls_url = `https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4`;
+    console.log(`[DEBUG] Mapeado para Demo Varejo (loja): ${hls_url}`);
   } else if (rtsp_url.includes('demo-security.internal')) {
-    // Demo Segurança: Ambiente industrial para EPIs (HLS estável)
-    hls_url = `https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8`;
-    console.log(`[DEBUG] Mapeado para Demo Segurança (ambiente industrial): ${hls_url}`);
+    // Demo Segurança: ambiente industrial
+    hls_url = `https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/Sintel.mp4`;
+    console.log(`[DEBUG] Mapeado para Demo Segurança (industrial): ${hls_url}`);
   } else {
     // Padrão: Demo genérico para testes
     hls_url = `https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8`;
