@@ -105,16 +105,47 @@ const Live: React.FC = () => {
         console.log('✅ HLS.js suportado, iniciando player...');
         const hls = new Hls({ 
           enableWorker: true,
-          debug: true // Habilitar debug do HLS.js
+          debug: false, // Desabilitar debug para reduzir spam
+          // Configurações para resolver bufferSeekOverHole
+          maxBufferLength: 30,
+          maxBufferSize: 60 * 1000 * 1000, // 60MB
+          maxBufferHole: 0.5,
+          highBufferWatchdogPeriod: 2,
+          nudgeOffset: 0.1,
+          nudgeMaxRetry: 3,
+          maxFragLookUpTolerance: 0.25,
+          liveSyncDurationCount: 3,
+          liveMaxLatencyDurationCount: 10,
+          // Configurações para ABR
+          abrEwmaFastLive: 3.0,
+          abrEwmaSlowLive: 9.0
         });
         
         hls.on(Hls.Events.ERROR, (event, data) => {
           console.error('❌ Erro HLS.js:', data);
-          toast({ 
-            title: "Erro no player HLS", 
-            description: `${data.type}: ${data.details}`, 
-            variant: "destructive" 
-          });
+          
+          // Tratar erro bufferSeekOverHole especificamente
+          if (data.details === 'bufferSeekOverHole') {
+            console.log('🔧 Tentando recuperar de bufferSeekOverHole...');
+            hls.recoverMediaError();
+            return;
+          }
+          
+          // Outros erros de buffer
+          if (data.type === 'mediaError') {
+            console.log('🔧 Tentando recuperar de erro de mídia...');
+            hls.recoverMediaError();
+            return;
+          }
+          
+          // Apenas mostrar toast para erros fatais não recuperáveis
+          if (data.fatal) {
+            toast({ 
+              title: "Erro no player HLS", 
+              description: `${data.type}: ${data.details}`, 
+              variant: "destructive" 
+            });
+          }
         });
         
         hls.loadSource(currentStreamUrl);
