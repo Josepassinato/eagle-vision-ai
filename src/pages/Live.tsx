@@ -313,28 +313,16 @@ const handleDVRChange = (dvrId: string) => {
         quality: 'medium'
       });
 
-      const { data: session } = await supabase.auth.getSession();
-      if (!session.session?.access_token) {
-        throw new Error('Usuário não autenticado');
-      }
-
-      const response = await fetch('https://avbswnnywjyvqfxezgfl.supabase.co/functions/v1/rtsp-to-hls', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${session.session.access_token}`,
-          'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF2YnN3bm55d2p5dnFmeGV6Z2ZsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQ3NTI3ODQsImV4cCI6MjA3MDMyODc4NH0.fmpP6MWxsz-GYT44mAvBfR5rXIFdR-PoUbswzkeClo4',
-          'Content-Type': 'application/json',
-          'x-client-info': 'supabase-js-web/2.54.0'
-        },
-        body: JSON.stringify({
+      const { data: result, error: fnError } = await supabase.functions.invoke('rtsp-to-hls', {
+        body: {
           rtsp_url: streamUrl,
           camera_id: cameraId,
           quality: 'medium',
           action: 'start'
-        })
+        }
       });
 
-      const result = await response.json();
+      if (fnError) throw fnError;
       console.log('Resposta da conversão:', { data: result, error: null });
 
       if (result.success) {
