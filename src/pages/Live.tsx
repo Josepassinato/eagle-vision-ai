@@ -95,24 +95,60 @@ const Live: React.FC = () => {
       // Vamos mostrar uma mensagem informativa
       if (currentStreamUrl.startsWith('rtsp://')) {
         // Para streams RTSP, mostrar informação ao usuário
+        console.log('🔴 Stream RTSP detectado, precisa conversão:', currentStreamUrl);
         return;
       }
 
+      console.log('🎬 Configurando player HLS para:', currentStreamUrl);
+
       if (Hls.isSupported()) {
-        const hls = new Hls({ enableWorker: true });
+        console.log('✅ HLS.js suportado, iniciando player...');
+        const hls = new Hls({ 
+          enableWorker: true,
+          debug: true // Habilitar debug do HLS.js
+        });
+        
+        hls.on(Hls.Events.ERROR, (event, data) => {
+          console.error('❌ Erro HLS.js:', data);
+          toast({ 
+            title: "Erro no player HLS", 
+            description: `${data.type}: ${data.details}`, 
+            variant: "destructive" 
+          });
+        });
+        
         hls.loadSource(currentStreamUrl);
         hls.attachMedia(video);
+        
         hls.on(Hls.Events.MANIFEST_PARSED, () => {
-          video.play().catch(() => {});
+          console.log('✅ Manifest HLS carregado com sucesso');
+          video.play().catch((e) => {
+            console.error('❌ Erro ao iniciar reprodução:', e);
+          });
         });
-        return () => hls.destroy();
+        
+        return () => {
+          console.log('🧹 Limpando player HLS');
+          hls.destroy();
+        };
       } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+        console.log('🍎 Usando player nativo Safari/iOS');
         video.src = currentStreamUrl;
-        const onLoaded = () => video.play().catch(() => {});
+        const onLoaded = () => video.play().catch((e) => {
+          console.error('❌ Erro ao iniciar reprodução nativa:', e);
+        });
         video.addEventListener('loadedmetadata', onLoaded);
         return () => video.removeEventListener('loadedmetadata', onLoaded);
+      } else {
+        console.error('❌ HLS não suportado neste navegador');
+        toast({ 
+          title: "HLS não suportado", 
+          description: "Este navegador não suporta reprodução HLS", 
+          variant: "destructive" 
+        });
       }
     } catch (e) {
+      console.error('❌ Erro geral no player:', e);
       toast({ title: "Erro no player", description: String(e), variant: "destructive" });
     }
   }, [currentStreamUrl]);
