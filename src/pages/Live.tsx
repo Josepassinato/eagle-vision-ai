@@ -71,8 +71,16 @@ export default function Live() {
 
       if (response.ok) {
         const result = await response.json();
-        if (result.success && result.configs) {
-          setDvrs(result.configs);
+        if (result.success && Array.isArray(result.configs)) {
+          const configs: DVRConfig[] = result.configs;
+          setDvrs(configs);
+          // Auto-selecionar a primeira configuração (preferindo conectada) se nada estiver selecionado
+          if (!cameraId && configs.length > 0) {
+            const preferred: any = (configs as any[]).find(c => (c as any).status === 'connected') || configs[0];
+            const fallbackPort = preferred.port ?? 554;
+            setCameraId(preferred.id);
+            setStreamUrl(preferred.stream_url || `rtsp://${preferred.host}:${fallbackPort}/stream`);
+          }
         }
       }
     } catch (error) {
@@ -349,7 +357,10 @@ const handleDVRChange = (dvrId: string) => {
       console.log('Resposta da conversão:', { data: result, error: null });
 
       if (result.success) {
-        const newStreamUrl = result.conversion.hls_url;
+        const newStreamUrl = result?.conversion?.hls_url || result?.hls_url;
+        if (!newStreamUrl) {
+          throw new Error('HLS URL não retornada pela função');
+        }
         setStreamUrl(newStreamUrl);
         
         if (result.instructions) {
@@ -500,7 +511,7 @@ const handleDVRChange = (dvrId: string) => {
                   <SelectTrigger className="bg-slate-700 border-slate-600 text-white">
                     <SelectValue placeholder="Selecionar DVR..." />
                   </SelectTrigger>
-                  <SelectContent className="bg-slate-800 border-slate-600">
+                  <SelectContent className="z-50 bg-slate-800 border-slate-600 shadow-xl">
                     {dvrs.map((dvr) => (
                       <SelectItem key={dvr.id} value={dvr.id} className="text-white hover:bg-slate-700">
                         {dvr.name}
