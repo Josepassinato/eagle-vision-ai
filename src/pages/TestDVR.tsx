@@ -481,16 +481,21 @@ const TestDVR = () => {
       const { data, error } = await supabase.functions.invoke('rtsp-to-hls', {
         body: {
           rtsp_url: testResult.stream_url,
-          camera_id: `dvr-test-${Date.now()}`
+          camera_id: `dvr-test-${Date.now()}`,
+          quality: 'medium',
+          action: 'start'
         }
       });
 
       if (error) throw error;
 
       if (data.success) {
-        setStreamUrl(data.hls_url);
+        const hlsUrl = data?.conversion?.hls_url || data?.hls_url;
+        if (!hlsUrl) {
+          throw new Error("HLS URL não retornada pela função");
+        }
+        setStreamUrl(hlsUrl);
         setShowLiveViewer(true);
-        
         toast({
           title: "Stream convertido!",
           description: "Visualização ao vivo iniciada",
