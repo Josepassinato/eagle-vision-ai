@@ -121,18 +121,30 @@ const Live: React.FC = () => {
           abrEwmaSlowLive: 9.0
         });
         
+        let bufferHoleRetries = 0;
+        const maxBufferHoleRetries = 3;
+        
         hls.on(Hls.Events.ERROR, (event, data) => {
           console.error('❌ Erro HLS.js:', data);
           
-          // Tratar erro bufferSeekOverHole especificamente
+          // Tratar erro bufferSeekOverHole com limite de tentativas
           if (data.details === 'bufferSeekOverHole') {
-            console.log('🔧 Tentando recuperar de bufferSeekOverHole...');
-            hls.recoverMediaError();
+            if (bufferHoleRetries < maxBufferHoleRetries) {
+              bufferHoleRetries++;
+              console.log(`🔧 Tentando recuperar de bufferSeekOverHole... (tentativa ${bufferHoleRetries}/${maxBufferHoleRetries})`);
+              hls.recoverMediaError();
+            } else {
+              console.log('🚫 Muitas tentativas de recovery - ignorando bufferSeekOverHole');
+              // Não fazer nada - deixar o vídeo continuar mesmo com o erro
+            }
             return;
           }
           
-          // Outros erros de buffer
-          if (data.type === 'mediaError') {
+          // Reset contador para outros tipos de erro
+          bufferHoleRetries = 0;
+          
+          // Outros erros de buffer com limite
+          if (data.type === 'mediaError' && !data.fatal) {
             console.log('🔧 Tentando recuperar de erro de mídia...');
             hls.recoverMediaError();
             return;
