@@ -86,8 +86,11 @@ const Live: React.FC = () => {
     const video = videoRef.current;
     if (!video) return;
 
+    // Configurações anti-loop
     video.muted = true;
     video.playsInline = true;
+    video.loop = false; // FORÇA não fazer loop
+    video.preload = "none"; // Não pré-carregar
     (video as any).autoplay = true;
 
     try {
@@ -105,20 +108,21 @@ const Live: React.FC = () => {
         console.log('✅ HLS.js suportado, iniciando player...');
         const hls = new Hls({ 
           enableWorker: true,
-          debug: false, // Desabilitar debug para reduzir spam
-          // Configurações para resolver bufferSeekOverHole
-          maxBufferLength: 30,
-          maxBufferSize: 60 * 1000 * 1000, // 60MB
-          maxBufferHole: 0.5,
-          highBufferWatchdogPeriod: 2,
-          nudgeOffset: 0.1,
-          nudgeMaxRetry: 3,
-          maxFragLookUpTolerance: 0.25,
-          liveSyncDurationCount: 3,
-          liveMaxLatencyDurationCount: 10,
-          // Configurações para ABR
-          abrEwmaFastLive: 3.0,
-          abrEwmaSlowLive: 9.0
+          debug: false,
+          // Configurações para EVITAR loop infinito
+          maxBufferLength: 10, // Buffer menor
+          maxBufferSize: 30 * 1000 * 1000, // 30MB apenas
+          maxBufferHole: 2, // Tolerar buracos maiores
+          highBufferWatchdogPeriod: 1, // Verificar menos frequentemente
+          nudgeOffset: 0.2, // Pulo maior
+          nudgeMaxRetry: 1, // Máximo 1 tentativa de pulo
+          maxFragLookUpTolerance: 1.0, // Tolerância maior
+          liveSyncDurationCount: 2, // Menos sincronização
+          liveMaxLatencyDurationCount: 5,
+          // Desabilitar algumas otimizações que podem causar loop
+          autoStartLoad: true,
+          startPosition: -1, // Começar do atual
+          capLevelToPlayerSize: false
         });
         
         let bufferHoleRetries = 0;
@@ -485,6 +489,27 @@ const Live: React.FC = () => {
               🎬 Converter RTSP→HLS
             </Button>
           )}
+          <Button 
+            onClick={() => {
+              // Reset forçado do player para parar loops
+              const video = videoRef.current;
+              if (video) {
+                video.pause();
+                video.currentTime = 0;
+                video.load(); // Reset completo
+              }
+              setCurrentStreamUrl(''); // Força reload
+              setTimeout(() => setCurrentStreamUrl(currentStreamUrl), 100);
+              toast({
+                title: "Player resetado",
+                description: "Forçando reinício para parar loops"
+              });
+            }}
+            variant="destructive" 
+            size="sm"
+          >
+            🔄 Reset Player
+          </Button>
         </div>
         <div className="ml-auto flex items-center gap-2">
           <Label htmlFor="sim">Simular detecções</Label>
