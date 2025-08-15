@@ -75,6 +75,9 @@ export const IPCameraSetup = ({ onCameraAdded }: IPCameraSetupProps) => {
         body: {
           action: 'test-connection',
           ...config
+        },
+        headers: {
+          'x-org-id': 'demo-org-id'
         }
       });
 
@@ -118,6 +121,9 @@ export const IPCameraSetup = ({ onCameraAdded }: IPCameraSetupProps) => {
         body: {
           action: 'save-config',
           ...config
+        },
+        headers: {
+          'x-org-id': 'demo-org-id'
         }
       });
 

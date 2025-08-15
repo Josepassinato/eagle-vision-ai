@@ -37,7 +37,11 @@ const Setup = () => {
 
   const loadSavedCameras = async () => {
     try {
-      const { data, error } = await supabase.functions.invoke('ip-camera-manager');
+      const { data, error } = await supabase.functions.invoke('ip-camera-manager', {
+        headers: {
+          'x-org-id': 'demo-org-id'
+        }
+      });
       
       if (error) throw error;
       
