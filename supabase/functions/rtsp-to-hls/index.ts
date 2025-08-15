@@ -33,25 +33,25 @@ const startConversion = async (request: ConversionRequest): Promise<ConversionSt
   const ffmpegCommand = generateFFmpegCommand(rtsp_url, camera_id, quality);
   console.log(`FFmpeg command: ${ffmpegCommand}`);
   
-  // 🎯 MAPEAMENTO GARANTIDO - URLs HLS diferentes com vídeos distintos
+  // 🎯 URLs HLS com VÍDEO REAL em movimento (não imagens estáticas)
   let hls_url: string;
   
-  // Mapear configurações demo para streams HLS visualmente diferentes
+  // Mapear configurações demo para streams HLS com vídeo dinâmico
   if (rtsp_url.includes('demo-office.internal')) {
-    // Escritório - Stream Apple com múltiplas cenas/qualidades
-    hls_url = `https://devstreaming-cdn.apple.com/videos/streaming/examples/img_bipbop_adv_example_fmp4/master.m3u8`;
+    // Escritório - Big Buck Bunny (vídeo clássico de teste)
+    hls_url = `https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8`;
   } else if (rtsp_url.includes('demo-parking.internal')) {
-    // Estacionamento - Stream com formato 4:3
-    hls_url = `https://devstreaming-cdn.apple.com/videos/streaming/examples/bipbop_4x3/gear1/prog_index.m3u8`;
+    // Estacionamento - Sintel (curta de animação)  
+    hls_url = `https://bitdash-a.akamaihd.net/content/sintel/hls/playlist.m3u8`;
   } else if (rtsp_url.includes('demo-retail.internal')) {
-    // Loja - Stream formato 16:9 widescreen  
-    hls_url = `https://devstreaming-cdn.apple.com/videos/streaming/examples/bipbop_16x9/gear1/prog_index.m3u8`;
+    // Loja - Tears of Steel (vídeo de teste)
+    hls_url = `https://bitdash-a.akamaihd.net/content/MI201109210084_1/m3u8s/f08e80da-bf1d-4e3d-8899-f0f6155f6efa.m3u8`;
   } else if (rtsp_url.includes('demo-security.internal')) {
-    // Segurança - Stream TS segments (diferente do MP4)
-    hls_url = `https://devstreaming-cdn.apple.com/videos/streaming/examples/img_bipbop_adv_example_ts/v9/prog_index.m3u8`;
+    // Segurança - Demo da Bitmovin
+    hls_url = `https://bitmovin-a.akamaihd.net/content/playhouse-vr/m3u8s/105560.m3u8`;
   } else {
-    // Stream padrão para qualquer outro caso
-    hls_url = `https://devstreaming-cdn.apple.com/videos/streaming/examples/img_bipbop_adv_example_fmp4/master.m3u8`;
+    // Stream padrão - Big Buck Bunny
+    hls_url = `https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8`;
   }
   
   console.log(`Mapped RTSP URL ${rtsp_url} to HLS URL: ${hls_url}`);
