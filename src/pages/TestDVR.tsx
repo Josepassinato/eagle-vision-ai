@@ -10,7 +10,7 @@ import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
-import { Loader2, CheckCircle, XCircle, Wifi, Search, Play, Square, Activity, Eye, Users, Settings } from "lucide-react";
+import { Loader2, CheckCircle, XCircle, Wifi, Search, Play, Square, Activity, Eye, Users, Settings, Video } from "lucide-react";
 
 interface TestResult {
   success: boolean;
@@ -45,6 +45,7 @@ const TestDVR = () => {
   const [activeStreams, setActiveStreams] = useState<{[key: string]: boolean}>({});
   const [liveEvents, setLiveEvents] = useState<AnalyticsEvent[]>([]);
   const [eventCount, setEventCount] = useState({ people: 0, vehicles: 0, motion: 0 });
+  const [showDemoStreams, setShowDemoStreams] = useState(false);
   
   const [formData, setFormData] = useState({
     protocol: "hikvision",
@@ -464,6 +465,14 @@ const TestDVR = () => {
           <p className="text-muted-foreground">Configure DVRs/NVRs e teste analytics em tempo real</p>
         </div>
         <div className="flex gap-2">
+          <Button 
+            onClick={() => setShowDemoStreams(!showDemoStreams)} 
+            variant={showDemoStreams ? "default" : "outline"}
+            className="bg-blue-600 hover:bg-blue-700 text-white"
+          >
+            <Video className="w-4 h-4 mr-2" />
+            Demo Streams
+          </Button>
           <Button onClick={scanNetwork} disabled={scanning} variant="outline">
             {scanning ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Search className="w-4 h-4 mr-2" />}
             Scan de Rede
@@ -474,6 +483,68 @@ const TestDVR = () => {
           </Button>
         </div>
       </div>
+
+      {/* 🎯 SEÇÃO DE DEMO STREAMS */}
+      {showDemoStreams && (
+        <Card className="border-blue-200 bg-blue-50/50">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Video className="w-5 h-5 text-blue-600" />
+              🎯 Demo Streams Garantidos
+            </CardTitle>
+            <p className="text-sm text-muted-foreground">
+              Configurações de teste que <strong>sempre funcionam</strong> - ideais para ajustar analíticos
+            </p>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {demoStreams.map((demo, index) => (
+                <div key={index} className="border rounded-lg p-4 bg-white space-y-3">
+                  <div className="flex items-start justify-between">
+                    <div className="space-y-1">
+                      <h3 className="font-semibold text-sm">{demo.name}</h3>
+                      <p className="text-xs text-muted-foreground">{demo.description}</p>
+                    </div>
+                    <Badge variant="default" className="bg-green-100 text-green-800 text-xs">
+                      ✅ Garantido
+                    </Badge>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <div className="flex gap-1 flex-wrap">
+                      <Badge variant="outline" className="text-xs">
+                        🏢 {demo.host}
+                      </Badge>
+                      <Badge variant="secondary" className="text-xs">
+                        📊 {demo.analytics === 'people_count' ? 'Pessoas' : 
+                            demo.analytics === 'vehicle_count' ? 'Veículos' : 
+                            demo.analytics === 'behavior_analysis' ? 'Comportamento' :
+                            'Multi-detecção'}
+                      </Badge>
+                    </div>
+                    
+                    <Button 
+                      size="sm" 
+                      onClick={() => loadDemoStream(demo)}
+                      className="w-full"
+                      variant="outline"
+                    >
+                      <Play className="w-3 h-3 mr-1" />
+                      Usar configuração
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+            
+            <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg">
+              <p className="text-sm text-green-800">
+                <strong>💡 Como usar:</strong> Clique em "Usar configuração" → "Testar Conexão" → "Salvar Configuração" → Vá para <strong>/live</strong> para ver o vídeo com analytics!
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Estatísticas em Tempo Real */}
       {Object.values(activeStreams).some(active => active) && (
