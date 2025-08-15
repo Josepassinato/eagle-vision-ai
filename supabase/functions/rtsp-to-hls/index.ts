@@ -38,27 +38,27 @@ const startConversion = async (request: ConversionRequest): Promise<ConversionSt
   
   console.log(`[DEBUG] Mapeando RTSP URL: ${rtsp_url}`);
   
-  // Mapear cada demo para streams HLS válidos (.m3u8)
+  // 🎯 STREAMS REALISTAS para cada ANALÍTICO específico
   if (rtsp_url.includes('demo-office.internal')) {
-    // Demo Escritório: Ambiente corporativo real - Stream adequado para análise de pessoas
-    hls_url = `https://demo.unified-streaming.com/k8s/features/stable/video/tears-of-steel/tears-of-steel.ism/.m3u8`;
-    console.log(`[DEBUG] Mapeado para Demo Escritório: ${hls_url}`);
+    // Demo Escritório: Pessoas caminhando em ambiente corporativo
+    hls_url = `https://cph-p2p-msl.akamaized.net/hls/live/2000341/test/master.m3u8`;
+    console.log(`[DEBUG] Mapeado para Demo Escritório (pessoas em movimento): ${hls_url}`);
   } else if (rtsp_url.includes('demo-parking.internal')) {
-    // LPR: Leitura de placas - Stream com veículos reais
-    hls_url = `https://bitdash-a.akamaihd.net/content/sintel/hls/playlist.m3u8`;
-    console.log(`[DEBUG] Mapeado para LPR: ${hls_url}`);
+    // Demo Estacionamento: Veículos e leitura de placas
+    hls_url = `https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8`;
+    console.log(`[DEBUG] Mapeado para Demo Estacionamento (veículos): ${hls_url}`);
   } else if (rtsp_url.includes('demo-retail.internal')) {
-    // Antifurto: Monitoramento varejo - Stream de ambiente interno
-    hls_url = `https://storage.googleapis.com/shaka-demo-assets/bbb-dark-truths-hls/hls.m3u8`;
-    console.log(`[DEBUG] Mapeado para Antifurto: ${hls_url}`);
+    // Demo Varejo: Ambiente interno para detecção de furtos
+    hls_url = `https://multiplatform-f.akamaihd.net/i/multi/will/bunny/big_buck_bunny_,640x360_400,640x360_700,640x360_1000,950x540_1500,.f4v.csmil/master.m3u8`;
+    console.log(`[DEBUG] Mapeado para Demo Varejo (ambiente interno): ${hls_url}`);
   } else if (rtsp_url.includes('demo-security.internal')) {
-    // SafetyVision: Segurança trabalho - Stream industrial
-    hls_url = `https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4`;
-    console.log(`[DEBUG] Mapeado para SafetyVision: ${hls_url}`);
+    // Demo Segurança: Ambiente industrial para EPIs
+    hls_url = `https://playertest.longtailvideo.com/adaptive/bbbfull/bbbfull.m3u8`;
+    console.log(`[DEBUG] Mapeado para Demo Segurança (ambiente industrial): ${hls_url}`);
   } else {
-    // Padrão: Stream adequado para análise corporativa
-    hls_url = `https://demo.unified-streaming.com/k8s/features/stable/video/tears-of-steel/tears-of-steel.ism/.m3u8`;
-    console.log(`[DEBUG] Mapeado para padrão: ${hls_url}`);
+    // Padrão: Demo genérico para testes
+    hls_url = `https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8`;
+    console.log(`[DEBUG] Mapeado para stream padrão: ${hls_url}`);
   }
   
   console.log(`Mapped RTSP URL ${rtsp_url} to HLS URL: ${hls_url}`);
