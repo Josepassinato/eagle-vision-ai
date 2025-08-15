@@ -36,6 +36,18 @@ export default function Live() {
     loadDVRs();
   }, []);
 
+  // Recarregar configs quando a sessão autenticar/mudar
+  useEffect(() => {
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session?.access_token) {
+        loadDVRs();
+      }
+    });
+    return () => {
+      try { listener?.subscription?.unsubscribe?.(); } catch {}
+    };
+  }, []);
+
   const loadDVRs = async () => {
     try {
       const { data: session } = await supabase.auth.getSession();
@@ -484,7 +496,7 @@ const handleDVRChange = (dvrId: string) => {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
                 <label className="block text-sm font-medium text-slate-300 mb-2">DVR/Câmera</label>
-                <Select value={cameraId} onValueChange={handleDVRChange}>
+                <Select value={cameraId} onValueChange={handleDVRChange} disabled={dvrs.length === 0}>
                   <SelectTrigger className="bg-slate-700 border-slate-600 text-white">
                     <SelectValue placeholder="Selecionar DVR..." />
                   </SelectTrigger>
@@ -495,7 +507,12 @@ const handleDVRChange = (dvrId: string) => {
                       </SelectItem>
                     ))}
                   </SelectContent>
-                </Select>
+                 </Select>
+                 {dvrs.length === 0 && (
+                   <p className="mt-2 text-xs text-slate-400">
+                     Nenhuma configuração encontrada. Salve em Test DVR e clique em Recarregar.
+                   </p>
+                 )}
               </div>
 
               <div>
@@ -508,16 +525,23 @@ const handleDVRChange = (dvrId: string) => {
                 />
               </div>
 
-              <div className="flex items-end space-x-2">
-                <Button 
-                  onClick={resetPlayer}
-                  variant="outline"
-                  className="bg-slate-700 border-slate-600 text-white hover:bg-slate-600"
-                >
-                  <RotateCcw className="w-4 h-4 mr-2" />
-                  Reset Player
-                </Button>
-              </div>
+               <div className="flex items-end space-x-2">
+                 <Button 
+                   onClick={resetPlayer}
+                   variant="outline"
+                   className="bg-slate-700 border-slate-600 text-white hover:bg-slate-600"
+                 >
+                   <RotateCcw className="w-4 h-4 mr-2" />
+                   Reset Player
+                 </Button>
+                 <Button 
+                   onClick={loadDVRs}
+                   variant="outline"
+                   className="bg-slate-700 border-slate-600 text-white hover:bg-slate-600"
+                 >
+                   Recarregar DVRs
+                 </Button>
+               </div>
             </div>
 
             {/* Demo Stream Buttons */}
