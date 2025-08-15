@@ -1,32 +1,45 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
-import Hls from "hls.js";
-import { LIVE_HLS_URL, DEMO_VIDEO_STREAM } from "@/config";
-import { useRealtimeEvents } from "@/hooks/useRealtimeEvents";
-import { useRealtimeDetections } from "@/hooks/useRealtimeDetections";
-import type { RealtimeEvent } from "@/hooks/useRealtimeEvents";
-import OverlayCanvas from "@/components/OverlayCanvas";
-import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Switch } from "@/components/ui/switch";
-import { Label } from "@/components/ui/label";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { supabase } from "@/integrations/supabase/client";
-import { toast } from "@/hooks/use-toast";
-import StreamDiagnostics from "@/components/StreamDiagnostics";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { ChevronDown, AlertTriangle } from "lucide-react";
+import React, { useState, useEffect, useRef, useMemo } from 'react';
+import Hls from 'hls.js';
+import { useRealtimeEvents } from '@/hooks/useRealtimeEvents';
+import { useRealtimeDetections } from '@/hooks/useRealtimeDetections';
+import { Button } from '@/components/ui/button';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Input } from '@/components/ui/input';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import OverlayCanvas from '@/components/OverlayCanvas';
+import StreamDiagnostics from '@/components/StreamDiagnostics';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { ChevronDown, ChevronUp, Play, Square, RotateCcw } from 'lucide-react';
 
-const Live: React.FC = () => {
-  const videoRef = useRef<HTMLVideoElement | null>(null);
-  const [cameraId, setCameraId] = useState<string>("cam-real-01");
-  const [availableDVRs, setAvailableDVRs] = useState<any[]>([]);
-  const [selectedDVR, setSelectedDVR] = useState<any>(null);
-  const [currentStreamUrl, setCurrentStreamUrl] = useState<string>(LIVE_HLS_URL);
-  const { events } = useRealtimeEvents(cameraId);
-  const { latestDetection } = useRealtimeDetections(cameraId);
+interface DVRConfig {
+  id: string;
+  name: string;
+  host: string;
+  protocol: string;
+}
+
+interface RealtimeEvent {
+  id: string;
+  timestamp: string;
+  detection_type: string;
+  confidence: number;
+  bbox?: {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  };
+  metadata?: any;
+}
+
+export default function Live() {
+  const [cameraId, setCameraId] = useState('');
+  const [dvrs, setDvrs] = useState<DVRConfig[]>([]);
+  const [streamUrl, setStreamUrl] = useState('');
   const [simulate, setSimulate] = useState(false);
-  const [simEvent, setSimEvent] = useState<RealtimeEvent | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
 
   // Carregar DVRs configurados
@@ -58,14 +71,7 @@ const Live: React.FC = () => {
       if (response.ok) {
         const result = await response.json();
         if (result.success && result.configs) {
-          // Carregar TODAS as configurações salvas (não apenas connected)
-          setAvailableDVRs(result.configs);
-          
-          if (result.configs.length > 0) {
-            setSelectedDVR(result.configs[0]);
-            setCameraId(result.configs[0].id);
-            setCurrentStreamUrl(result.configs[0].stream_url);
-          }
+          setDvrs(result.configs);
         }
       }
     } catch (error) {
@@ -74,172 +80,312 @@ const Live: React.FC = () => {
   };
 
   const handleDVRChange = (dvrId: string) => {
-    const dvr = availableDVRs.find(d => d.id === dvrId);
+    const dvr = dvrs.find(d => d.id === dvrId);
     if (dvr) {
-      setSelectedDVR(dvr);
-      setCameraId(dvr.id);
-      setCurrentStreamUrl(dvr.stream_url);
+      setCameraId(dvrId);
+      setStreamUrl(`rtsp://${dvr.host}:8554/stream`);
     }
   };
 
-  useEffect(() => {
-    const video = videoRef.current;
-    if (!video) return;
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const hlsRef = useRef<Hls | null>(null);
+  const { toast } = useToast();
 
-    // Configurações anti-loop
+  // ========== HLS Player Setup com DEBUG DETALHADO ==========
+  useEffect(() => {
+    if (!streamUrl || !videoRef.current) return;
+
+    const video = videoRef.current;
+    
+    // Configurar video element
     video.muted = true;
     video.playsInline = true;
-    video.loop = false; // FORÇA não fazer loop
-    video.preload = "none"; // Não pré-carregar
-    (video as any).autoplay = true;
+    video.controls = true;
+    video.loop = false;
+    video.preload = "metadata";
 
-    try {
-      // Para streams RTSP, não podemos usar HLS diretamente no browser
-      // Vamos mostrar uma mensagem informativa
-      if (currentStreamUrl.startsWith('rtsp://')) {
-        // Para streams RTSP, mostrar informação ao usuário
-        console.log('🔴 Stream RTSP detectado, precisa conversão:', currentStreamUrl);
-        return;
-      }
+    console.log("🎬 [DEBUG] Configurando player para URL:", streamUrl);
+    console.log("🔍 [DEBUG] Tipo de URL detectado:", streamUrl.includes('.m3u8') ? 'HLS' : streamUrl.includes('.mp4') ? 'MP4' : 'Outro');
 
-      console.log('🎬 Configurando player HLS para:', currentStreamUrl);
-
-      if (Hls.isSupported()) {
-        console.log('✅ HLS.js suportado, iniciando player...');
-        const hls = new Hls({ 
-          enableWorker: true,
-          debug: false,
-          // Configurações para EVITAR loop infinito
-          maxBufferLength: 10, // Buffer menor
-          maxBufferSize: 30 * 1000 * 1000, // 30MB apenas
-          maxBufferHole: 2, // Tolerar buracos maiores
-          highBufferWatchdogPeriod: 1, // Verificar menos frequentemente
-          nudgeOffset: 0.2, // Pulo maior
-          nudgeMaxRetry: 1, // Máximo 1 tentativa de pulo
-          maxFragLookUpTolerance: 1.0, // Tolerância maior
-          liveSyncDurationCount: 2, // Menos sincronização
-          liveMaxLatencyDurationCount: 5,
-          // Desabilitar algumas otimizações que podem causar loop
-          autoStartLoad: true,
-          startPosition: -1, // Começar do atual
-          capLevelToPlayerSize: false
-        });
-        
-        let bufferHoleRetries = 0;
-        const maxBufferHoleRetries = 3;
-        
-        hls.on(Hls.Events.ERROR, (event, data) => {
-          console.error('❌ Erro HLS.js:', data);
-          
-          // Tratar erro bufferSeekOverHole com limite de tentativas
-          if (data.details === 'bufferSeekOverHole') {
-            if (bufferHoleRetries < maxBufferHoleRetries) {
-              bufferHoleRetries++;
-              console.log(`🔧 Tentando recuperar de bufferSeekOverHole... (tentativa ${bufferHoleRetries}/${maxBufferHoleRetries})`);
-              hls.recoverMediaError();
-            } else {
-              console.log('🚫 Muitas tentativas de recovery - ignorando bufferSeekOverHole');
-              // Não fazer nada - deixar o vídeo continuar mesmo com o erro
-            }
-            return;
-          }
-          
-          // Reset contador para outros tipos de erro
-          bufferHoleRetries = 0;
-          
-          // Outros erros de buffer com limite
-          if (data.type === 'mediaError' && !data.fatal) {
-            console.log('🔧 Tentando recuperar de erro de mídia...');
-            hls.recoverMediaError();
-            return;
-          }
-          
-          // Apenas mostrar toast para erros fatais não recuperáveis
-          if (data.fatal) {
-            toast({ 
-              title: "Erro no player HLS", 
-              description: `${data.type}: ${data.details}`, 
-              variant: "destructive" 
-            });
-          }
-        });
-        
-        hls.loadSource(currentStreamUrl);
-        hls.attachMedia(video);
-        
-        hls.on(Hls.Events.MANIFEST_PARSED, () => {
-          console.log('✅ Manifest HLS carregado com sucesso');
-          video.play().catch((e) => {
-            console.error('❌ Erro ao iniciar reprodução:', e);
-          });
-        });
-        
-        return () => {
-          console.log('🧹 Limpando player HLS');
-          hls.destroy();
-        };
-      } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-        console.log('🍎 Usando player nativo Safari/iOS');
-        video.src = currentStreamUrl;
-        const onLoaded = () => video.play().catch((e) => {
-          console.error('❌ Erro ao iniciar reprodução nativa:', e);
-        });
-        video.addEventListener('loadedmetadata', onLoaded);
-        return () => video.removeEventListener('loadedmetadata', onLoaded);
-      } else {
-        console.error('❌ HLS não suportado neste navegador');
-        toast({ 
-          title: "HLS não suportado", 
-          description: "Este navegador não suporta reprodução HLS", 
-          variant: "destructive" 
-        });
-      }
-    } catch (e) {
-      console.error('❌ Erro geral no player:', e);
-      toast({ title: "Erro no player", description: String(e), variant: "destructive" });
+    // Limpar player anterior
+    if (hlsRef.current) {
+      console.log("🧹 [DEBUG] Limpando player HLS anterior");
+      hlsRef.current.destroy();
+      hlsRef.current = null;
     }
-  }, [currentStreamUrl]);
 
-  // Convert real detection to event format for overlay
-  const realEvent = useMemo(() => {
+    // Verificar se é RTSP (mostrar aviso)
+    if (streamUrl.startsWith('rtsp://')) {
+      console.log("⚠️ [DEBUG] Stream RTSP detectado:", streamUrl);
+      return;
+    }
+
+    // 🎯 DETECTAR TIPO DE ARQUIVO
+    const isHLS = streamUrl.includes('.m3u8') || streamUrl.includes('playlist');
+    const isMP4 = streamUrl.includes('.mp4');
+
+    console.log("🔎 [DEBUG] Análise do arquivo:");
+    console.log("  - É HLS (.m3u8):", isHLS);
+    console.log("  - É MP4:", isMP4);
+
+    if (isMP4) {
+      // 📹 USAR PLAYER NATIVO PARA MP4
+      console.log("📹 [DEBUG] Usando player nativo para MP4");
+      video.src = streamUrl;
+      video.load();
+      
+      video.addEventListener('loadstart', () => console.log("🔄 [DEBUG] MP4: Load start"));
+      video.addEventListener('loadedmetadata', () => console.log("📊 [DEBUG] MP4: Metadata loaded"));
+      video.addEventListener('loadeddata', () => console.log("📦 [DEBUG] MP4: Data loaded"));
+      video.addEventListener('canplay', () => {
+        console.log("▶️ [DEBUG] MP4: Can play");
+        video.play().catch(e => console.log("🔇 [DEBUG] Autoplay bloqueado:", e));
+      });
+      video.addEventListener('error', (e) => {
+        console.error("❌ [DEBUG] MP4 Error:", e);
+        console.error("❌ [DEBUG] Video error code:", video.error?.code);
+        console.error("❌ [DEBUG] Video error message:", video.error?.message);
+      });
+
+    } else if (isHLS && Hls.isSupported()) {
+      // 🎵 USAR HLS.JS PARA STREAMS HLS
+      console.log("✅ [DEBUG] HLS.js suportado, iniciando player HLS...");
+      
+      const hls = new Hls({
+        debug: true, // 🔍 Ativar debug detalhado
+        enableWorker: true,
+        lowLatencyMode: false,
+        backBufferLength: 10,
+        maxBufferLength: 15,
+        maxMaxBufferLength: 20,
+        manifestLoadingTimeOut: 15000,
+        manifestLoadingMaxRetry: 2,
+        levelLoadingTimeOut: 15000,
+        fragLoadingTimeOut: 25000,
+        fragLoadingMaxRetry: 3,
+      });
+
+      hlsRef.current = hls;
+
+      hls.on(Hls.Events.MEDIA_ATTACHED, () => {
+        console.log("📺 [DEBUG] HLS: Media attached");
+      });
+
+      hls.on(Hls.Events.MANIFEST_PARSED, (event, data) => {
+        console.log("📄 [DEBUG] HLS: Manifest parsed");
+        console.log("📊 [DEBUG] HLS: Levels disponíveis:", data.levels.length);
+        video.play().catch(e => console.log("▶️ [DEBUG] Autoplay bloqueado:", e));
+      });
+
+      hls.on(Hls.Events.LEVEL_LOADED, (event, data) => {
+        console.log("🎚️ [DEBUG] HLS: Level loaded:", data.level);
+      });
+
+      hls.on(Hls.Events.FRAG_LOADED, (event, data) => {
+        console.log("📦 [DEBUG] HLS: Fragment loaded:", data.frag.sn);
+      });
+
+      hls.on(Hls.Events.ERROR, (event, data) => {
+        console.error("❌ [DEBUG] Erro HLS.js:", data);
+        console.error("❌ [DEBUG] Tipo:", data.type);
+        console.error("❌ [DEBUG] Detalhes:", data.details);
+        console.error("❌ [DEBUG] Fatal:", data.fatal);
+        
+        if (data.fatal) {
+          switch (data.type) {
+            case Hls.ErrorTypes.NETWORK_ERROR:
+              console.log("🔄 [DEBUG] Tentando recuperar de erro de rede...");
+              hls.startLoad();
+              break;
+            case Hls.ErrorTypes.MEDIA_ERROR:
+              console.log("🔧 [DEBUG] Tentando recuperar de erro de mídia...");
+              hls.recoverMediaError();
+              break;
+            default:
+              console.log("💥 [DEBUG] Erro fatal HLS, destruindo player");
+              hls.destroy();
+              hlsRef.current = null;
+              toast({
+                title: "Erro no player HLS",
+                description: `${data.type}: ${data.details}`,
+                variant: "destructive"
+              });
+              break;
+          }
+        }
+      });
+
+      hls.attachMedia(video);
+      hls.loadSource(streamUrl);
+
+    } else if (isHLS && video.canPlayType('application/vnd.apple.mpegurl')) {
+      // 🍎 HLS NATIVO (Safari)
+      console.log("🍎 [DEBUG] Usando HLS nativo (Safari)");
+      video.src = streamUrl;
+      video.addEventListener('error', (e) => {
+        console.error("❌ [DEBUG] Safari HLS Error:", e);
+      });
+    } else {
+      console.error("❌ [DEBUG] Formato não suportado:", streamUrl);
+      toast({
+        title: "Formato não suportado",
+        description: "Este tipo de vídeo não é compatível",
+        variant: "destructive"
+      });
+    }
+
+    return () => {
+      if (hlsRef.current) {
+        console.log("🧹 [DEBUG] Limpando player HLS");
+        hlsRef.current.destroy();
+        hlsRef.current = null;
+      }
+    };
+  }, [streamUrl, toast]);
+
+  // ========== Real-time Data Processing ==========
+  const { events } = useRealtimeEvents(cameraId || 'demo-camera');
+  const { latestDetection } = useRealtimeDetections(cameraId || 'demo-camera');
+
+  const processedDetection = useMemo(() => {
     if (!latestDetection) return null;
     
+    // Converter bbox se necessário
+    let bbox = latestDetection.bbox;
+    if (Array.isArray(bbox) && bbox.length >= 4) {
+      bbox = { x: bbox[0], y: bbox[1], width: bbox[2], height: bbox[3] } as any;
+    }
+    
     return {
-      camera_id: latestDetection.camera_id,
-      bbox: latestDetection.bbox,
-      label: latestDetection.detection_type,
-      conf: latestDetection.confidence,
-      ts: latestDetection.created_at,
-      reason: `${latestDetection.service} detection`
-    } as RealtimeEvent;
+      id: latestDetection.id,
+      timestamp: new Date().toISOString(),
+      detection_type: latestDetection.detection_type,
+      confidence: latestDetection.confidence,
+      bbox,
+      metadata: latestDetection.metadata
+    };
   }, [latestDetection]);
 
-  // Último evento da câmera (do Realtime legacy)
-  const lastForCam = useMemo(() => {
-    return events.length ? events[events.length - 1] : null;
+  const processedEvents = useMemo(() => {
+    return events.map((event: any) => {
+      // Converter bbox de array para objeto se necessário
+      let bbox = event.bbox;
+      if (Array.isArray(bbox) && bbox.length >= 4) {
+        bbox = { x: bbox[0], y: bbox[1], width: bbox[2], height: bbox[3] };
+      }
+      
+      return {
+        id: event.id || String(Math.random()),
+        timestamp: event.created_at || event.timestamp || new Date().toISOString(),
+        detection_type: event.event_type || event.detection_type,
+        confidence: event.confidence || 0.8,
+        bbox,
+        metadata: event.metadata
+      };
+    });
   }, [events]);
 
-  const startProcessing = async () => {
+  const startProcessing = async (cameraId: string) => {
     try {
       setIsProcessing(true);
+      const { data: session } = await supabase.auth.getSession();
       
-      const { data, error } = await supabase.functions.invoke('stream-start', {
+      const response = await supabase.functions.invoke('stream-start', {
         body: {
           camera_id: cameraId,
-          stream_url: currentStreamUrl,
+          stream_url: streamUrl,
           analytics_enabled: ['people_detection', 'vehicle_detection', 'safety_monitoring']
         }
       });
 
-      if (error) throw error;
+      if (response.error) throw response.error;
       
       toast({
-        title: "Processamento iniciado",
-        description: `Análise em tempo real ativa para ${cameraId}`
+        title: "Análise iniciada",
+        description: "Processamento em tempo real ativado"
       });
     } catch (error) {
+      console.error('Erro ao iniciar processamento:', error);
       toast({
-        title: "Erro ao iniciar processamento",
+        title: "Erro",
+        description: "Falha ao iniciar análise",
+        variant: "destructive"
+      });
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const stopProcessing = async (cameraId: string) => {
+    try {
+      const response = await supabase.functions.invoke('stream-stop', {
+        body: { camera_id: cameraId }
+      });
+
+      if (response.error) throw response.error;
+      
+      toast({
+        title: "Análise parada",
+        description: "Processamento em tempo real desativado"
+      });
+    } catch (error) {
+      console.error('Erro ao parar processamento:', error);
+    }
+  };
+
+  // ========== RTSP to HLS Conversion ==========
+  const startRtspConversion = async () => {
+    try {
+      setIsProcessing(true);
+      console.log('Iniciando conversão RTSP→HLS:', {
+        rtsp_url: streamUrl,
+        camera_id: cameraId,
+        quality: 'medium'
+      });
+
+      const { data: session } = await supabase.auth.getSession();
+      if (!session.session?.access_token) {
+        throw new Error('Usuário não autenticado');
+      }
+
+      const response = await fetch('https://avbswnnywjyvqfxezgfl.supabase.co/functions/v1/rtsp-to-hls', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.session.access_token}`,
+          'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF2YnN3bm55d2p5dnFmeGV6Z2ZsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQ3NTI3ODQsImV4cCI6MjA3MDMyODc4NH0.fmpP6MWxsz-GYT44mAvBfR5rXIFdR-PoUbswzkeClo4',
+          'Content-Type': 'application/json',
+          'x-client-info': 'supabase-js-web/2.54.0'
+        },
+        body: JSON.stringify({
+          rtsp_url: streamUrl,
+          camera_id: cameraId,
+          quality: 'medium',
+          action: 'start'
+        })
+      });
+
+      const result = await response.json();
+      console.log('Resposta da conversão:', { data: result, error: null });
+
+      if (result.success) {
+        const newStreamUrl = result.conversion.hls_url;
+        setStreamUrl(newStreamUrl);
+        
+        if (result.instructions) {
+          console.log('Instruções de setup:', result.instructions);
+        }
+        
+        toast({
+          title: "Stream HLS disponível",
+          description: "Agora você pode ver o vídeo no browser!"
+        });
+      } else {
+        throw new Error(result.message || 'Erro na conversão');
+      }
+    } catch (error) {
+      console.error('Erro na conversão RTSP→HLS:', error);
+      toast({
+        title: "Erro na conversão",
         description: String(error),
         variant: "destructive"
       });
@@ -248,334 +394,282 @@ const Live: React.FC = () => {
     }
   };
 
-  const stopProcessing = async () => {
-    try {
-      const { data, error } = await supabase.functions.invoke('stream-stop', {
-        body: { camera_id: cameraId }
-      });
-
-      if (error) throw error;
-      
-      toast({
-        title: "Processamento parado",
-        description: `Análise pausada para ${cameraId}`
-      });
-    } catch (error) {
-      toast({
-        title: "Erro ao parar processamento", 
-        description: String(error),
-        variant: "destructive"
-      });
-    }
-  };
-
-  const startRtspConversion = async () => {
-    if (!selectedDVR || !currentStreamUrl.startsWith('rtsp://')) {
-      toast({
-        title: "Stream RTSP necessário",
-        description: "Selecione um DVR com stream RTSP para converter",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    try {
-      console.log('Iniciando conversão RTSP→HLS:', {
-        rtsp_url: currentStreamUrl,
-        camera_id: cameraId,
-        quality: 'medium'
-      });
-
-      const { data, error } = await supabase.functions.invoke('rtsp-to-hls', {
-        body: {
-          rtsp_url: currentStreamUrl,
-          camera_id: cameraId,
-          quality: 'medium',
-          action: 'start'
-        }
-      });
-
-      console.log('Resposta da conversão:', { data, error });
-
-      if (error) {
-        console.error('Erro detalhado da edge function:', error);
-        throw new Error(`Edge Function Error: ${error.message || JSON.stringify(error)}`);
-      }
-
-      if (!data.success) {
-        throw new Error(data.error || 'Conversão falhou sem detalhes');
-      }
-
-      toast({
-        title: "🎬 Conversão RTSP→HLS iniciada!",
-        description: `Configurando servidor de streaming para ${selectedDVR.name}`,
-      });
-
-      // Mostrar instruções de setup
-      console.log('Instruções de setup:', data.instructions);
-      
-      if (data.conversion?.hls_url) {
-        setCurrentStreamUrl(data.conversion.hls_url);
-        toast({
-          title: "Stream HLS disponível",
-          description: "Agora você pode ver o vídeo no browser!",
-        });
-      }
-
-    } catch (error) {
-      console.error('Erro completo na conversão:', error);
-      
-      let errorMessage = 'Erro desconhecido na conversão';
-      
-      if (error.message) {
-        errorMessage = error.message;
-      } else if (typeof error === 'string') {
-        errorMessage = error;
-      }
-      
-      toast({
-        title: "Erro na conversão",
-        description: errorMessage,
-        variant: "destructive"
-      });
-    }
-  };
-
-  // 🎯 SIMULAÇÃO REALISTA DE DETECÇÕES para Analytics
-  useEffect(() => {
-    if (!simulate) { setSimEvent(null); return; }
+  // ========== Reset Player Function ==========
+  const resetPlayer = () => {
+    console.log("🔄 [DEBUG] Reset do player solicitado");
     
-    // Cenários realistas baseados na configuração demo selecionada
-    const scenarios = {
-      'demo-office.internal': {
-        labels: ["person", "laptop", "chair", "backpack"] as const,
-        name: "Escritório",
-        zones: [[0.1, 0.2, 0.4, 0.6], [0.5, 0.1, 0.8, 0.5], [0.2, 0.6, 0.6, 0.9]]
-      },
-      'demo-parking.internal': {
-        labels: ["car", "truck", "motorcycle", "person"] as const,
-        name: "Estacionamento", 
-        zones: [[0.0, 0.3, 0.3, 0.8], [0.4, 0.2, 0.7, 0.7], [0.6, 0.4, 0.9, 0.9]]
-      },
-      'demo-retail.internal': {
-        labels: ["person", "shopping_cart", "backpack", "handbag"] as const,
-        name: "Loja",
-        zones: [[0.1, 0.1, 0.4, 0.4], [0.5, 0.3, 0.8, 0.7], [0.2, 0.5, 0.6, 0.9]]
-      },
-      'demo-security.internal': {
-        labels: ["person", "car", "motorcycle", "truck", "bicycle"] as const,
-        name: "Segurança",
-        zones: [[0.0, 0.2, 0.3, 0.6], [0.3, 0.1, 0.6, 0.5], [0.6, 0.3, 0.9, 0.8]]
-      },
-      // Fallback para configurações antigas
-      'default': {
-        labels: ["person", "car", "bicycle"] as const,
-        name: "Demo",
-        zones: [[0.2, 0.2, 0.6, 0.6], [0.1, 0.4, 0.5, 0.8], [0.5, 0.1, 0.9, 0.5]]
+    if (hlsRef.current) {
+      console.log("🧹 [DEBUG] Destruindo player HLS atual");
+      hlsRef.current.destroy();
+      hlsRef.current = null;
+    }
+    
+    if (videoRef.current) {
+      console.log("📺 [DEBUG] Limpando elemento de vídeo");
+      videoRef.current.pause();
+      videoRef.current.src = '';
+      videoRef.current.load();
+    }
+    
+    setStreamUrl('');
+    
+    toast({
+      title: "Player reiniciado",
+      description: "Agora você pode selecionar um novo stream"
+    });
+  };
+
+  // ========== Simulation of Real-time Detections ==========
+  useEffect(() => {
+    if (!simulate || !streamUrl) return;
+
+    const simulateDetections = () => {
+      // Definir cenários baseados na URL do stream
+      let detectionScenarios: any[] = [];
+      
+      if (streamUrl.includes('demo-office') || streamUrl.includes('BigBuckBunny')) {
+        // EduBehavior: Detecções de pessoas
+        detectionScenarios = [
+          { type: 'person', zone: { x: 100, y: 150, width: 80, height: 120 } },
+          { type: 'person', zone: { x: 300, y: 180, width: 75, height: 110 } }
+        ];
+      } else if (streamUrl.includes('demo-parking') || streamUrl.includes('Sintel')) {
+        // LPR: Detecções de veículos e placas
+        detectionScenarios = [
+          { type: 'vehicle', zone: { x: 200, y: 200, width: 150, height: 100 } },
+          { type: 'license_plate', zone: { x: 250, y: 280, width: 60, height: 20 } }
+        ];
+      } else if (streamUrl.includes('demo-retail')) {
+        // Antifurto: Detecções de produtos e pessoas
+        detectionScenarios = [
+          { type: 'person', zone: { x: 150, y: 100, width: 70, height: 130 } },
+          { type: 'product', zone: { x: 400, y: 250, width: 50, height: 40 } }
+        ];
+      } else if (streamUrl.includes('demo-security')) {
+        // SafetyVision: Detecções de segurança
+        detectionScenarios = [
+          { type: 'ppe_violation', zone: { x: 180, y: 120, width: 90, height: 140 } },
+          { type: 'safety_equipment', zone: { x: 350, y: 200, width: 60, height: 80 } }
+        ];
+      }
+
+      // Simular detecções aleatórias
+      const randomDetection = detectionScenarios[Math.floor(Math.random() * detectionScenarios.length)];
+      if (randomDetection) {
+        // Adicionar variação aleatória às coordenadas
+        const bbox = {
+          x: randomDetection.zone.x + (Math.random() - 0.5) * 20,
+          y: randomDetection.zone.y + (Math.random() - 0.5) * 20,
+          width: randomDetection.zone.width + (Math.random() - 0.5) * 10,
+          height: randomDetection.zone.height + (Math.random() - 0.5) * 10
+        };
+
+        const simulatedEvent: RealtimeEvent = {
+          id: `sim-${Date.now()}`,
+          timestamp: new Date().toISOString(),
+          detection_type: randomDetection.type,
+          confidence: 0.75 + Math.random() * 0.2, // 75-95%
+          bbox,
+          metadata: {
+            simulated: true,
+            scenario: streamUrl.includes('demo-office') ? 'edubehavior' : 
+                     streamUrl.includes('demo-parking') ? 'lpr' :
+                     streamUrl.includes('demo-retail') ? 'antitheft' : 'safety'
+          }
+        };
+
+        // Disparar evento personalizado para o overlay
+        window.dispatchEvent(new CustomEvent('simulatedDetection', { 
+          detail: simulatedEvent 
+        }));
       }
     };
-    
-    // Detectar cenário baseado na URL do stream atual
-    const scenarioKey = Object.keys(scenarios).find(key => 
-      currentStreamUrl?.includes(key) || selectedDVR?.host?.includes(key)
-    ) || 'default';
-    
-    const scenario = scenarios[scenarioKey];
-    
-    const interval = setInterval(() => {
-      // Usar zonas pré-definidas para detecções mais realistas
-      const zone = scenario.zones[Math.floor(Math.random() * scenario.zones.length)];
-      const [x1, y1, x2, y2] = zone;
-      
-      // Variação pequena na zona para simular movimento
-      const variance = 0.05;
-      const actualX1 = Math.max(0, x1 + (Math.random() - 0.5) * variance);
-      const actualY1 = Math.max(0, y1 + (Math.random() - 0.5) * variance);
-      const actualX2 = Math.min(1, x2 + (Math.random() - 0.5) * variance);
-      const actualY2 = Math.min(1, y2 + (Math.random() - 0.5) * variance);
-      
-      const ev: RealtimeEvent = {
-        camera_id: cameraId,
-        bbox: [actualX1, actualY1, actualX2, actualY2],
-        label: scenario.labels[Math.floor(Math.random() * scenario.labels.length)],
-        conf: 0.7 + Math.random() * 0.25, // Confiança entre 70-95%
-        ts: new Date().toISOString(),
-        reason: `analytics-${scenario.name.toLowerCase()}`,
-      };
-      setSimEvent(ev);
-    }, 1200 + Math.random() * 800); // Intervalo variável: 1.2-2s
-    
-    return () => clearInterval(interval);
-  }, [simulate, cameraId, currentStreamUrl, selectedDVR]);
 
-  const eventToShow = simulate ? simEvent : realEvent || lastForCam;
+    const interval = setInterval(simulateDetections, 2000 + Math.random() * 3000); // 2-5 segundos
+    return () => clearInterval(interval);
+  }, [simulate, streamUrl]);
+
+  // ========== Demo Stream Buttons ==========
+  const demoStreams = [
+    { name: 'Escritório (EduBehavior)', url: 'rtsp://demo-office.internal:8554/stream' },
+    { name: 'Estacionamento (LPR)', url: 'rtsp://demo-parking.internal:8554/stream' },
+    { name: 'Loja (Antifurto)', url: 'rtsp://demo-retail.internal:8554/stream' },
+    { name: 'Fábrica (SafetyVision)', url: 'rtsp://demo-security.internal:8554/stream' }
+  ];
+
+  const [diagnosticsOpen, setDiagnosticsOpen] = useState(false);
+
+  // Determinar qual evento mostrar no overlay
+  const eventToShow = simulate ? null : (processedDetection || processedEvents[0]);
 
   return (
-    <main className="container mx-auto px-6 py-10">
-      <header className="mb-6">
-        <h1 className="font-display text-2xl">Live View</h1>
-        <p className="text-muted-foreground">Transmissão HLS com overlays em tempo real</p>
-      </header>
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 p-6">
+      <div className="max-w-7xl mx-auto space-y-6">
+        
+        {/* Header */}
+        <div className="text-center space-y-2">
+          <h1 className="text-4xl font-bold text-white">Live View</h1>
+          <p className="text-slate-300">Transmissão HLS com overlays em tempo real</p>
+        </div>
 
-      <section className="mb-4 flex items-center gap-4 flex-wrap">
-        {availableDVRs.length > 0 && (
-          <div className="flex items-center gap-2">
-            <label className="text-sm text-muted-foreground">DVR/Câmera</label>
-            <Select value={selectedDVR?.id || ""} onValueChange={handleDVRChange}>
-              <SelectTrigger className="w-[250px]">
-                <SelectValue placeholder="Selecione um DVR configurado" />
-              </SelectTrigger>
-              <SelectContent>
-                {availableDVRs.map((dvr) => (
-                  <SelectItem key={dvr.id} value={dvr.id}>
-                    {dvr.name} ({dvr.protocol}) 
-                    <Badge variant={dvr.status === 'connected' ? 'default' : 'secondary'} className="ml-2">
-                      {dvr.status}
-                    </Badge>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        )}
-        <div className="flex items-center gap-2">
-          <label className="text-sm text-muted-foreground" htmlFor="camera">camera_id</label>
-          <Input id="camera" value={cameraId} onChange={(e) => setCameraId(e.target.value)} className="w-[220px]" placeholder="cam-real-01" />
-        </div>
-        <div className="flex items-center gap-2">
-          <Button 
-            onClick={() => {
-              setCameraId("demo-hls-stream");
-              setCurrentStreamUrl(DEMO_VIDEO_STREAM);
-              setSelectedDVR(null);
-              toast({
-                title: "Stream Demo Carregado",
-                description: "Usando stream de teste para demonstração",
-              });
-            }} 
-            variant="outline" 
-            size="sm"
-          >
-            🎬 Demo de Teste
-          </Button>
-          <Button 
-            onClick={() => {
-              setCameraId("webcam-real");
-              setCurrentStreamUrl("https://cph-p2p-msl.akamaized.net/hls/live/2000341/test/master.m3u8");
-              setSelectedDVR(null);
-              toast({
-                title: "Stream Público Carregado", 
-                description: "Usando webcam pública real para teste",
-              });
-            }} 
-            variant="outline" 
-            size="sm"
-          >
-            📹 Webcam Pública
-          </Button>
-        </div>
-        <div className="text-xs text-muted-foreground">
-          Detecções reais: {latestDetection ? '✅' : '❌'} | Eventos legacy: {events.length}
-        </div>
-        <div className="flex items-center gap-2">
-          <Button onClick={startProcessing} disabled={isProcessing} size="sm">
-            {isProcessing ? "Iniciando..." : "Iniciar Análise"}
-          </Button>
-          <Button onClick={stopProcessing} variant="outline" size="sm">
-            Parar
-          </Button>
-          {currentStreamUrl.startsWith('rtsp://') && (
-            <Button onClick={startRtspConversion} variant="secondary" size="sm">
-              🎬 Converter RTSP→HLS
-            </Button>
-          )}
-          <Button 
-            onClick={() => {
-              // Reset forçado do player para parar loops
-              const video = videoRef.current;
-              if (video) {
-                video.pause();
-                video.currentTime = 0;
-                video.load(); // Reset completo
-              }
-              setCurrentStreamUrl(''); // Força reload
-              setTimeout(() => setCurrentStreamUrl(currentStreamUrl), 100);
-              toast({
-                title: "Player resetado",
-                description: "Forçando reinício para parar loops"
-              });
-            }}
-            variant="destructive" 
-            size="sm"
-          >
-            🔄 Reset Player
-          </Button>
-        </div>
-        <div className="ml-auto flex items-center gap-2">
-          <Label htmlFor="sim">Simular detecções</Label>
-          <Switch id="sim" checked={simulate} onCheckedChange={setSimulate} />
-        </div>
-      </section>
+        {/* Controls */}
+        <Card className="bg-slate-800/50 border-slate-700">
+          <CardHeader>
+            <CardTitle className="text-white">Controles de Stream</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-2">DVR/Câmera</label>
+                <Select value={cameraId} onValueChange={handleDVRChange}>
+                  <SelectTrigger className="bg-slate-700 border-slate-600 text-white">
+                    <SelectValue placeholder="Selecionar DVR..." />
+                  </SelectTrigger>
+                  <SelectContent className="bg-slate-800 border-slate-600">
+                    {dvrs.map((dvr) => (
+                      <SelectItem key={dvr.id} value={dvr.id} className="text-white hover:bg-slate-700">
+                        {dvr.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
 
-      <section className="relative w-full aspect-video rounded-lg overflow-hidden shadow-primary">
-        {currentStreamUrl.startsWith('rtsp://') ? (
-          <div className="w-full h-full bg-gray-900 flex items-center justify-center">
-            <div className="text-center text-white p-8">
-              <div className="text-6xl mb-4">📹</div>
-              <h3 className="text-xl font-semibold mb-2">Stream RTSP Real Conectado</h3>
-              <p className="text-gray-300 mb-2">
-                DVR: <strong>{selectedDVR?.name || 'Desconhecido'}</strong>
-              </p>
-              <p className="text-gray-300 mb-4">
-                URL: <code className="bg-gray-800 px-2 py-1 rounded text-sm">{currentStreamUrl}</code>
-              </p>
-              <div className="bg-blue-900/30 border border-blue-500/30 rounded-lg p-4 mb-4">
-                <p className="text-blue-200 text-sm">
-                  ℹ️ Browsers não reproduzem RTSP diretamente. O sistema está processando o stream nos servidores.
-                </p>
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-2">Camera ID</label>
+                <Input
+                  value={cameraId}
+                  onChange={(e) => setCameraId(e.target.value)}
+                  placeholder="Ex: 3e433952-236b-4993-9b1b..."
+                  className="bg-slate-700 border-slate-600 text-white placeholder-slate-400"
+                />
               </div>
-              <div className="flex items-center justify-center gap-2 text-green-400">
-                <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-                <span>Análise de IA funcionando em background</span>
+
+              <div className="flex items-end space-x-2">
+                <Button 
+                  onClick={resetPlayer}
+                  variant="outline"
+                  className="bg-slate-700 border-slate-600 text-white hover:bg-slate-600"
+                >
+                  <RotateCcw className="w-4 h-4 mr-2" />
+                  Reset Player
+                </Button>
               </div>
-              <p className="text-gray-400 text-xs mt-4">
-                Para ver o vídeo no browser, clique em "Converter RTSP→HLS"
-              </p>
             </div>
-          </div>
-        ) : (
-          <video
-            ref={videoRef}
-            className="w-full h-full bg-black"
-            controls={false}
-            playsInline
-            muted
-            autoPlay
-            crossOrigin="anonymous"
-          />
-        )}
-        <OverlayCanvas videoRef={videoRef} event={eventToShow} />
-      </section>
 
-      {/* Painel de Diagnóstico */}
-      <section className="mt-8">
-        <Collapsible>
-          <CollapsibleTrigger asChild>
-            <Button variant="outline" className="w-full justify-between">
-              <div className="flex items-center gap-2">
-                <AlertTriangle className="h-4 w-4" />
-                Diagnóstico de Conectividade dos Streams
+            {/* Demo Stream Buttons */}
+            <div className="space-y-2">
+              <label className="block text-sm font-medium text-slate-300">Streams Demo</label>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                {demoStreams.map((demo, idx) => (
+                  <Button
+                    key={idx}
+                    onClick={() => setStreamUrl(demo.url)}
+                    variant="outline"
+                    size="sm"
+                    className="bg-slate-700 border-slate-600 text-white hover:bg-slate-600 text-xs"
+                  >
+                    {demo.name}
+                  </Button>
+                ))}
               </div>
-              <ChevronDown className="h-4 w-4" />
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex flex-wrap gap-2">
+              <Button 
+                onClick={startRtspConversion}
+                disabled={!streamUrl || isProcessing}
+                className="bg-blue-600 hover:bg-blue-700"
+              >
+                {isProcessing ? 'Processando...' : 'Converter RTSP→HLS'}
+              </Button>
+
+              <Button 
+                onClick={() => startProcessing(cameraId)}
+                disabled={!cameraId || !streamUrl}
+                variant="outline"
+                className="bg-green-600 hover:bg-green-700 text-white border-green-600"
+              >
+                <Play className="w-4 h-4 mr-2" />
+                Iniciar Análise
+              </Button>
+
+              <Button 
+                onClick={() => stopProcessing(cameraId)}
+                disabled={!cameraId}
+                variant="outline"
+                className="bg-red-600 hover:bg-red-700 text-white border-red-600"
+              >
+                <Square className="w-4 h-4 mr-2" />
+                Parar Análise
+              </Button>
+
+              <Button 
+                onClick={() => setSimulate(!simulate)}
+                variant={simulate ? "default" : "outline"}
+                className={simulate ? "bg-purple-600 hover:bg-purple-700" : "bg-slate-700 border-slate-600 text-white hover:bg-slate-600"}
+              >
+                {simulate ? 'Parar Simulação' : 'Simular detecções'}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Video Player */}
+        <Card className="bg-slate-800/50 border-slate-700">
+          <CardContent className="p-6">
+            <div className="relative aspect-video bg-black rounded-lg overflow-hidden">
+              <video
+                ref={videoRef}
+                className="w-full h-full object-cover"
+                controls
+                muted
+                playsInline
+              />
+              
+              {/* RTSP Message Overlay */}
+              {streamUrl.startsWith('rtsp://') && (
+                <div className="absolute inset-0 bg-black/80 flex items-center justify-center">
+                  <Alert className="max-w-md bg-slate-800 border-slate-600">
+                    <AlertDescription className="text-white">
+                      <strong>⚠️ Browsers não reproduzem RTSP diretamente.</strong><br/>
+                      O sistema está processando o stream nos servidores.<br/>
+                      Para ver o vídeo no browser, clique em "Converter RTSP→HLS"
+                    </AlertDescription>
+                  </Alert>
+                </div>
+              )}
+
+              {/* Detection Overlays */}
+              <OverlayCanvas 
+                videoRef={videoRef}
+                event={eventToShow}
+                className="absolute inset-0 pointer-events-none"
+              />
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Stream Diagnostics */}
+        <Collapsible open={diagnosticsOpen} onOpenChange={setDiagnosticsOpen}>
+          <CollapsibleTrigger asChild>
+            <Button 
+              variant="outline" 
+              className="w-full bg-slate-800/50 border-slate-700 text-white hover:bg-slate-700"
+            >
+              <span className="flex items-center gap-2">
+                {diagnosticsOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                Diagnóstico de Conectividade dos Streams
+              </span>
             </Button>
           </CollapsibleTrigger>
-          <CollapsibleContent className="mt-4">
+          <CollapsibleContent>
             <StreamDiagnostics />
           </CollapsibleContent>
         </Collapsible>
-      </section>
-    </main>
-  );
-};
 
-export default Live;
+      </div>
+    </div>
+  );
+}

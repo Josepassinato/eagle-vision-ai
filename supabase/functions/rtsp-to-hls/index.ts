@@ -33,29 +33,32 @@ const startConversion = async (request: ConversionRequest): Promise<ConversionSt
   const ffmpegCommand = generateFFmpegCommand(rtsp_url, camera_id, quality);
   console.log(`FFmpeg command: ${ffmpegCommand}`);
   
-  // 🎯 VÍDEOS YOUTUBE CÓDIGO ABERTO para cada ANALÍTICO
+  // 🎯 STREAMS HLS REAIS para cada ANALÍTICO
   let hls_url: string;
   
-  // Mapear cada demo para vídeos específicos dos analíticos
+  console.log(`[DEBUG] Mapeando RTSP URL: ${rtsp_url}`);
+  
+  // Mapear cada demo para streams HLS válidos (.m3u8)
   if (rtsp_url.includes('demo-office.internal')) {
-    // EduBehavior: Fluxo de pessoas em escritório
-    // Vídeo: People walking in office/mall (Creative Commons)
-    hls_url = `https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4`;
+    // EduBehavior: Fluxo de pessoas - Stream HLS de teste
+    hls_url = `https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8`;
+    console.log(`[DEBUG] Mapeado para EduBehavior: ${hls_url}`);
   } else if (rtsp_url.includes('demo-parking.internal')) {
-    // LPR: Leitura de placas em estacionamento
-    // Vídeo: Parking lot with cars (Traffic/vehicles)
-    hls_url = `https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4`;
+    // LPR: Leitura de placas - Stream Bitmovin
+    hls_url = `https://bitdash-a.akamaihd.net/content/sintel/hls/playlist.m3u8`;
+    console.log(`[DEBUG] Mapeado para LPR: ${hls_url}`);
   } else if (rtsp_url.includes('demo-retail.internal')) {
-    // Antifurto: Monitoramento de loja/varejo
-    // Vídeo: Retail/shopping environment
-    hls_url = `https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4`;
+    // Antifurto: Monitoramento varejo - Apple demo
+    hls_url = `https://developer.apple.com/streaming/examples/basic_stream_ios_010/prog_index.m3u8`;
+    console.log(`[DEBUG] Mapeado para Antifurto: ${hls_url}`);
   } else if (rtsp_url.includes('demo-security.internal')) {
-    // SafetyVision: Segurança do trabalho (obra/fábrica)
-    // Vídeo: Construction/industrial workers
-    hls_url = `https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/TearsOfSteel.mp4`;
+    // SafetyVision: Segurança trabalho - Shaka demo
+    hls_url = `https://storage.googleapis.com/shaka-demo-assets/angel-one-hls/hls.m3u8`;
+    console.log(`[DEBUG] Mapeado para SafetyVision: ${hls_url}`);
   } else {
-    // Padrão: Vídeo geral para testes
-    hls_url = `https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4`;
+    // Padrão: Stream de teste Mux
+    hls_url = `https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8`;
+    console.log(`[DEBUG] Mapeado para padrão: ${hls_url}`);
   }
   
   console.log(`Mapped RTSP URL ${rtsp_url} to HLS URL: ${hls_url}`);
