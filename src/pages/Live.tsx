@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import Hls from 'hls.js';
-import { useRealtimeEvents } from '@/hooks/useRealtimeEvents';
+import { useRealtimeEvents, type RealtimeEvent } from '@/hooks/useRealtimeEvents';
 import { useRealtimeDetections } from '@/hooks/useRealtimeDetections';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -21,19 +21,6 @@ interface DVRConfig {
   protocol: string;
 }
 
-interface RealtimeEvent {
-  id: string;
-  timestamp: string;
-  detection_type: string;
-  confidence: number;
-  bbox?: {
-    x: number;
-    y: number;
-    width: number;
-    height: number;
-  };
-  metadata?: any;
-}
 
 export default function Live() {
   const [cameraId, setCameraId] = useState('');
@@ -250,39 +237,19 @@ export default function Live() {
   const processedDetection = useMemo(() => {
     if (!latestDetection) return null;
     
-    // Converter bbox se necessário
-    let bbox = latestDetection.bbox;
-    if (Array.isArray(bbox) && bbox.length >= 4) {
-      bbox = { x: bbox[0], y: bbox[1], width: bbox[2], height: bbox[3] } as any;
-    }
-    
+    // Convert RealtimeDetection to RealtimeEvent format
     return {
-      id: latestDetection.id,
-      timestamp: new Date().toISOString(),
-      detection_type: latestDetection.detection_type,
-      confidence: latestDetection.confidence,
-      bbox,
-      metadata: latestDetection.metadata
-    };
+      camera_id: latestDetection.camera_id,
+      ts: latestDetection.created_at,
+      bbox: latestDetection.bbox,
+      label: latestDetection.detection_type,
+      conf: latestDetection.confidence
+    } as RealtimeEvent;
   }, [latestDetection]);
 
   const processedEvents = useMemo(() => {
-    return events.map((event: any) => {
-      // Converter bbox de array para objeto se necessário
-      let bbox = event.bbox;
-      if (Array.isArray(bbox) && bbox.length >= 4) {
-        bbox = { x: bbox[0], y: bbox[1], width: bbox[2], height: bbox[3] };
-      }
-      
-      return {
-        id: event.id || String(Math.random()),
-        timestamp: event.created_at || event.timestamp || new Date().toISOString(),
-        detection_type: event.event_type || event.detection_type,
-        confidence: event.confidence || 0.8,
-        bbox,
-        metadata: event.metadata
-      };
-    });
+    // Return events as is since they already match RealtimeEvent interface
+    return events;
   }, [events]);
 
   const startProcessing = async (cameraId: string) => {
@@ -465,17 +432,11 @@ export default function Live() {
         };
 
         const simulatedEvent: RealtimeEvent = {
-          id: `sim-${Date.now()}`,
-          timestamp: new Date().toISOString(),
-          detection_type: randomDetection.type,
-          confidence: 0.75 + Math.random() * 0.2, // 75-95%
-          bbox,
-          metadata: {
-            simulated: true,
-            scenario: streamUrl.includes('demo-office') ? 'edubehavior' : 
-                     streamUrl.includes('demo-parking') ? 'lpr' :
-                     streamUrl.includes('demo-retail') ? 'antitheft' : 'safety'
-          }
+          camera_id: cameraId || 'demo_camera',
+          ts: new Date().toISOString(),
+          bbox: [bbox.x, bbox.y, bbox.x + bbox.width, bbox.y + bbox.height],
+          label: randomDetection.type,
+          conf: 0.75 + Math.random() * 0.2 // 75-95%
         };
 
         // Disparar evento personalizado para o overlay
@@ -645,7 +606,6 @@ export default function Live() {
               <OverlayCanvas 
                 videoRef={videoRef}
                 event={eventToShow}
-                className="absolute inset-0 pointer-events-none"
               />
             </div>
           </CardContent>
