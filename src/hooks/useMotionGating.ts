@@ -55,8 +55,8 @@ export function useMotionGating() {
       const config: MotionConfig = {
         motion_gate_enabled: data.motion_gate_enabled,
         motion_threshold: data.motion_threshold,
-        interest_zones: data.interest_zones || [],
-        exclusion_zones: data.exclusion_zones || []
+        interest_zones: (data.interest_zones as Array<{ name: string; polygon: Array<{ x: number; y: number }> }>) || [],
+        exclusion_zones: (data.exclusion_zones as Array<{ name: string; polygon: Array<{ x: number; y: number }> }>) || []
       };
 
       configCache.current.set(cameraId, config);

@@ -130,8 +130,9 @@ export function AIObservabilityDashboard() {
 
   // Class distribution aggregation
   const classDistribution = metrics.reduce((acc, m) => {
-    Object.entries(m.class_distribution || {}).forEach(([cls, count]) => {
-      acc[cls] = (acc[cls] || 0) + count;
+    const distribution = m.class_distribution as Record<string, number> || {};
+    Object.entries(distribution).forEach(([cls, count]) => {
+      acc[cls] = (acc[cls] || 0) + (typeof count === 'number' ? count : 0);
     });
     return acc;
   }, {} as Record<string, number>);
