@@ -80,3 +80,9 @@ verify_jwt = false
 
 [functions.bi-reports]
 verify_jwt = false
+
+[functions.partner-api]
+verify_jwt = false
+
+[functions.lgpd-compliance]
+verify_jwt = false

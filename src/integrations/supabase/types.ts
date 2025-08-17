@@ -1104,6 +1104,59 @@ export type Database = {
           },
         ]
       }
+      camera_cost_estimates: {
+        Row: {
+          ai_processing_cost: number | null
+          bandwidth_cost: number | null
+          camera_id: string
+          compute_cost: number | null
+          cost_date: string | null
+          cost_per_event: number | null
+          created_at: string | null
+          events_processed: number | null
+          id: string
+          storage_cost: number | null
+          tenant_id: string | null
+          total_estimated_cost: number | null
+        }
+        Insert: {
+          ai_processing_cost?: number | null
+          bandwidth_cost?: number | null
+          camera_id: string
+          compute_cost?: number | null
+          cost_date?: string | null
+          cost_per_event?: number | null
+          created_at?: string | null
+          events_processed?: number | null
+          id?: string
+          storage_cost?: number | null
+          tenant_id?: string | null
+          total_estimated_cost?: number | null
+        }
+        Update: {
+          ai_processing_cost?: number | null
+          bandwidth_cost?: number | null
+          camera_id?: string
+          compute_cost?: number | null
+          cost_date?: string | null
+          cost_per_event?: number | null
+          created_at?: string | null
+          events_processed?: number | null
+          id?: string
+          storage_cost?: number | null
+          tenant_id?: string | null
+          total_estimated_cost?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "camera_cost_estimates_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       cameras: {
         Row: {
           created_at: string
@@ -2957,6 +3010,71 @@ export type Database = {
         }
         Relationships: []
       }
+      lgpd_compliance: {
+        Row: {
+          consent_date: string | null
+          consent_status: string | null
+          created_at: string | null
+          data_categories: Json | null
+          data_subject_id: string
+          data_subject_type: string | null
+          deletion_completed: boolean | null
+          deletion_date: string | null
+          deletion_requested: boolean | null
+          id: string
+          legal_basis: string | null
+          processing_purposes: Json | null
+          retention_until: string | null
+          tenant_id: string | null
+          updated_at: string | null
+          withdrawal_date: string | null
+        }
+        Insert: {
+          consent_date?: string | null
+          consent_status?: string | null
+          created_at?: string | null
+          data_categories?: Json | null
+          data_subject_id: string
+          data_subject_type?: string | null
+          deletion_completed?: boolean | null
+          deletion_date?: string | null
+          deletion_requested?: boolean | null
+          id?: string
+          legal_basis?: string | null
+          processing_purposes?: Json | null
+          retention_until?: string | null
+          tenant_id?: string | null
+          updated_at?: string | null
+          withdrawal_date?: string | null
+        }
+        Update: {
+          consent_date?: string | null
+          consent_status?: string | null
+          created_at?: string | null
+          data_categories?: Json | null
+          data_subject_id?: string
+          data_subject_type?: string | null
+          deletion_completed?: boolean | null
+          deletion_date?: string | null
+          deletion_requested?: boolean | null
+          id?: string
+          legal_basis?: string | null
+          processing_purposes?: Json | null
+          retention_until?: string | null
+          tenant_id?: string | null
+          updated_at?: string | null
+          withdrawal_date?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lgpd_compliance_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       notification_channels: {
         Row: {
           channel_id: string
@@ -3000,6 +3118,53 @@ export type Database = {
             columns: ["integration_id"]
             isOneToOne: false
             referencedRelation: "integration_configurations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      observability_metrics: {
+        Row: {
+          aggregation_period: string | null
+          camera_id: string
+          id: string
+          metadata: Json | null
+          metric_name: string
+          metric_type: string
+          metric_unit: string | null
+          metric_value: number
+          tenant_id: string | null
+          timestamp: string | null
+        }
+        Insert: {
+          aggregation_period?: string | null
+          camera_id: string
+          id?: string
+          metadata?: Json | null
+          metric_name: string
+          metric_type: string
+          metric_unit?: string | null
+          metric_value: number
+          tenant_id?: string | null
+          timestamp?: string | null
+        }
+        Update: {
+          aggregation_period?: string | null
+          camera_id?: string
+          id?: string
+          metadata?: Json | null
+          metric_name?: string
+          metric_type?: string
+          metric_unit?: string | null
+          metric_value?: number
+          tenant_id?: string | null
+          timestamp?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "observability_metrics_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
         ]
@@ -3154,6 +3319,89 @@ export type Database = {
           plan?: string
         }
         Relationships: []
+      }
+      partner_api_keys: {
+        Row: {
+          api_key: string
+          billing_rate_per_event: number | null
+          created_at: string | null
+          expires_at: string | null
+          id: string
+          is_active: boolean | null
+          partner_name: string
+          quotas: Json | null
+          white_label_config: Json | null
+        }
+        Insert: {
+          api_key: string
+          billing_rate_per_event?: number | null
+          created_at?: string | null
+          expires_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          partner_name: string
+          quotas?: Json | null
+          white_label_config?: Json | null
+        }
+        Update: {
+          api_key?: string
+          billing_rate_per_event?: number | null
+          created_at?: string | null
+          expires_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          partner_name?: string
+          quotas?: Json | null
+          white_label_config?: Json | null
+        }
+        Relationships: []
+      }
+      partner_billing_usage: {
+        Row: {
+          cost_per_event: number | null
+          created_at: string | null
+          endpoint: string
+          event_count: number | null
+          id: string
+          metadata: Json | null
+          partner_id: string | null
+          tenant_id: string | null
+          total_cost: number | null
+          usage_date: string | null
+        }
+        Insert: {
+          cost_per_event?: number | null
+          created_at?: string | null
+          endpoint: string
+          event_count?: number | null
+          id?: string
+          metadata?: Json | null
+          partner_id?: string | null
+          tenant_id?: string | null
+          total_cost?: number | null
+          usage_date?: string | null
+        }
+        Update: {
+          cost_per_event?: number | null
+          created_at?: string | null
+          endpoint?: string
+          event_count?: number | null
+          id?: string
+          metadata?: Json | null
+          partner_id?: string | null
+          tenant_id?: string | null
+          total_cost?: number | null
+          usage_date?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "partner_billing_usage_partner_id_fkey"
+            columns: ["partner_id"]
+            isOneToOne: false
+            referencedRelation: "partner_api_keys"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       payment_sessions: {
         Row: {
@@ -5225,6 +5473,10 @@ export type Database = {
           similarity: number
         }[]
       }
+      process_data_deletion_request: {
+        Args: { p_data_subject_id: string; p_tenant_id: string }
+        Returns: Json
+      }
       set_config: {
         Args: { parameter: string; value: string }
         Returns: string
@@ -5252,6 +5504,15 @@ export type Database = {
       user_belongs_to_org: {
         Args: { org_id: string; user_id: string }
         Returns: boolean
+      }
+      validate_partner_api_key: {
+        Args: { api_key: string }
+        Returns: {
+          partner_id: string
+          partner_name: string
+          quotas: Json
+          white_label_config: Json
+        }[]
       }
       validate_tenant_api_key: {
         Args: { api_key: string }
