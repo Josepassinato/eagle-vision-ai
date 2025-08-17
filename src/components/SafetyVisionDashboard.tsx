@@ -90,7 +90,7 @@ export const SafetyVisionDashboard: React.FC<SafetyVisionDashboardProps> = ({ ca
             </div>
             <div className="mt-2">
               <div className="text-3xl font-bold text-green-500">{safetyMetrics.dailyStats.ppeCompliance}%</div>
-              <p className="text-sm text-muted-foreground">meta: >95%</p>
+              <p className="text-sm text-muted-foreground">meta: &gt;95%</p>
             </div>
           </CardContent>
         </Card>
