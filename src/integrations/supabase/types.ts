@@ -70,6 +70,53 @@ export type Database = {
           },
         ]
       }
+      affinity_rules: {
+        Row: {
+          actions: Json
+          conditions: Json
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          priority: number | null
+          rule_name: string
+          rule_type: string | null
+          tenant_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          actions: Json
+          conditions: Json
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          priority?: number | null
+          rule_name: string
+          rule_type?: string | null
+          tenant_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          actions?: Json
+          conditions?: Json
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          priority?: number | null
+          rule_name?: string
+          rule_type?: string | null
+          tenant_id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "affinity_rules_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ai_metrics: {
         Row: {
           aggregation_period: string | null
@@ -367,6 +414,48 @@ export type Database = {
         }
         Relationships: []
       }
+      api_audit_logs: {
+        Row: {
+          api_key_used: string | null
+          endpoint: string
+          id: string
+          ip_address: unknown | null
+          method: string
+          request_payload: Json | null
+          response_status: number | null
+          response_time_ms: number | null
+          tenant_id: string | null
+          timestamp: string | null
+          user_agent: string | null
+        }
+        Insert: {
+          api_key_used?: string | null
+          endpoint: string
+          id?: string
+          ip_address?: unknown | null
+          method: string
+          request_payload?: Json | null
+          response_status?: number | null
+          response_time_ms?: number | null
+          tenant_id?: string | null
+          timestamp?: string | null
+          user_agent?: string | null
+        }
+        Update: {
+          api_key_used?: string | null
+          endpoint?: string
+          id?: string
+          ip_address?: unknown | null
+          method?: string
+          request_payload?: Json | null
+          response_status?: number | null
+          response_time_ms?: number | null
+          tenant_id?: string | null
+          timestamp?: string | null
+          user_agent?: string | null
+        }
+        Relationships: []
+      }
       app_config: {
         Row: {
           key: string
@@ -384,6 +473,56 @@ export type Database = {
           value?: string
         }
         Relationships: []
+      }
+      attendance: {
+        Row: {
+          camera_id: string | null
+          confidence: number | null
+          created_at: string | null
+          entry_time: string | null
+          exit_time: string | null
+          id: string
+          metadata: Json | null
+          method: string | null
+          service_id: string | null
+          visitor_id: string | null
+          zone_name: string | null
+        }
+        Insert: {
+          camera_id?: string | null
+          confidence?: number | null
+          created_at?: string | null
+          entry_time?: string | null
+          exit_time?: string | null
+          id?: string
+          metadata?: Json | null
+          method?: string | null
+          service_id?: string | null
+          visitor_id?: string | null
+          zone_name?: string | null
+        }
+        Update: {
+          camera_id?: string | null
+          confidence?: number | null
+          created_at?: string | null
+          entry_time?: string | null
+          exit_time?: string | null
+          id?: string
+          metadata?: Json | null
+          method?: string | null
+          service_id?: string | null
+          visitor_id?: string | null
+          zone_name?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "attendance_service_id_fkey"
+            columns: ["service_id"]
+            isOneToOne: false
+            referencedRelation: "services"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       audit_events: {
         Row: {
@@ -1131,6 +1270,53 @@ export type Database = {
             columns: ["clip_id"]
             isOneToOne: false
             referencedRelation: "edge_clips"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      clips_retention: {
+        Row: {
+          bucket_name: string
+          clip_path: string
+          created_at: string | null
+          exception_reason: string | null
+          expires_at: string | null
+          id: string
+          incident_reference: string | null
+          is_protected: boolean | null
+          retention_days: number | null
+          tenant_id: string | null
+        }
+        Insert: {
+          bucket_name: string
+          clip_path: string
+          created_at?: string | null
+          exception_reason?: string | null
+          expires_at?: string | null
+          id?: string
+          incident_reference?: string | null
+          is_protected?: boolean | null
+          retention_days?: number | null
+          tenant_id?: string | null
+        }
+        Update: {
+          bucket_name?: string
+          clip_path?: string
+          created_at?: string | null
+          exception_reason?: string | null
+          expires_at?: string | null
+          id?: string
+          incident_reference?: string | null
+          is_protected?: boolean | null
+          retention_days?: number | null
+          tenant_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "clips_retention_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
         ]
@@ -3914,6 +4100,56 @@ export type Database = {
         }
         Relationships: []
       }
+      services: {
+        Row: {
+          created_at: string | null
+          end_time: string | null
+          expected_attendance: number | null
+          id: string
+          metadata: Json | null
+          name: string
+          service_type: string | null
+          start_time: string
+          status: string | null
+          tenant_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          end_time?: string | null
+          expected_attendance?: number | null
+          id?: string
+          metadata?: Json | null
+          name: string
+          service_type?: string | null
+          start_time: string
+          status?: string | null
+          tenant_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          end_time?: string | null
+          expected_attendance?: number | null
+          id?: string
+          metadata?: Json | null
+          name?: string
+          service_type?: string | null
+          start_time?: string
+          status?: string | null
+          tenant_id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "services_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       signals: {
         Row: {
           details: Json | null
@@ -4210,6 +4446,39 @@ export type Database = {
         }
         Relationships: []
       }
+      tenants: {
+        Row: {
+          api_key: string
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          name: string
+          settings: Json | null
+          subdomain: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          api_key: string
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          name: string
+          settings?: Json | null
+          subdomain?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          api_key?: string
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          settings?: Json | null
+          subdomain?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       trial_credits: {
         Row: {
           created_at: string
@@ -4424,6 +4693,65 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      visitors: {
+        Row: {
+          created_at: string | null
+          email: string | null
+          first_visit: string | null
+          id: string
+          last_visit: string | null
+          member_status: string | null
+          name: string | null
+          opt_in_data_processing: boolean | null
+          phone: string | null
+          preferences: Json | null
+          tenant_id: string | null
+          updated_at: string | null
+          visit_count: number | null
+          visitor_code: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          email?: string | null
+          first_visit?: string | null
+          id?: string
+          last_visit?: string | null
+          member_status?: string | null
+          name?: string | null
+          opt_in_data_processing?: boolean | null
+          phone?: string | null
+          preferences?: Json | null
+          tenant_id?: string | null
+          updated_at?: string | null
+          visit_count?: number | null
+          visitor_code?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          email?: string | null
+          first_visit?: string | null
+          id?: string
+          last_visit?: string | null
+          member_status?: string | null
+          name?: string | null
+          opt_in_data_processing?: boolean | null
+          phone?: string | null
+          preferences?: Json | null
+          tenant_id?: string | null
+          updated_at?: string | null
+          visit_count?: number | null
+          visitor_code?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "visitors_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       webhook_configurations: {
         Row: {
@@ -4713,6 +5041,10 @@ export type Database = {
       user_belongs_to_org: {
         Args: { org_id: string; user_id: string }
         Returns: boolean
+      }
+      validate_tenant_api_key: {
+        Args: { api_key: string }
+        Returns: string
       }
       vector_avg: {
         Args: { "": number[] }
