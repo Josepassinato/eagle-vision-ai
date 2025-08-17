@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 
 import { Label } from "@/components/ui/label";
 import { toast } from "@/hooks/use-toast";
-import { Send, Shield, Car, Users } from "lucide-react";
+import { Send, Shield, Car, Users, Church, Star, CheckCircle } from "lucide-react";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import LiveDemo from "@/components/LiveDemo";
@@ -216,6 +216,96 @@ const Index = () => {
               </div>
             </CardContent>
           </Card>
+        </div>
+      </section>
+
+      {/* Vision4Church Section */}
+      <section className="scroll-mt-24 container mx-auto px-4 py-16 bg-gradient-to-br from-primary/5 to-accent/5 rounded-2xl">
+        <div className="text-center mb-12">
+          <div className="flex items-center justify-center gap-3 mb-4">
+            <Church className="h-8 w-8 text-primary" />
+            <h2 className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
+              Vision4Church
+            </h2>
+            <Star className="h-6 w-6 text-yellow-500 fill-yellow-500" />
+          </div>
+          <p className="text-xl text-muted-foreground max-w-3xl mx-auto mb-8">
+            IA Especializada para Ambientes Religiosos - 100% Google Cloud
+          </p>
+          <div className="inline-flex items-center gap-2 bg-primary/10 text-primary px-4 py-2 rounded-full text-sm font-medium mb-8">
+            <CheckCircle className="h-4 w-4" />
+            Tecnologia Exclusiva para Igrejas
+          </div>
+        </div>
+
+        <div className="grid md:grid-cols-3 gap-8 mb-12">
+          <Card className="border-primary/20 bg-background/50 backdrop-blur">
+            <CardContent className="p-6 text-center">
+              <div className="text-4xl mb-4">🙏</div>
+              <h3 className="font-semibold text-lg mb-2">Privacidade Total</h3>
+              <p className="text-sm text-muted-foreground">
+                Respeito total à privacidade dos fiéis com anonimização automática e políticas de proteção de dados.
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card className="border-primary/20 bg-background/50 backdrop-blur">
+            <CardContent className="p-6 text-center">
+              <div className="text-4xl mb-4">📊</div>
+              <h3 className="font-semibold text-lg mb-2">Analytics Inteligente</h3>
+              <p className="text-sm text-muted-foreground">
+                Contagem de presença, análise de fluxo e insights para melhor gestão dos espaços sagrados.
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card className="border-primary/20 bg-background/50 backdrop-blur">
+            <CardContent className="p-6 text-center">
+              <div className="text-4xl mb-4">🛡️</div>
+              <h3 className="font-semibold text-lg mb-2">Segurança Discreta</h3>
+              <p className="text-sm text-muted-foreground">
+                Monitoramento de segurança não-invasivo que preserva o ambiente de paz e contemplação.
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+
+        <div className="bg-background/80 backdrop-blur rounded-xl p-8 border border-primary/20">
+          <div className="grid md:grid-cols-2 gap-8 items-center">
+            <div>
+              <h3 className="text-2xl font-bold mb-4">Por que igrejas escolhem o Vision4Church?</h3>
+              <ul className="space-y-3">
+                <li className="flex items-center gap-3">
+                  <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0" />
+                  <span className="text-sm">Configurado especificamente para ambientes religiosos</span>
+                </li>
+                <li className="flex items-center gap-3">
+                  <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0" />
+                  <span className="text-sm">Políticas de privacidade rigorosas e transparentes</span>
+                </li>
+                <li className="flex items-center gap-3">
+                  <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0" />
+                  <span className="text-sm">Analytics para otimizar cultos e eventos especiais</span>
+                </li>
+                <li className="flex items-center gap-3">
+                  <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0" />
+                  <span className="text-sm">Suporte técnico especializado em ambientes religiosos</span>
+                </li>
+              </ul>
+            </div>
+            <div className="text-center">
+              <div className="bg-primary/10 rounded-xl p-6 mb-6">
+                <div className="text-3xl font-bold text-primary mb-2">100%</div>
+                <div className="text-sm text-muted-foreground">Compatível com Google Cloud</div>
+              </div>
+              <Button size="lg" asChild className="w-full">
+                <a href="/auth">Teste Grátis por 7 Dias</a>
+              </Button>
+              <p className="text-xs text-muted-foreground mt-3">
+                ✅ Instalação gratuita • ✅ Sem compromisso • ✅ Suporte especializado
+              </p>
+            </div>
+          </div>
         </div>
       </section>
 
