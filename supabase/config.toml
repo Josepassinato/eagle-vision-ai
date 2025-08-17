@@ -62,3 +62,15 @@ verify_jwt = false
 
 [functions.rtsp-to-hls]
 verify_jwt = false
+
+[functions.api-v1-events]
+verify_jwt = false
+
+[functions.api-v1-services]
+verify_jwt = false
+
+[functions.api-v1-occupancy]
+verify_jwt = false
+
+[functions.api-v1-visitors]
+verify_jwt = false
