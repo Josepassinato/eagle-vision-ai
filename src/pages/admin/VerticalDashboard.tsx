@@ -5,6 +5,7 @@ import { EduBehaviorDashboard } from '@/components/EduBehaviorDashboard';
 import { SafetyVisionDashboard } from '@/components/SafetyVisionDashboard';
 import { AntitheftDashboard } from '@/components/AntitheftDashboard';
 import { LPRDashboard } from '@/components/LPRDashboard';
+import { AIIntelligence } from '@/components/AIIntelligence';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -16,7 +17,8 @@ import {
   Car,
   Lock,
   Crown,
-  Zap
+  Zap,
+  Brain
 } from 'lucide-react';
 
 export default function VerticalDashboard() {
@@ -29,6 +31,7 @@ export default function VerticalDashboard() {
   } = useVerticalPermissions();
 
   const [selectedVertical, setSelectedVertical] = React.useState<string | null>(null);
+  const [dashboardData, setDashboardData] = React.useState<any>(null);
 
   // Auto-seleciona o primeiro vertical disponível
   React.useEffect(() => {
@@ -36,6 +39,21 @@ export default function VerticalDashboard() {
       setSelectedVertical(getPrimaryVertical());
     }
   }, [userVerticals, selectedVertical, getPrimaryVertical]);
+
+  // Simula dados do dashboard - em produção viria dos hooks reais
+  React.useEffect(() => {
+    if (selectedVertical) {
+      // Mock data baseado no vertical selecionado
+      const mockData = {
+        church: { attendance: 245, events: 12, growth: 8.5 },
+        education: { students: 847, attention: 78, alerts: 3 },
+        safety: { workers: 156, compliance: 94.2, incidents: 2 },
+        antitheft: { customers: 1247, suspicious: 8, prevented: 1250 },
+        lpr: { vehicles: 892, authorized: 756, denied: 91 }
+      };
+      setDashboardData(mockData[selectedVertical as keyof typeof mockData] || {});
+    }
+  }, [selectedVertical]);
 
   if (loading) {
     return (
@@ -186,8 +204,18 @@ export default function VerticalDashboard() {
 
       {/* Dashboard Content */}
       {selectedVertical ? (
-        <div>
-          {renderDashboard()}
+        <div className="space-y-8">
+          {/* IA Intelligence Section */}
+          <AIIntelligence 
+            vertical={selectedVertical}
+            dashboardData={dashboardData}
+            cameraId="cam_001" // Em produção viria do contexto
+          />
+          
+          {/* Dashboard Principal */}
+          <div>
+            {renderDashboard()}
+          </div>
         </div>
       ) : (
         <Card>
