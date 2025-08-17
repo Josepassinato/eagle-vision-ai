@@ -673,6 +673,116 @@ export type Database = {
         }
         Relationships: []
       }
+      bi_reports: {
+        Row: {
+          created_at: string | null
+          error_message: string | null
+          file_path: string | null
+          file_size_bytes: number | null
+          generated_at: string | null
+          id: string
+          metadata: Json | null
+          parameters: Json | null
+          report_name: string
+          report_type: string
+          service_id: string | null
+          status: string | null
+          tenant_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          error_message?: string | null
+          file_path?: string | null
+          file_size_bytes?: number | null
+          generated_at?: string | null
+          id?: string
+          metadata?: Json | null
+          parameters?: Json | null
+          report_name: string
+          report_type: string
+          service_id?: string | null
+          status?: string | null
+          tenant_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          error_message?: string | null
+          file_path?: string | null
+          file_size_bytes?: number | null
+          generated_at?: string | null
+          id?: string
+          metadata?: Json | null
+          parameters?: Json | null
+          report_name?: string
+          report_type?: string
+          service_id?: string | null
+          status?: string | null
+          tenant_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bi_reports_service_id_fkey"
+            columns: ["service_id"]
+            isOneToOne: false
+            referencedRelation: "services"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bi_reports_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      bigquery_sync_config: {
+        Row: {
+          created_at: string | null
+          dataset_id: string
+          id: string
+          is_active: boolean | null
+          last_sync_timestamp: string | null
+          project_id: string
+          sync_frequency_seconds: number | null
+          table_mappings: Json
+          tenant_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          dataset_id: string
+          id?: string
+          is_active?: boolean | null
+          last_sync_timestamp?: string | null
+          project_id: string
+          sync_frequency_seconds?: number | null
+          table_mappings?: Json
+          tenant_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          dataset_id?: string
+          id?: string
+          is_active?: boolean | null
+          last_sync_timestamp?: string | null
+          project_id?: string
+          sync_frequency_seconds?: number | null
+          table_mappings?: Json
+          tenant_id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bigquery_sync_config_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       billing_jobs: {
         Row: {
           created_at: string | null
@@ -1393,6 +1503,53 @@ export type Database = {
         }
         Relationships: []
       }
+      dashboard_configs: {
+        Row: {
+          created_at: string | null
+          dashboard_name: string
+          dashboard_type: string | null
+          id: string
+          is_public: boolean | null
+          public_share_token: string | null
+          refresh_interval_seconds: number | null
+          tenant_id: string | null
+          updated_at: string | null
+          widget_configs: Json
+        }
+        Insert: {
+          created_at?: string | null
+          dashboard_name: string
+          dashboard_type?: string | null
+          id?: string
+          is_public?: boolean | null
+          public_share_token?: string | null
+          refresh_interval_seconds?: number | null
+          tenant_id?: string | null
+          updated_at?: string | null
+          widget_configs?: Json
+        }
+        Update: {
+          created_at?: string | null
+          dashboard_name?: string
+          dashboard_type?: string | null
+          id?: string
+          is_public?: boolean | null
+          public_share_token?: string | null
+          refresh_interval_seconds?: number | null
+          tenant_id?: string | null
+          updated_at?: string | null
+          widget_configs?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dashboard_configs_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       data_access_logs: {
         Row: {
           access_type: string
@@ -1499,6 +1656,56 @@ export type Database = {
             columns: ["org_id"]
             isOneToOne: false
             referencedRelation: "orgs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      data_sync_logs: {
+        Row: {
+          completed_at: string | null
+          error_details: Json | null
+          id: string
+          latency_ms: number | null
+          records_failed: number | null
+          records_processed: number | null
+          started_at: string | null
+          status: string | null
+          sync_type: string
+          target_system: string
+          tenant_id: string | null
+        }
+        Insert: {
+          completed_at?: string | null
+          error_details?: Json | null
+          id?: string
+          latency_ms?: number | null
+          records_failed?: number | null
+          records_processed?: number | null
+          started_at?: string | null
+          status?: string | null
+          sync_type: string
+          target_system: string
+          tenant_id?: string | null
+        }
+        Update: {
+          completed_at?: string | null
+          error_details?: Json | null
+          id?: string
+          latency_ms?: number | null
+          records_failed?: number | null
+          records_processed?: number | null
+          started_at?: string | null
+          status?: string | null
+          sync_type?: string
+          target_system?: string
+          tenant_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "data_sync_logs_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
         ]
@@ -4875,6 +5082,10 @@ export type Database = {
       }
       current_org: {
         Args: Record<PropertyKey, never>
+        Returns: string
+      }
+      generate_report_path: {
+        Args: { report_type: string; service_id?: string; tenant_id: string }
         Returns: string
       }
       get_antitheft_incidents: {

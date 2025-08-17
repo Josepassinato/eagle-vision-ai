@@ -74,3 +74,9 @@ verify_jwt = false
 
 [functions.api-v1-visitors]
 verify_jwt = false
+
+[functions.bigquery-sync]
+verify_jwt = false
+
+[functions.bi-reports]
+verify_jwt = false
