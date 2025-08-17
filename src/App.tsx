@@ -42,6 +42,7 @@ import TensorRTOptimization from "./pages/admin/TensorRTOptimization";
 import ReIDOptimization from "./pages/admin/ReIDOptimization";
 import TechnicalTesting from "./pages/admin/TechnicalTesting";
 import Vision4Church from "./pages/admin/Vision4Church";
+import VerticalDashboard from "./pages/admin/VerticalDashboard";
 import GlobalNavActions from "./components/GlobalNavActions";
 import AIAssistant from "./components/AIAssistant";
 import { PWAInstallBanner } from "./components/PWAInstallBanner";
@@ -98,6 +99,7 @@ const App = () => (
             <Route path="parameters" element={<SystemParameters />} />
             <Route path="technical-testing" element={<TechnicalTesting />} />
             <Route path="church" element={<Vision4Church />} />
+            <Route path="vertical-dashboard" element={<VerticalDashboard />} />
             <Route path="deployment" element={<DeploymentChecklist />} />
             <Route path="onvif-onboarding" element={<ONVIFOnboarding />} />
             <Route path="tensorrt-optimization" element={<TensorRTOptimization />} />
