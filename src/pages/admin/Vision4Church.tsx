@@ -8,6 +8,7 @@ import { Church, Shield, BarChart3, Settings, Users, Camera, MapPin, AlertTriang
 import { ChurchZoneManager } from '@/components/ChurchZoneManager';
 import { ChurchEventAnalytics } from '@/components/ChurchEventAnalytics';
 import { ChurchPrivacyControls } from '@/components/ChurchPrivacyControls';
+import { PastorDashboard } from '@/components/PastorDashboard';
 import { useChurchAnalytics } from '@/hooks/useChurchAnalytics';
 import { usePrivacyMode } from '@/hooks/usePrivacyMode';
 
@@ -222,8 +223,12 @@ export default function Vision4Church() {
       </Card>
 
       {/* Main Tabs */}
-      <Tabs defaultValue="analytics" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-4">
+      <Tabs defaultValue="pastor" className="space-y-6">
+        <TabsList className="grid w-full grid-cols-5">
+          <TabsTrigger value="pastor" className="flex items-center space-x-2">
+            <Church className="w-4 h-4" />
+            <span>Dashboard Pastor</span>
+          </TabsTrigger>
           <TabsTrigger value="analytics" className="flex items-center space-x-2">
             <BarChart3 className="w-4 h-4" />
             <span>Analytics</span>
@@ -241,6 +246,10 @@ export default function Vision4Church() {
             <span>Configurações</span>
           </TabsTrigger>
         </TabsList>
+
+        <TabsContent value="pastor">
+          <PastorDashboard cameraId={selectedCamera === 'all' ? undefined : selectedCamera} />
+        </TabsContent>
 
         <TabsContent value="analytics">
           <ChurchEventAnalytics cameraId={selectedCamera === 'all' ? undefined : selectedCamera} />
