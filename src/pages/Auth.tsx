@@ -8,7 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { Helmet } from "react-helmet-async";
-import { Eye, EyeOff, User, Mail, Building2, Phone } from "lucide-react";
+import { Eye, EyeOff, User, Mail, Building2, Phone, ArrowLeft } from "lucide-react";
 
 function cleanupAuthState() {
   try {
@@ -127,6 +127,18 @@ const Auth = () => {
       
       <div className="min-h-screen bg-gradient-to-br from-background via-background/95 to-primary/5 flex items-center justify-center p-4">
         <div className="w-full max-w-md">
+          <div className="flex items-center justify-between mb-8">
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={() => navigate("/")}
+              className="text-muted-foreground hover:text-foreground"
+            >
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Voltar ao Site
+            </Button>
+          </div>
+          
           <div className="text-center mb-8">
             <h1 className="text-3xl font-bold text-foreground">Visão de Águia</h1>
             <p className="text-muted-foreground mt-2">Plataforma de Monitoramento Inteligente</p>
