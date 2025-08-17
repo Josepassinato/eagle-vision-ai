@@ -947,6 +947,144 @@ export type Database = {
         }
         Relationships: []
       }
+      church_analytics: {
+        Row: {
+          avg_attendance: number | null
+          camera_id: string
+          created_at: string
+          date: string
+          entry_count: number | null
+          exit_count: number | null
+          id: string
+          org_id: string
+          peak_attendance: number | null
+          privacy_mode_enabled: boolean | null
+          safety_events: number | null
+          service_times: Json | null
+          total_attendance: number | null
+          updated_at: string
+          zone_metrics: Json | null
+        }
+        Insert: {
+          avg_attendance?: number | null
+          camera_id: string
+          created_at?: string
+          date?: string
+          entry_count?: number | null
+          exit_count?: number | null
+          id?: string
+          org_id?: string
+          peak_attendance?: number | null
+          privacy_mode_enabled?: boolean | null
+          safety_events?: number | null
+          service_times?: Json | null
+          total_attendance?: number | null
+          updated_at?: string
+          zone_metrics?: Json | null
+        }
+        Update: {
+          avg_attendance?: number | null
+          camera_id?: string
+          created_at?: string
+          date?: string
+          entry_count?: number | null
+          exit_count?: number | null
+          id?: string
+          org_id?: string
+          peak_attendance?: number | null
+          privacy_mode_enabled?: boolean | null
+          safety_events?: number | null
+          service_times?: Json | null
+          total_attendance?: number | null
+          updated_at?: string
+          zone_metrics?: Json | null
+        }
+        Relationships: []
+      }
+      church_events: {
+        Row: {
+          camera_id: string
+          clip_uri: string | null
+          confidence: number
+          created_at: string
+          event_type: string
+          id: string
+          metadata: Json | null
+          org_id: string
+          person_count: number | null
+          timestamp: string
+          zone_name: string | null
+        }
+        Insert: {
+          camera_id: string
+          clip_uri?: string | null
+          confidence?: number
+          created_at?: string
+          event_type: string
+          id?: string
+          metadata?: Json | null
+          org_id?: string
+          person_count?: number | null
+          timestamp?: string
+          zone_name?: string | null
+        }
+        Update: {
+          camera_id?: string
+          clip_uri?: string | null
+          confidence?: number
+          created_at?: string
+          event_type?: string
+          id?: string
+          metadata?: Json | null
+          org_id?: string
+          person_count?: number | null
+          timestamp?: string
+          zone_name?: string | null
+        }
+        Relationships: []
+      }
+      church_zones: {
+        Row: {
+          camera_id: string
+          counting_enabled: boolean | null
+          created_at: string
+          id: string
+          is_active: boolean | null
+          org_id: string
+          polygon: Json
+          privacy_level: string | null
+          updated_at: string
+          zone_name: string
+          zone_type: string
+        }
+        Insert: {
+          camera_id: string
+          counting_enabled?: boolean | null
+          created_at?: string
+          id?: string
+          is_active?: boolean | null
+          org_id?: string
+          polygon: Json
+          privacy_level?: string | null
+          updated_at?: string
+          zone_name: string
+          zone_type: string
+        }
+        Update: {
+          camera_id?: string
+          counting_enabled?: boolean | null
+          created_at?: string
+          id?: string
+          is_active?: boolean | null
+          org_id?: string
+          polygon?: Json
+          privacy_level?: string | null
+          updated_at?: string
+          zone_name?: string
+          zone_type?: string
+        }
+        Relationships: []
+      }
       clip_processing_jobs: {
         Row: {
           clip_id: string
