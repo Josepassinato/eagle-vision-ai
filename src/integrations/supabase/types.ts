@@ -70,6 +70,81 @@ export type Database = {
           },
         ]
       }
+      ai_metrics: {
+        Row: {
+          aggregation_period: string | null
+          camera_id: string
+          class_distribution: Json | null
+          confidence_avg: number | null
+          confidence_drift: number | null
+          confidence_p50: number | null
+          confidence_p95: number | null
+          cpu_usage_percent: number | null
+          detection_count: number | null
+          distribution_shift: number | null
+          false_positive_rate: number | null
+          fps_actual: number | null
+          fps_target: number | null
+          gpu_usage_percent: number | null
+          id: string
+          inference_latency_ms: number | null
+          memory_usage_mb: number | null
+          motion_activity: number | null
+          org_id: string
+          processing_latency_ms: number | null
+          timestamp: string
+          zone_coverage: Json | null
+        }
+        Insert: {
+          aggregation_period?: string | null
+          camera_id: string
+          class_distribution?: Json | null
+          confidence_avg?: number | null
+          confidence_drift?: number | null
+          confidence_p50?: number | null
+          confidence_p95?: number | null
+          cpu_usage_percent?: number | null
+          detection_count?: number | null
+          distribution_shift?: number | null
+          false_positive_rate?: number | null
+          fps_actual?: number | null
+          fps_target?: number | null
+          gpu_usage_percent?: number | null
+          id?: string
+          inference_latency_ms?: number | null
+          memory_usage_mb?: number | null
+          motion_activity?: number | null
+          org_id: string
+          processing_latency_ms?: number | null
+          timestamp?: string
+          zone_coverage?: Json | null
+        }
+        Update: {
+          aggregation_period?: string | null
+          camera_id?: string
+          class_distribution?: Json | null
+          confidence_avg?: number | null
+          confidence_drift?: number | null
+          confidence_p50?: number | null
+          confidence_p95?: number | null
+          cpu_usage_percent?: number | null
+          detection_count?: number | null
+          distribution_shift?: number | null
+          false_positive_rate?: number | null
+          fps_actual?: number | null
+          fps_target?: number | null
+          gpu_usage_percent?: number | null
+          id?: string
+          inference_latency_ms?: number | null
+          memory_usage_mb?: number | null
+          motion_activity?: number | null
+          org_id?: string
+          processing_latency_ms?: number | null
+          timestamp?: string
+          zone_coverage?: Json | null
+        }
+        Relationships: []
+      }
       ai_reports: {
         Row: {
           content: string
@@ -655,6 +730,93 @@ export type Database = {
         }
         Relationships: []
       }
+      camera_ai_profiles: {
+        Row: {
+          brightness_gamma: number | null
+          camera_id: string
+          class_mappings: Json | null
+          conf_threshold: number | null
+          contrast_gamma: number | null
+          created_at: string
+          exclusion_zones: Json | null
+          exposure_compensation: number | null
+          hysteresis_enter_threshold: number | null
+          hysteresis_exit_threshold: number | null
+          id: string
+          interest_zones: Json | null
+          is_active: boolean | null
+          min_event_duration_ms: number | null
+          motion_gate_enabled: boolean | null
+          motion_threshold: number | null
+          nms_threshold: number | null
+          org_id: string
+          profile_name: string
+          scene_type: string | null
+          smoothing_window_frames: number | null
+          suppression_rules: Json | null
+          tracker_iou_threshold: number | null
+          tracker_max_age: number | null
+          tracker_min_hits: number | null
+          updated_at: string
+        }
+        Insert: {
+          brightness_gamma?: number | null
+          camera_id: string
+          class_mappings?: Json | null
+          conf_threshold?: number | null
+          contrast_gamma?: number | null
+          created_at?: string
+          exclusion_zones?: Json | null
+          exposure_compensation?: number | null
+          hysteresis_enter_threshold?: number | null
+          hysteresis_exit_threshold?: number | null
+          id?: string
+          interest_zones?: Json | null
+          is_active?: boolean | null
+          min_event_duration_ms?: number | null
+          motion_gate_enabled?: boolean | null
+          motion_threshold?: number | null
+          nms_threshold?: number | null
+          org_id: string
+          profile_name?: string
+          scene_type?: string | null
+          smoothing_window_frames?: number | null
+          suppression_rules?: Json | null
+          tracker_iou_threshold?: number | null
+          tracker_max_age?: number | null
+          tracker_min_hits?: number | null
+          updated_at?: string
+        }
+        Update: {
+          brightness_gamma?: number | null
+          camera_id?: string
+          class_mappings?: Json | null
+          conf_threshold?: number | null
+          contrast_gamma?: number | null
+          created_at?: string
+          exclusion_zones?: Json | null
+          exposure_compensation?: number | null
+          hysteresis_enter_threshold?: number | null
+          hysteresis_exit_threshold?: number | null
+          id?: string
+          interest_zones?: Json | null
+          is_active?: boolean | null
+          min_event_duration_ms?: number | null
+          motion_gate_enabled?: boolean | null
+          motion_threshold?: number | null
+          nms_threshold?: number | null
+          org_id?: string
+          profile_name?: string
+          scene_type?: string | null
+          smoothing_window_frames?: number | null
+          suppression_rules?: Json | null
+          tracker_iou_threshold?: number | null
+          tracker_max_age?: number | null
+          tracker_min_hits?: number | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       camera_configs: {
         Row: {
           camera_id: string
@@ -1082,6 +1244,63 @@ export type Database = {
           name?: string
           protocol?: string
           url?: string
+        }
+        Relationships: []
+      }
+      detection_pipeline_state: {
+        Row: {
+          camera_id: string
+          confidence_history: number[] | null
+          created_at: string
+          event_count: number | null
+          frame_count: number | null
+          hysteresis_state: string | null
+          id: string
+          last_detection_time: string | null
+          last_event_emitted: string | null
+          last_position: number[] | null
+          motion_magnitude: number | null
+          org_id: string
+          smoothed_confidence: number | null
+          state_enter_time: string | null
+          track_id: string
+          updated_at: string
+        }
+        Insert: {
+          camera_id: string
+          confidence_history?: number[] | null
+          created_at?: string
+          event_count?: number | null
+          frame_count?: number | null
+          hysteresis_state?: string | null
+          id?: string
+          last_detection_time?: string | null
+          last_event_emitted?: string | null
+          last_position?: number[] | null
+          motion_magnitude?: number | null
+          org_id: string
+          smoothed_confidence?: number | null
+          state_enter_time?: string | null
+          track_id: string
+          updated_at?: string
+        }
+        Update: {
+          camera_id?: string
+          confidence_history?: number[] | null
+          created_at?: string
+          event_count?: number | null
+          frame_count?: number | null
+          hysteresis_state?: string | null
+          id?: string
+          last_detection_time?: string | null
+          last_event_emitted?: string | null
+          last_position?: number[] | null
+          motion_magnitude?: number | null
+          org_id?: string
+          smoothed_confidence?: number | null
+          state_enter_time?: string | null
+          track_id?: string
+          updated_at?: string
         }
         Relationships: []
       }
