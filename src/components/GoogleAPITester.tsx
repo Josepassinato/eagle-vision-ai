@@ -6,83 +6,79 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/components/ui/use-toast';
-import { Loader2, CheckCircle, XCircle, Clock } from 'lucide-react';
+import { Loader2, CheckCircle, XCircle, Clock, Play } from 'lucide-react';
+import { testGoogleAPI, runComprehensiveTest } from '@/utils/testGoogleAPI';
 
 export default function GoogleAPITester() {
-  const [imageUrl, setImageUrl] = useState('');
+  const [imageUrl, setImageUrl] = useState('https://storage.googleapis.com/cloud-samples-data/vision/using_curl/sandwich.jpg');
   const [testing, setTesting] = useState(false);
+  const [comprehensiveTesting, setComprehensiveTesting] = useState(false);
   const [results, setResults] = useState<{
     success: boolean;
     responseTime: number;
     error?: string;
     data?: any;
+    comprehensiveResults?: any;
   } | null>(null);
   const { toast } = useToast();
 
-  const testAPI = async () => {
-    if (!imageUrl) {
-      toast({
-        title: "Erro",
-        description: "Por favor, insira uma URL de imagem para testar",
-        variant: "destructive",
-      });
-      return;
-    }
-
+  const runQuickTest = async () => {
     setTesting(true);
     setResults(null);
     
-    const startTime = Date.now();
-    
     try {
-      const { data, error } = await supabase.functions.invoke('vertex-ai-analysis', {
-        body: {
-          imageUrl: imageUrl,
-          analysisType: 'image_analysis'
-        }
-      });
-
-      const responseTime = Date.now() - startTime;
-
-      if (error) {
-        setResults({
-          success: false,
-          responseTime,
-          error: error.message || 'Erro desconhecido'
-        });
+      const result = await testGoogleAPI();
+      setResults(result);
+      
+      if (result.success) {
         toast({
-          title: "Erro na API",
-          description: error.message || 'Falha ao conectar com a API do Google',
-          variant: "destructive",
+          title: "✅ Teste Concluído",
+          description: `API respondeu em ${result.responseTime}ms - ${result.performanceGrade}`,
         });
       } else {
-        setResults({
-          success: true,
-          responseTime,
-          data
-        });
         toast({
-          title: "Sucesso",
-          description: "API do Google respondeu corretamente",
+          title: "❌ Teste Falhou",
+          description: result.error || 'Erro desconhecido',
+          variant: "destructive",
         });
       }
-    } catch (err) {
-      const responseTime = Date.now() - startTime;
-      const errorMessage = err instanceof Error ? err.message : 'Erro desconhecido';
-      
-      setResults({
-        success: false,
-        responseTime,
-        error: errorMessage
-      });
-      
+    } catch (error) {
+      console.error('Erro no teste:', error);
       toast({
         title: "Erro",
-        description: errorMessage,
+        description: "Falha ao executar teste",
         variant: "destructive",
       });
     } finally {
       setTesting(false);
+    }
+  };
+
+  const runFullTest = async () => {
+    setComprehensiveTesting(true);
+    setResults(null);
+    
+    try {
+      const comprehensiveResults = await runComprehensiveTest();
+      setResults({
+        success: comprehensiveResults.successfulTests > 0,
+        responseTime: comprehensiveResults.avgResponseTime,
+        comprehensiveResults
+      });
+      
+      toast({
+        title: "🔬 Teste Abrangente Concluído",
+        description: `${comprehensiveResults.successfulTests}/${comprehensiveResults.totalTests} testes passaram`,
+      });
+    } catch (error) {
+      console.error('Erro no teste abrangente:', error);
+      toast({
+        title: "Erro",
+        description: "Falha ao executar teste abrangente",
+        variant: "destructive",
+      });
+    } finally {
+      setComprehensiveTesting(false);
     }
   };
 
@@ -132,20 +128,41 @@ export default function GoogleAPITester() {
           />
         </div>
 
-        <Button 
-          onClick={testAPI}
-          disabled={testing || !imageUrl}
-          className="w-full"
-        >
-          {testing ? (
-            <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Testando API...
-            </>
-          ) : (
-            'Testar API do Google'
-          )}
-        </Button>
+        <div className="flex gap-2">
+          <Button 
+            onClick={runQuickTest}
+            disabled={testing || comprehensiveTesting}
+            className="flex-1"
+          >
+            {testing ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Testando...
+              </>
+            ) : (
+              <>
+                <Play className="mr-2 h-4 w-4" />
+                Teste Rápido
+              </>
+            )}
+          </Button>
+          
+          <Button 
+            onClick={runFullTest}
+            disabled={testing || comprehensiveTesting}
+            variant="outline"
+            className="flex-1"
+          >
+            {comprehensiveTesting ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Testando...
+              </>
+            ) : (
+              '🔬 Teste Completo'
+            )}
+          </Button>
+        </div>
 
         {results && (
           <div className="space-y-4 p-4 bg-muted rounded-lg">
@@ -163,6 +180,17 @@ export default function GoogleAPITester() {
               {getLatencyBadge()}
             </div>
 
+            {results.comprehensiveResults && (
+              <div className="space-y-2">
+                <span className="font-medium">Resultados Abrangentes:</span>
+                <div className="text-sm space-y-1">
+                  <p>✅ Testes bem-sucedidos: {results.comprehensiveResults.successfulTests}/{results.comprehensiveResults.totalTests}</p>
+                  <p>⏱️ Tempo médio: {Math.round(results.comprehensiveResults.avgResponseTime)}ms</p>
+                  <p>🎯 Meta p95 &lt; 2s: {results.comprehensiveResults.meetsPerformanceTarget ? 'ATENDIDA' : 'NÃO ATENDIDA'}</p>
+                </div>
+              </div>
+            )}
+
             {results.error && (
               <div className="space-y-2">
                 <span className="font-medium text-red-500">Erro:</span>
@@ -172,7 +200,7 @@ export default function GoogleAPITester() {
               </div>
             )}
 
-            {results.data && (
+            {results.data && !results.comprehensiveResults && (
               <div className="space-y-2">
                 <span className="font-medium text-green-600">Resposta:</span>
                 <pre className="text-xs bg-background p-2 rounded border overflow-auto max-h-40">
@@ -188,9 +216,9 @@ export default function GoogleAPITester() {
             <Clock className="h-4 w-4" />
             Tempo alvo: p95 &lt; 2s
           </p>
-          <p>• Teste com diferentes tipos de imagem</p>
-          <p>• Verifique se a autenticação está funcionando</p>
-          <p>• Monitore a qualidade das análises retornadas</p>
+          <p>• <strong>Teste Rápido:</strong> Usa imagem pré-definida para validação básica</p>
+          <p>• <strong>Teste Completo:</strong> Múltiplos cenários (objetos, segurança, análise geral)</p>
+          <p>• Verifica se autenticação e todas funcionalidades estão operacionais</p>
         </div>
       </CardContent>
     </Card>
