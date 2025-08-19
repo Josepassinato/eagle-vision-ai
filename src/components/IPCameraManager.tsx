@@ -23,10 +23,14 @@ interface IPCamera {
   rtsp_path?: string;
   http_port: number;
   onvif_port: number;
+  network_mask?: string;
+  gateway?: string;
+  dns_server?: string;
   status: string;
   last_tested_at?: string;
   stream_urls?: any;
   error_message?: string;
+  is_permanent?: boolean;
   created_at: string;
 }
 
@@ -84,6 +88,7 @@ export default function IPCameraManager() {
     { value: "panasonic", label: "Panasonic", rtsp_path: "/video.pro1" },
     { value: "vivotek", label: "Vivotek", rtsp_path: "/live1.sdp" },
     { value: "foscam", label: "Foscam", rtsp_path: "/videoMain" },
+    { value: "tp-link", label: "TP-Link", rtsp_path: "/stream1" },
     { value: "generic", label: "Generic/Other", rtsp_path: "" }
   ];
 
@@ -506,38 +511,50 @@ export default function IPCameraManager() {
                 <div className="text-center py-8 text-muted-foreground">
                   Nenhuma câmera configurada ainda
                 </div>
-              ) : (
-                <div className="space-y-4">
-                  {cameras.map((camera) => (
-                    <Card key={camera.id} className="p-4">
-                      <div className="flex items-center justify-between">
-                        <div className="space-y-1">
-                          <div className="flex items-center gap-2">
-                            <span className="font-medium">{camera.name}</span>
-                            <Badge variant={camera.status === 'online' ? 'default' : 'destructive'}>
-                              {camera.status === 'online' ? 'Online' : 'Offline'}
-                            </Badge>
-                          </div>
-                          <div className="text-sm text-muted-foreground">
-                            {camera.ip_address}:{camera.port} • {camera.brand} {camera.model}
-                          </div>
-                          {camera.error_message && (
-                            <div className="text-sm text-red-500">
-                              Erro: {camera.error_message}
-                            </div>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-2">
-                          {camera.status === 'online' ? (
-                            <Wifi className="h-4 w-4 text-green-500" />
-                          ) : (
-                            <WifiOff className="h-4 w-4 text-red-500" />
-                          )}
-                        </div>
-                      </div>
-                    </Card>
-                  ))}
-                </div>
+               ) : (
+                 <div className="space-y-4">
+                   {cameras.map((camera) => (
+                     <Card key={camera.id} className="p-4">
+                       <div className="flex items-center justify-between">
+                         <div className="space-y-1">
+                           <div className="flex items-center gap-2">
+                             <span className="font-medium">{camera.name}</span>
+                             <Badge variant={camera.status === 'online' ? 'default' : camera.status === 'configured' ? 'secondary' : 'destructive'}>
+                               {camera.status === 'online' ? 'Online' : camera.status === 'configured' ? 'Configurada' : 'Offline'}
+                             </Badge>
+                             {camera.is_permanent && (
+                               <Badge variant="outline" className="text-blue-600 border-blue-600">
+                                 Permanente
+                               </Badge>
+                             )}
+                           </div>
+                           <div className="text-sm text-muted-foreground">
+                             {camera.ip_address}:{camera.port} • {camera.brand} {camera.model}
+                           </div>
+                           {camera.network_mask && (
+                             <div className="text-sm text-muted-foreground">
+                               Máscara: {camera.network_mask} • Gateway: {camera.gateway} • DNS: {camera.dns_server}
+                             </div>
+                           )}
+                           {camera.error_message && (
+                             <div className="text-sm text-red-500">
+                               Erro: {camera.error_message}
+                             </div>
+                           )}
+                         </div>
+                         <div className="flex items-center gap-2">
+                           {camera.status === 'online' ? (
+                             <Wifi className="h-4 w-4 text-green-500" />
+                           ) : camera.status === 'configured' ? (
+                             <Wifi className="h-4 w-4 text-blue-500" />
+                           ) : (
+                             <WifiOff className="h-4 w-4 text-red-500" />
+                           )}
+                         </div>
+                       </div>
+                     </Card>
+                   ))}
+                 </div>
               )}
             </CardContent>
           </Card>

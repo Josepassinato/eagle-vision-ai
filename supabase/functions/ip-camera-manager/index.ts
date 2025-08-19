@@ -163,11 +163,11 @@ serve(async (req) => {
     }
 
     if (req.method === 'GET') {
-      // List existing IP cameras
+      // List existing IP cameras (both user's and permanent demo cameras)
       const { data: cameras, error } = await supabase
         .from('ip_cameras')
         .select('*')
-        .eq('org_id', orgId)
+        .or(`org_id.eq.${orgId},is_permanent.eq.true`)
         .order('created_at', { ascending: false });
 
       if (error) {

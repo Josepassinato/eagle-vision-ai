@@ -2959,7 +2959,7 @@ export type Database = {
           name: string
           network_mask: string | null
           onvif_port: number | null
-          org_id: string
+          org_id: string | null
           password: string | null
           port: number
           rtsp_path: string | null
@@ -2985,7 +2985,7 @@ export type Database = {
           name: string
           network_mask?: string | null
           onvif_port?: number | null
-          org_id: string
+          org_id?: string | null
           password?: string | null
           port?: number
           rtsp_path?: string | null
@@ -3011,7 +3011,7 @@ export type Database = {
           name?: string
           network_mask?: string | null
           onvif_port?: number | null
-          org_id?: string
+          org_id?: string | null
           password?: string | null
           port?: number
           rtsp_path?: string | null
