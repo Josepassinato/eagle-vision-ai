@@ -192,6 +192,7 @@ serve(async (req) => {
     }
 
     const requestBody = await req.json();
+    const action = requestBody.action || url.searchParams.get('action');
 
     switch (action) {
       case 'test-connection': {

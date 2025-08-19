@@ -129,9 +129,12 @@ export default function IPCameraManager() {
 
     try {
       const { data, error } = await supabase.functions.invoke('ip-camera-manager', {
-        body: config,
+        body: {
+          action: 'test-connection',
+          ...config
+        },
         headers: {
-          'x-org-id': 'demo-org-id' // Em produção, usar org real
+          'x-org-id': 'demo-org-id'
         }
       });
 
@@ -167,9 +170,12 @@ export default function IPCameraManager() {
 
     try {
       const { data, error } = await supabase.functions.invoke('ip-camera-manager', {
-        body: config,
+        body: {
+          action: 'save-config',
+          ...config
+        },
         headers: {
-          'x-org-id': 'demo-org-id' // Em produção, usar org real
+          'x-org-id': 'demo-org-id'
         }
       });
 
@@ -208,6 +214,7 @@ export default function IPCameraManager() {
     try {
       const { data, error } = await supabase.functions.invoke('ip-camera-manager', {
         body: { 
+          action: 'scan-network',
           network_range: networkRange,
           ports: [80, 554, 8080]
         },
