@@ -12,6 +12,7 @@ import { Send, Shield, Car, Users, Church, Star, CheckCircle } from "lucide-reac
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import LiveDemo from "@/components/LiveDemo";
+import CameraTestComponent from "@/components/CameraTestComponent";
 import { Helmet } from "react-helmet-async";
 
 const Index = () => {
@@ -121,7 +122,7 @@ const Index = () => {
                 Demonstração ao vivo: nossa IA detectando situações em tempo real
               </p>
             </div>
-            <LiveDemo />
+            <CameraTestComponent />
           </div>
 
           {/* CTA para Login/Cadastro */}
