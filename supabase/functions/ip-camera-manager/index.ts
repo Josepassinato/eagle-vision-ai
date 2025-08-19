@@ -153,13 +153,11 @@ serve(async (req) => {
     const url = new URL(req.url);
     const actionFromQuery = url.searchParams.get('action');
 
-    // Get org_id from header
-    const orgId = req.headers.get('x-org-id');
-    if (!orgId) {
-      return new Response(
-        JSON.stringify({ error: 'Organization ID required' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+    // Get org_id from header, use a default UUID if demo
+    let orgId = req.headers.get('x-org-id');
+    if (!orgId || orgId === 'demo-org-id') {
+      // Use a fixed demo UUID for testing purposes
+      orgId = '00000000-0000-0000-0000-000000000001';
     }
 
     if (req.method === 'GET') {
