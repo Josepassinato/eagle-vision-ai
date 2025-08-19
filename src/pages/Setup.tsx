@@ -7,6 +7,7 @@ import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
 import { Helmet } from "react-helmet-async";
 import { IPCameraSetup } from "@/components/IPCameraSetup";
+import TestCameraIPUpdater from "@/components/TestCameraIPUpdater";
 import { 
   Camera, 
   Wifi, 
@@ -244,6 +245,11 @@ const Setup = () => {
               </span>
             </div>
             <Progress value={progress} className="h-2" />
+          </div>
+
+          {/* Câmera de Teste - atualizar IP rapidamente */}
+          <div className="mb-8">
+            <TestCameraIPUpdater />
           </div>
 
           {/* Content */}
