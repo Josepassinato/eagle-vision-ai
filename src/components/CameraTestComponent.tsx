@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Camera, Wifi, TestTube } from "lucide-react";
 import { toast } from "sonner";
+import TestCameraIPUpdater from "@/components/TestCameraIPUpdater";
 
 interface IPCamera {
   id: string;
@@ -97,7 +98,10 @@ export default function CameraTestComponent() {
   }, []);
 
   return (
-    <Card>
+    <div className="space-y-6">
+      <TestCameraIPUpdater />
+      
+      <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Camera className="h-5 w-5" />
@@ -161,5 +165,6 @@ export default function CameraTestComponent() {
         </div>
       </CardContent>
     </Card>
+    </div>
   );
 }

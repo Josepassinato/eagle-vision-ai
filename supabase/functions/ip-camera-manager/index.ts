@@ -335,6 +335,47 @@ serve(async (req) => {
         );
       }
 
+      case 'update-ip': {
+        const { camera_id, new_ip }: { camera_id: string; new_ip: string } = requestBody;
+        console.log('Updating camera IP:', camera_id, 'to', new_ip);
+
+        if (!camera_id || !new_ip) {
+          return new Response(
+            JSON.stringify({ error: 'Camera ID and new IP are required' }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        // Update camera IP
+        const { data: camera, error } = await supabase
+          .from('ip_cameras')
+          .update({
+            ip_address: new_ip,
+            status: 'configured',
+            last_tested_at: new Date().toISOString()
+          })
+          .eq('id', camera_id)
+          .select()
+          .single();
+
+        if (error) {
+          console.error('Error updating camera IP:', error);
+          return new Response(
+            JSON.stringify({ error: 'Failed to update camera IP' }),
+            { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        return new Response(
+          JSON.stringify({ 
+            success: true, 
+            data: camera,
+            message: `IP atualizado para ${new_ip}` 
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
       default:
         return new Response(
           JSON.stringify({ error: 'Invalid action' }),
