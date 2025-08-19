@@ -2946,14 +2946,18 @@ export type Database = {
           brand: string | null
           capabilities: Json | null
           created_at: string
+          dns_server: string | null
           error_message: string | null
+          gateway: string | null
           http_port: number | null
           id: string
           ip_address: unknown
+          is_permanent: boolean | null
           last_tested_at: string | null
           metadata: Json | null
           model: string | null
           name: string
+          network_mask: string | null
           onvif_port: number | null
           org_id: string
           password: string | null
@@ -2968,14 +2972,18 @@ export type Database = {
           brand?: string | null
           capabilities?: Json | null
           created_at?: string
+          dns_server?: string | null
           error_message?: string | null
+          gateway?: string | null
           http_port?: number | null
           id?: string
           ip_address: unknown
+          is_permanent?: boolean | null
           last_tested_at?: string | null
           metadata?: Json | null
           model?: string | null
           name: string
+          network_mask?: string | null
           onvif_port?: number | null
           org_id: string
           password?: string | null
@@ -2990,14 +2998,18 @@ export type Database = {
           brand?: string | null
           capabilities?: Json | null
           created_at?: string
+          dns_server?: string | null
           error_message?: string | null
+          gateway?: string | null
           http_port?: number | null
           id?: string
           ip_address?: unknown
+          is_permanent?: boolean | null
           last_tested_at?: string | null
           metadata?: Json | null
           model?: string | null
           name?: string
+          network_mask?: string | null
           onvif_port?: number | null
           org_id?: string
           password?: string | null
