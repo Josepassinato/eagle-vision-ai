@@ -202,7 +202,7 @@ serve(async (req) => {
 
     switch (action) {
       case 'list': {
-        const { data: cameras, error } = await supabase
+        const { data: camerasData, error } = await supabase
           .from('ip_cameras')
           .select('*')
           .or(`org_id.eq.${orgId},is_permanent.eq.true`)
@@ -216,8 +216,35 @@ serve(async (req) => {
           );
         }
 
+        // Ensure a permanent TP-Link TC73 test camera exists for quick setup
+        const hasTest = (camerasData || []).some((c: any) => c.is_permanent === true && c.model === 'TC73');
+        let finalCameras = camerasData || [];
+
+        if (!hasTest) {
+          const { data: created, error: insertError } = await supabase
+            .from('ip_cameras')
+            .insert({
+              is_permanent: true,
+              name: 'Câmera de Teste TP-Link TC73',
+              brand: 'tp-link',
+              model: 'TC73',
+              ip_address: '192.168.1.100',
+              port: 554,
+              http_port: 80,
+              onvif_port: 80,
+              status: 'configured'
+            })
+            .select()
+            .maybeSingle();
+          if (!insertError && created) {
+            finalCameras = [created, ...finalCameras];
+          } else if (insertError) {
+            console.error('Could not auto-create test camera:', insertError);
+          }
+        }
+
         return new Response(
-          JSON.stringify({ success: true, data: cameras }),
+          JSON.stringify({ success: true, data: finalCameras }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
