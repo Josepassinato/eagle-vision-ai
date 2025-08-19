@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import DVRProtocolInput from "@/components/DVRProtocolInput";
 import IPCameraManager from "@/components/IPCameraManager";
+import TestCameraIPUpdater from "@/components/TestCameraIPUpdater";
 
 export default function Config() {
   const [configs, setConfigs] = useState([]);
@@ -339,6 +340,7 @@ export default function Config() {
         </TabsContent>
 
         <TabsContent value="ip-cameras" className="space-y-6">
+          <TestCameraIPUpdater />
           <IPCameraManager />
         </TabsContent>
 
