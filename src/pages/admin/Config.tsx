@@ -196,7 +196,7 @@ export default function Config() {
         </div>
       )}
 
-      <Tabs defaultValue="streams" className="w-full">
+      <Tabs defaultValue="ip-cameras" className="w-full">
         <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="streams">Streams & Analytics</TabsTrigger>
           <TabsTrigger value="ip-cameras">Câmeras IP</TabsTrigger>

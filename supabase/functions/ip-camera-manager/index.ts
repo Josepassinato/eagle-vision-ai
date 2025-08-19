@@ -151,7 +151,7 @@ serve(async (req) => {
     )
 
     const url = new URL(req.url);
-    const action = url.searchParams.get('action');
+    const actionFromQuery = url.searchParams.get('action');
 
     // Get org_id from header
     const orgId = req.headers.get('x-org-id');
@@ -192,7 +192,7 @@ serve(async (req) => {
     }
 
     const requestBody = await req.json();
-    const action = requestBody.action || url.searchParams.get('action');
+    const action = requestBody.action || actionFromQuery;
 
     switch (action) {
       case 'test-connection': {
