@@ -247,8 +247,29 @@ const Setup = () => {
             <Progress value={progress} className="h-2" />
           </div>
 
+          {/* Botão de Acesso Rápido à Câmera de Teste */}
+          <div className="mb-6 text-center">
+            <div className="inline-flex items-center gap-3 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/50 dark:to-indigo-950/50 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+              <div className="flex items-center gap-2 text-blue-700 dark:text-blue-300">
+                <Camera className="h-5 w-5" />
+                <span className="font-medium">Câmera de Teste TP-Link TC73 disponível</span>
+              </div>
+              <Button 
+                onClick={() => {
+                  const testCameraSection = document.getElementById('test-camera-updater');
+                  testCameraSection?.scrollIntoView({ behavior: 'smooth' });
+                }}
+                size="sm" 
+                variant="outline"
+                className="bg-white/80 hover:bg-white dark:bg-gray-800/80 dark:hover:bg-gray-800"
+              >
+                Alterar IP
+              </Button>
+            </div>
+          </div>
+
           {/* Câmera de Teste - atualizar IP rapidamente */}
-          <div className="mb-8">
+          <div className="mb-8" id="test-camera-updater">
             <TestCameraIPUpdater />
           </div>
 
