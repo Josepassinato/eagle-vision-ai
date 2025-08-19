@@ -224,6 +224,7 @@ serve(async (req) => {
           const { data: created, error: insertError } = await supabase
             .from('ip_cameras')
             .insert({
+              org_id: orgId,
               is_permanent: true,
               name: 'Câmera de Teste TP-Link TC73',
               brand: 'tp-link',
@@ -237,6 +238,7 @@ serve(async (req) => {
             .select()
             .maybeSingle();
           if (!insertError && created) {
+            console.log('Auto-created test camera TC73 for org', orgId);
             finalCameras = [created, ...finalCameras];
           } else if (insertError) {
             console.error('Could not auto-create test camera:', insertError);
