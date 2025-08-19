@@ -33,6 +33,7 @@ export default function TestCameraIPUpdater() {
     try {
       setLoading(true);
       const { data, error } = await supabase.functions.invoke('ip-camera-manager', {
+        body: { action: 'list' },
         headers: {
           'x-org-id': 'demo-org-id'
         }

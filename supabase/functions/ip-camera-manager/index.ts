@@ -191,10 +191,37 @@ serve(async (req) => {
       );
     }
 
-    const requestBody = await req.json();
-    const action = requestBody.action || actionFromQuery;
+    let requestBody: any = {};
+    try {
+      // Parse JSON body safely; handle empty body without throwing
+      requestBody = await req.json();
+    } catch (_) {
+      requestBody = {};
+    }
+    const action = requestBody.action || actionFromQuery || 'list';
 
     switch (action) {
+      case 'list': {
+        const { data: cameras, error } = await supabase
+          .from('ip_cameras')
+          .select('*')
+          .or(`org_id.eq.${orgId},is_permanent.eq.true`)
+          .order('created_at', { ascending: false });
+
+        if (error) {
+          console.error('Error fetching IP cameras:', error);
+          return new Response(
+            JSON.stringify({ error: 'Failed to fetch cameras' }),
+            { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        return new Response(
+          JSON.stringify({ success: true, data: cameras }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
       case 'test-connection': {
         const config: IPCameraRequest = requestBody;
         console.log('Testing IP camera connection:', config);
