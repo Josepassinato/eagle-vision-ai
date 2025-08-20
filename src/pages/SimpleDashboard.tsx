@@ -25,6 +25,7 @@ import Hls from 'hls.js';
 import { useBrowserDetection } from "@/hooks/useBrowserDetection";
 import OverlayCanvas from "@/components/OverlayCanvas";
 import { useRealtimeEvents } from "@/hooks/useRealtimeEvents";
+import CameraConnectionTester from "@/components/CameraConnectionTester";
 
 interface IPCamera {
   id: string;
@@ -548,6 +549,10 @@ const SimpleDashboard = () => {
                 </div>
               </CardContent>
             </Card>
+          </div>
+          {/* Camera Connection Tester */}
+          <div className="mt-8">
+            <CameraConnectionTester />
           </div>
         </div>
       </div>
