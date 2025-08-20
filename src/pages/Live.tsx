@@ -4,6 +4,7 @@ import { useRealtimeEvents, type RealtimeEvent } from '@/hooks/useRealtimeEvents
 import { useRealtimeDetections } from '@/hooks/useRealtimeDetections';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -12,7 +13,8 @@ import StreamDiagnostics from '@/components/StreamDiagnostics';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { ChevronDown, ChevronUp, Play, Square, RotateCcw } from 'lucide-react';
+import { ChevronDown, ChevronUp, Play, Square, RotateCcw, Brain, Car, Shield, Users } from 'lucide-react';
+import { useBrowserDetection } from "@/hooks/useBrowserDetection";
 
 interface DVRConfig {
   id: string;
@@ -31,6 +33,20 @@ export default function Live() {
   const [simulate, setSimulate] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [cameraName, setCameraName] = useState('Câmera de Teste');
+  
+  // AI Detection Controls
+  const [aiEnabled, setAiEnabled] = useState(() => {
+    return localStorage.getItem('live-ai-enabled') === 'true';
+  });
+  const [analysisType, setAnalysisType] = useState<"people_count" | "vehicle_count" | "safety">(() => {
+    return (localStorage.getItem('live-analysis-type') as any) || "people_count";
+  });
+  
+  const videoRef = useRef<HTMLVideoElement>(null);
+  
+  // AI Detection
+  const { isLoading: aiLoading, detections, events: aiEvents, counts, isReady } = useBrowserDetection(videoRef, aiEnabled, analysisType);
+  const { events: realtimeEvents } = useRealtimeEvents("test-camera");
 
   // Carregar apenas a câmera de teste
   useEffect(() => {
@@ -144,9 +160,17 @@ const handleDVRChange = (dvrId: string) => {
   }
 };
 
-  const videoRef = useRef<HTMLVideoElement>(null);
   const hlsRef = useRef<Hls | null>(null);
   const { toast } = useToast();
+  
+  // Save AI preferences
+  useEffect(() => {
+    localStorage.setItem('live-ai-enabled', aiEnabled.toString());
+  }, [aiEnabled]);
+  
+  useEffect(() => {
+    localStorage.setItem('live-analysis-type', analysisType);
+  }, [analysisType]);
 
   // ========== HLS Player Setup com DEBUG DETALHADO ==========
   useEffect(() => {
@@ -306,7 +330,6 @@ const handleDVRChange = (dvrId: string) => {
   }, [streamUrl, toast]);
 
   // ========== Real-time Data Processing ==========
-  const { events } = useRealtimeEvents(cameraId || 'demo-camera');
   const { latestDetection } = useRealtimeDetections(cameraId || 'demo-camera');
 
   const processedDetection = useMemo(() => {
@@ -324,8 +347,8 @@ const handleDVRChange = (dvrId: string) => {
 
   const processedEvents = useMemo(() => {
     // Return events as is since they already match RealtimeEvent interface
-    return events;
-  }, [events]);
+    return aiEvents;
+  }, [aiEvents]);
 
   const startProcessing = async (cameraId: string) => {
     try {
@@ -670,15 +693,119 @@ const handleDVRChange = (dvrId: string) => {
                 </div>
               )}
 
-              {/* Detection Overlays */}
-              <OverlayCanvas 
-                videoRef={videoRef}
-                event={eventToShow}
-              />
+              {/* AI Detection Overlay */}
+              {aiEnabled && (
+                <OverlayCanvas 
+                  videoRef={videoRef} 
+                  event={realtimeEvents[0] || (aiEvents.length > 0 ? aiEvents[aiEvents.length - 1] : null)} 
+                />
+              )}
+              
+              {/* AI Status Indicator */}
+              {aiEnabled && isReady && (
+                <div className="absolute top-3 left-3 bg-black/70 backdrop-blur-sm px-3 py-1.5 rounded-full">
+                  <div className="flex items-center gap-2 text-white text-sm">
+                    <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+                    🤖 IA Ativa ({analysisType === 'people_count' ? 'Pessoas' : analysisType === 'vehicle_count' ? 'Veículos' : 'Segurança'})
+                  </div>
+                </div>
+              )}
+              
+              {/* Detection Counter */}
+              {aiEnabled && isReady && (
+                <div className="absolute top-3 right-3 bg-black/70 backdrop-blur-sm px-3 py-1.5 rounded-full">
+                  <div className="flex items-center gap-2 text-white text-sm">
+                    {analysisType === 'people_count' && <Users className="h-3 w-3" />}
+                    {analysisType === 'vehicle_count' && <Car className="h-3 w-3" />}
+                    {analysisType === 'safety' && <Shield className="h-3 w-3" />}
+                    {analysisType === 'people_count' && `${counts.person || 0} pessoa${counts.person !== 1 ? 's' : ''}`}
+                    {analysisType === 'vehicle_count' && `${(counts.car || 0) + (counts.truck || 0)} veículo${(counts.car || 0) + (counts.truck || 0) !== 1 ? 's' : ''}`}
+                    {analysisType === 'safety' && `${Object.values(counts).reduce((sum, count) => sum + count, 0)} objeto${Object.values(counts).reduce((sum, count) => sum + count, 0) !== 1 ? 's' : ''}`}
+                  </div>
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>
 
+        {/* AI Detection Controls */}
+        <Card className="bg-slate-800/50 border-slate-700">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-white">
+              <Brain className="h-5 w-5" />
+              Controles de Detecção IA
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="space-y-1">
+                  <p className="text-sm font-medium text-white">Ativar Detecção Automática</p>
+                  <p className="text-xs text-slate-400">
+                    {aiLoading ? "Carregando modelo de IA..." : isReady ? "IA pronta para detectar objetos" : "IA inativa"}
+                  </p>
+                </div>
+                <Switch 
+                  checked={aiEnabled} 
+                  onCheckedChange={setAiEnabled}
+                  disabled={aiLoading}
+                />
+              </div>
+              
+              {aiEnabled && (
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-white">Tipo de Análise</label>
+                  <Select value={analysisType} onValueChange={(value: any) => setAnalysisType(value)}>
+                    <SelectTrigger className="bg-slate-700 border-slate-600 text-white">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="bg-slate-700 border-slate-600">
+                      <SelectItem value="people_count" className="text-white">
+                        <div className="flex items-center gap-2">
+                          <Users className="h-4 w-4" />
+                          Contagem de Pessoas
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="vehicle_count" className="text-white">
+                        <div className="flex items-center gap-2">
+                          <Car className="h-4 w-4" />
+                          Contagem de Veículos
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="safety" className="text-white">
+                        <div className="flex items-center gap-2">
+                          <Shield className="h-4 w-4" />
+                          Análise de Segurança
+                        </div>
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+              
+              {aiEnabled && isReady && (
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 pt-2">
+                  <div className="p-3 rounded-md border border-slate-600 bg-slate-700/40 text-center">
+                    <div className="text-lg font-semibold text-white">{counts.person || 0}</div>
+                    <div className="text-xs text-slate-400">Pessoas</div>
+                  </div>
+                  <div className="p-3 rounded-md border border-slate-600 bg-slate-700/40 text-center">
+                    <div className="text-lg font-semibold text-white">{counts.car || 0}</div>
+                    <div className="text-xs text-slate-400">Carros</div>
+                  </div>
+                  <div className="p-3 rounded-md border border-slate-600 bg-slate-700/40 text-center">
+                    <div className="text-lg font-semibold text-white">{counts.truck || 0}</div>
+                    <div className="text-xs text-slate-400">Caminhões</div>
+                  </div>
+                  <div className="p-3 rounded-md border border-slate-600 bg-slate-700/40 text-center">
+                    <div className="text-lg font-semibold text-white">{detections.length}</div>
+                    <div className="text-xs text-slate-400">Total</div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
 
       </div>
     </div>

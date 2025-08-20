@@ -18,9 +18,13 @@ import {
   BarChart3,
   Bell,
   Eye,
-  TrendingUp
+  TrendingUp,
+  Brain
 } from "lucide-react";
 import Hls from 'hls.js';
+import { useBrowserDetection } from "@/hooks/useBrowserDetection";
+import OverlayCanvas from "@/components/OverlayCanvas";
+import { useRealtimeEvents } from "@/hooks/useRealtimeEvents";
 
 interface IPCamera {
   id: string;
@@ -49,6 +53,10 @@ const SimpleDashboard = () => {
 
   const navigate = useNavigate();
   const videoRef = useRef<HTMLVideoElement>(null);
+  
+  // AI Detection
+  const { isLoading: aiLoading, detections, events, counts, isReady } = useBrowserDetection(videoRef, true, "people_count");
+  const { events: realtimeEvents } = useRealtimeEvents("test-camera");
 
   // Carregar câmeras reais
   const loadCameras = async () => {
@@ -120,18 +128,18 @@ const SimpleDashboard = () => {
         hlsInstance = new Hls();
         hlsInstance.loadSource(url);
         hlsInstance.attachMedia(videoRef.current);
-        hlsInstance.on(Hls.Events.ERROR, (_, data) => {
-          console.error('HLS error:', data);
-        });
-      } else if (videoRef.current.canPlayType('application/vnd.apple.mpegurl')) {
-        videoRef.current.src = url;
-      }
-    };
+                        hlsInstance.on(Hls.Events.ERROR, (_, data) => {
+                          console.error('HLS error:', data);
+                        });
+                      } else if (videoRef.current.canPlayType('application/vnd.apple.mpegurl')) {
+                        videoRef.current.src = url;
+                      }
+                    };
 
-    if (hlsUrl) {
-      attachHls(hlsUrl);
-      return () => { hlsInstance?.destroy(); };
-    }
+                    if (hlsUrl) {
+                      attachHls(hlsUrl);
+                      return () => { hlsInstance?.destroy(); };
+                    }
 
     // If only RTSP exists, start conversion automatically with retry polling
     if (!hlsUrl && rtspUrl) {
@@ -251,12 +259,12 @@ const SimpleDashboard = () => {
               <CardContent className="p-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm font-medium text-blue-600">Pessoas Hoje</p>
-                    <p className="text-3xl font-bold text-blue-700">{stats.peopleToday}</p>
+                    <p className="text-sm font-medium text-blue-600">Pessoas Agora</p>
+                    <p className="text-3xl font-bold text-blue-700">{counts.person || 0}</p>
                   </div>
                   <Users className="h-8 w-8 text-blue-600" />
                 </div>
-                <p className="text-xs text-blue-600 mt-2">↗️ +12% vs ontem</p>
+                <p className="text-xs text-blue-600 mt-2">Detectadas pela IA</p>
               </CardContent>
             </Card>
 
@@ -277,12 +285,16 @@ const SimpleDashboard = () => {
               <CardContent className="p-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm font-medium text-purple-600">Última Atividade</p>
-                    <p className="text-lg font-bold text-purple-700">{stats.lastActivity}</p>
+                    <p className="text-sm font-medium text-purple-600">IA de Detecção</p>
+                    <p className="text-lg font-bold text-purple-700">
+                      {isReady ? "🤖 Ativa" : aiLoading ? "Carregando..." : "Inativa"}
+                    </p>
                   </div>
-                  <Activity className="h-8 w-8 text-purple-600" />
+                  <Brain className="h-8 w-8 text-purple-600" />
                 </div>
-                <p className="text-xs text-purple-600 mt-2">Sistema ativo</p>
+                <p className="text-xs text-purple-600 mt-2">
+                  {isReady ? "Analisando em tempo real" : "Sistema de IA"}
+                </p>
               </CardContent>
             </Card>
           </div>
@@ -363,18 +375,40 @@ const SimpleDashboard = () => {
                         </div>
                       )}
                       
+                      {/* AI Detection Overlay */}
+                      <OverlayCanvas 
+                        videoRef={videoRef} 
+                        event={realtimeEvents[0] || (events.length > 0 ? events[events.length - 1] : null)} 
+                      />
+                      
                       {/* Overlay info */}
                       <div className="absolute top-3 left-3 bg-black/50 text-white px-2 py-1 rounded text-xs pointer-events-none">
                         {firstCamera?.name || 'Câmera Principal'}
                       </div>
-                      <div className="absolute top-3 right-3 bg-green-500 text-white px-2 py-1 rounded text-xs pointer-events-none">
-                        ✅ IA Ativa
+                      <div className="absolute top-3 right-3 bg-black/50 text-white px-2 py-1 rounded text-xs pointer-events-none flex items-center gap-1">
+                        {isReady ? (
+                          <>
+                            <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+                            🤖 IA Ativa
+                          </>
+                        ) : aiLoading ? (
+                          <>
+                            <div className="w-2 h-2 bg-yellow-500 rounded-full animate-pulse" />
+                            IA Carregando...
+                          </>
+                        ) : (
+                          <>
+                            <div className="w-2 h-2 bg-gray-500 rounded-full" />
+                            IA Inativa
+                          </>
+                        )}
                       </div>
                       <div className="absolute bottom-3 left-3 bg-black/50 text-white px-2 py-1 rounded text-xs pointer-events-none">
                         {new Date().toLocaleTimeString()}
                       </div>
-                      <div className="absolute bottom-3 right-3 bg-black/50 text-white px-2 py-1 rounded text-xs pointer-events-none">
-                        Status: {firstCamera?.status || 'Offline'}
+                      <div className="absolute bottom-3 right-3 bg-black/50 text-white px-2 py-1 rounded text-xs pointer-events-none flex items-center gap-1">
+                        <Users className="h-3 w-3" />
+                        {counts.person || 0} pessoa{counts.person !== 1 ? 's' : ''}
                       </div>
                     </div>
                   );
