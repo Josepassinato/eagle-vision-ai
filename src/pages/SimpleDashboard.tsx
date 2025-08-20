@@ -26,6 +26,7 @@ import { useBrowserDetection } from "@/hooks/useBrowserDetection";
 import OverlayCanvas from "@/components/OverlayCanvas";
 import { useRealtimeEvents } from "@/hooks/useRealtimeEvents";
 import CameraConnectionTester from "@/components/CameraConnectionTester";
+import TAPOCameraChecker from "@/components/TAPOCameraChecker";
 
 interface IPCamera {
   id: string;
@@ -626,8 +627,9 @@ const SimpleDashboard = () => {
               </CardContent>
             </Card>
           </div>
-          {/* Camera Connection Tester */}
-          <div className="mt-8">
+          {/* Camera Configuration Checks */}
+          <div className="mt-8 space-y-4">
+            <TAPOCameraChecker />
             <CameraConnectionTester />
           </div>
         </div>
