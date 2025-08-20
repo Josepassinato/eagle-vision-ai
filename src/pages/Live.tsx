@@ -593,11 +593,11 @@ const handleDVRChange = (dvrId: string) => {
                    Reset Player
                  </Button>
                  <Button 
-                   onClick={loadDVRs}
+                   onClick={loadTestCamera}
                    variant="outline"
                    className="bg-slate-700 border-slate-600 text-white hover:bg-slate-600"
                  >
-                   Recarregar DVRs
+                   Recarregar Câmera
                  </Button>
                </div>
             </div>
@@ -679,23 +679,6 @@ const handleDVRChange = (dvrId: string) => {
           </CardContent>
         </Card>
 
-        {/* Stream Diagnostics */}
-        <Collapsible open={diagnosticsOpen} onOpenChange={setDiagnosticsOpen}>
-          <CollapsibleTrigger asChild>
-            <Button 
-              variant="outline" 
-              className="w-full bg-slate-800/50 border-slate-700 text-white hover:bg-slate-700"
-            >
-              <span className="flex items-center gap-2">
-                {diagnosticsOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                Diagnóstico de Conectividade dos Streams
-              </span>
-            </Button>
-          </CollapsibleTrigger>
-          <CollapsibleContent>
-            <StreamDiagnostics />
-          </CollapsibleContent>
-        </Collapsible>
 
       </div>
     </div>

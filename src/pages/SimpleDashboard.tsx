@@ -38,6 +38,7 @@ const SimpleDashboard = () => {
   const [isLive, setIsLive] = useState(true);
   const [cameras, setCameras] = useState<IPCamera[]>([]);
   const [loadingCameras, setLoadingCameras] = useState(true);
+  const [converting, setConverting] = useState(false);
   const [stats, setStats] = useState({
     camerasOnline: 0,
     totalCameras: 0,
@@ -132,27 +133,35 @@ const SimpleDashboard = () => {
       return () => { hlsInstance?.destroy(); };
     }
 
-    // If only RTSP exists, try to start conversion automatically
+    // If only RTSP exists, start conversion automatically with retry polling
     if (!hlsUrl && rtspUrl) {
       (async () => {
         try {
-          toast.info('Iniciando conversão RTSP → HLS...');
-          const { data, error } = await supabase.functions.invoke('rtsp-to-hls', {
-            body: { action: 'start', rtsp_url: rtspUrl, camera_id: cam.id },
-          });
-          if (error) {
-            console.error('RTSP→HLS error:', error);
-            toast.error('Falha ao iniciar conversão para HLS');
-            return;
+          setConverting(true);
+          toast.info('Convertendo RTSP → HLS...');
+          let attempts = 0;
+          let gotUrl: string | undefined;
+          while (attempts < 3 && !gotUrl) {
+            attempts++;
+            const { data, error } = await supabase.functions.invoke('rtsp-to-hls', {
+              body: { action: 'start', rtsp_url: rtspUrl, camera_id: cam.id },
+            });
+            if (error) {
+              console.error('RTSP→HLS error:', error);
+              break;
+            }
+            gotUrl = data?.conversion?.hls_url as string | undefined;
+            if (!gotUrl) {
+              await new Promise(r => setTimeout(r, 1500));
+            }
           }
-          const hls = data?.conversion?.hls_url as string | undefined;
-          if (hls) {
-            // Update local camera list with the new HLS URL
+          if (gotUrl) {
+            // Update local camera with HLS URL and attach player
             setCameras(prev => prev.map(c => c.id === cam.id ? {
               ...c,
-              stream_urls: { ...(c.stream_urls || {}), hls, hls_url: hls }
+              stream_urls: { ...(c.stream_urls || {}), hls: gotUrl, hls_url: gotUrl }
             } : c));
-            attachHls(hls);
+            attachHls(gotUrl);
             toast.success('Stream HLS iniciado');
           } else {
             toast.warning('Conversão iniciada, aguardando URL HLS...');
@@ -160,6 +169,8 @@ const SimpleDashboard = () => {
         } catch (err) {
           console.error('RTSP→HLS exception:', err);
           toast.error('Erro ao converter RTSP para HLS');
+        } finally {
+          setConverting(false);
         }
       })();
     }
@@ -330,15 +341,14 @@ const SimpleDashboard = () => {
                         />
                       ) : rtspUrl ? (
                         <div className="text-center text-white px-4">
-                          <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-orange-500/20 flex items-center justify-center">
-                            <Camera className="h-8 w-8 text-orange-400" />
+                          <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-blue-500/20 flex items-center justify-center animate-pulse">
+                            <Camera className="h-8 w-8 text-blue-400" />
                           </div>
-                          <p className="text-lg font-semibold">Stream RTSP detectado</p>
-                          <p className="text-gray-300 text-sm">Seu navegador não reproduz RTSP diretamente.</p>
-                          <p className="text-gray-300 text-sm mb-4">Ative a conversão RTSP → HLS em Configurar.</p>
-                          <Button onClick={() => navigate('/setup')} variant="secondary" size="sm">
-                            Configurar Conversão
-                          </Button>
+                          <p className="text-lg font-semibold">Convertendo RTSP → HLS...</p>
+                          <p className="text-gray-300 text-sm mb-4">
+                            Detectamos RTSP e iniciamos a conversão automaticamente. Assim que o HLS estiver pronto, o vídeo tocará aqui.
+                          </p>
+                          <div className="text-xs text-gray-400">Status: {converting ? 'processando' : 'aguardando URL HLS'}</div>
                         </div>
                       ) : (
                         <div className="text-center text-white">
