@@ -19,10 +19,10 @@ import MapView from "./pages/admin/MapView";
 import Antitheft from "./pages/admin/Antitheft";
 import Credits from "./pages/admin/Credits";
 import CreditSuccess from "./pages/admin/CreditSuccess";
-import Demo from "./pages/admin/Demo";
+
 import TestDVR from "./pages/TestDVR";
 import DVRAnalytics from "./pages/DVRAnalytics";
-import DemoPublic from "./pages/DemoPublic";
+
 import Safety from "./pages/admin/Safety";
 import EduBehavior from "./pages/admin/EduBehavior";
 import Live from "./pages/Live";
@@ -65,7 +65,7 @@ const App = () => (
           <Route path="/live" element={<ProtectedRoute><Live /></ProtectedRoute>} />
           <Route path="/events" element={<EventsPage />} />
           <Route path="/analytics" element={<Analytics />} />
-          <Route path="/demo" element={<DemoPublic />} />
+          
           <Route path="/workspace" element={<WorkspaceManager />} />
           <Route path="/edge" element={<EdgeDeviceManager />} />
           <Route path="/onboarding" element={<ProtectedRoute><Onboarding /></ProtectedRoute>} />
@@ -91,7 +91,7 @@ const App = () => (
             <Route path="antitheft" element={<Antitheft />} />
             <Route path="credits" element={<Credits />} />
             <Route path="credits/success" element={<CreditSuccess />} />
-            <Route path="demo" element={<Demo />} />
+            
             <Route path="safety" element={<Safety />} />
             <Route path="edubehavior" element={<EduBehavior />} />
             <Route path="privacy" element={<PrivacyCompliance />} />

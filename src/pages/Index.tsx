@@ -11,7 +11,6 @@ import { toast } from "@/hooks/use-toast";
 import { Send, Shield, Car, Users, Church, Star, CheckCircle } from "lucide-react";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import LiveDemo from "@/components/LiveDemo";
 import { Helmet } from "react-helmet-async";
 
 const Index = () => {
@@ -113,16 +112,6 @@ const Index = () => {
       <div className="min-h-screen bg-background">
           <Navbar />
           
-          {/* Demo Section */}
-          <div className="mb-12 container mx-auto px-4">
-            <div className="text-center mb-8">
-              <h2 className="text-3xl font-bold mb-4">Veja Como Funciona em 30 Segundos</h2>
-              <p className="text-muted-foreground text-lg mb-6">
-                Demonstração ao vivo: nossa IA detectando situações em tempo real
-              </p>
-            </div>
-            <LiveDemo />
-          </div>
 
           {/* CTA para Login/Cadastro */}
           <div className="text-center py-12 bg-gradient-to-br from-primary/5 to-primary/10 rounded-xl mb-12 border border-primary/20">

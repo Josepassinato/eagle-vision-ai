@@ -44,7 +44,7 @@ const Navbar = () => {
                 <TopNavLink to="/#produtos">Produtos</TopNavLink>
                 <TopNavLink to="/#precos">Preços</TopNavLink>
                 <TopNavLink to="/#sobre">Quem somos</TopNavLink>
-                <TopNavLink to="/demo">Demonstração</TopNavLink>
+                
               </>
             )}
           </div>
@@ -99,7 +99,7 @@ const Navbar = () => {
                   <TopNavLink to="/#produtos" mobile>Produtos</TopNavLink>
                   <TopNavLink to="/#precos" mobile>Preços</TopNavLink>
                   <TopNavLink to="/#sobre" mobile>Quem somos</TopNavLink>
-                  <TopNavLink to="/demo" mobile>Demonstração</TopNavLink>
+                  
                   <div className="flex flex-col space-y-2 pt-4">
                     <Button variant="ghost" size="sm" className="justify-start" asChild>
                       <NavLink to="/auth">Entrar</NavLink>

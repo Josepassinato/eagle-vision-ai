@@ -28,7 +28,7 @@ const items = [
   { title: "Testes Técnicos", url: "/app/technical-testing", icon: TestTube },
   { title: "Deploy Checklist", url: "/app/deployment", icon: CheckSquare },
   { title: "Créditos", url: "/app/credits", icon: CreditCard },
-  { title: "Demonstração", url: "/app/demo", icon: PlayCircle },
+  
   { title: "Pessoas", url: "/app/people", icon: Users },
   { title: "Config", url: "/app/config", icon: Settings },
   { title: "Métricas", url: "/app/metrics", icon: Gauge },
