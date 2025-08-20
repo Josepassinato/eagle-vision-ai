@@ -268,38 +268,32 @@ const SimpleDashboard = () => {
                   </div>
                 ) : (() => {
                   const firstCamera = cameras.find(cam => cam.status === 'online') || cameras[0];
-                  const streamUrl = firstCamera?.stream_urls?.rtsp;
+                  const hlsUrl = (firstCamera as any)?.stream_urls?.hls || (firstCamera as any)?.stream_urls?.hls_url || null;
+                  const rtspUrl = (firstCamera as any)?.stream_urls?.rtsp || null;
                   
                   return (
                     <div className="aspect-video bg-gradient-to-br from-gray-900 to-gray-700 rounded-lg flex items-center justify-center relative overflow-hidden">
-                      {streamUrl ? (
-                        <>
-                          <video
-                            className="w-full h-full object-cover"
-                            autoPlay
-                            muted
-                            playsInline
-                            onError={(e) => {
-                              console.log('Video error, falling back to placeholder');
-                              e.currentTarget.style.display = 'none';
-                            }}
-                          >
-                            <source src={streamUrl} type="application/x-mpegURL" />
-                            Seu navegador não suporta o elemento de vídeo.
-                          </video>
-                          <div className="absolute inset-0 bg-gradient-to-br from-gray-900 to-gray-700 flex items-center justify-center">
-                            <div className="text-center text-white">
-                              <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-green-500/20 flex items-center justify-center animate-pulse">
-                                <Shield className="h-8 w-8 text-green-400" />
-                              </div>
-                              <p className="text-lg font-semibold">IA Monitorando</p>
-                              <p className="text-gray-300 text-sm">{firstCamera?.name}</p>
-                              <p className="text-xs text-gray-400 mt-2">
-                                IP: {firstCamera?.ip_address}:{firstCamera?.port}
-                              </p>
-                            </div>
+                      {hlsUrl ? (
+                        <video
+                          ref={videoRef}
+                          className="w-full h-full object-cover"
+                          autoPlay
+                          muted
+                          playsInline
+                          aria-label={`Stream HLS da ${firstCamera?.name || 'câmera'}`}
+                        />
+                      ) : rtspUrl ? (
+                        <div className="text-center text-white px-4">
+                          <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-orange-500/20 flex items-center justify-center">
+                            <Camera className="h-8 w-8 text-orange-400" />
                           </div>
-                        </>
+                          <p className="text-lg font-semibold">Stream RTSP detectado</p>
+                          <p className="text-gray-300 text-sm">Seu navegador não reproduz RTSP diretamente.</p>
+                          <p className="text-gray-300 text-sm mb-4">Ative a conversão RTSP → HLS em Configurar.</p>
+                          <Button onClick={() => navigate('/setup')} variant="secondary" size="sm">
+                            Configurar Conversão
+                          </Button>
+                        </div>
                       ) : (
                         <div className="text-center text-white">
                           <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-green-500/20 flex items-center justify-center animate-pulse">
@@ -314,16 +308,16 @@ const SimpleDashboard = () => {
                       )}
                       
                       {/* Overlay info */}
-                      <div className="absolute top-3 left-3 bg-black/50 text-white px-2 py-1 rounded text-xs">
+                      <div className="absolute top-3 left-3 bg-black/50 text-white px-2 py-1 rounded text-xs pointer-events-none">
                         {firstCamera?.name || 'Câmera Principal'}
                       </div>
-                      <div className="absolute top-3 right-3 bg-green-500 text-white px-2 py-1 rounded text-xs">
+                      <div className="absolute top-3 right-3 bg-green-500 text-white px-2 py-1 rounded text-xs pointer-events-none">
                         ✅ IA Ativa
                       </div>
-                      <div className="absolute bottom-3 left-3 bg-black/50 text-white px-2 py-1 rounded text-xs">
+                      <div className="absolute bottom-3 left-3 bg-black/50 text-white px-2 py-1 rounded text-xs pointer-events-none">
                         {new Date().toLocaleTimeString()}
                       </div>
-                      <div className="absolute bottom-3 right-3 bg-black/50 text-white px-2 py-1 rounded text-xs">
+                      <div className="absolute bottom-3 right-3 bg-black/50 text-white px-2 py-1 rounded text-xs pointer-events-none">
                         Status: {firstCamera?.status || 'Offline'}
                       </div>
                     </div>
