@@ -9,30 +9,19 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import OverlayCanvas from '@/components/OverlayCanvas';
-import StreamDiagnostics from '@/components/StreamDiagnostics';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { ChevronDown, ChevronUp, Play, Square, RotateCcw, Brain, Car, Shield, Users } from 'lucide-react';
 import { useBrowserDetection } from "@/hooks/useBrowserDetection";
 
-interface DVRConfig {
-  id: string;
-  name: string;
-  host: string;
-  protocol: string;
-  port?: number;
-  stream_url?: string;
-}
-
 
 export default function Live() {
   const [cameraId, setCameraId] = useState('');
-  const [dvrs, setDvrs] = useState<DVRConfig[]>([]);
   const [streamUrl, setStreamUrl] = useState('');
-  const [simulate, setSimulate] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [cameraName, setCameraName] = useState('Câmera de Teste');
+  const [cameraName, setCameraName] = useState('Câmera de Teste TP-Link');
+  const [simulate, setSimulate] = useState(false);
   
   // AI Detection Controls
   const [aiEnabled, setAiEnabled] = useState(() => {
@@ -48,80 +37,12 @@ export default function Live() {
   const { isLoading: aiLoading, detections, events: aiEvents, counts, isReady } = useBrowserDetection(videoRef, aiEnabled, analysisType);
   const { events: realtimeEvents } = useRealtimeEvents("test-camera");
 
-  // Carregar apenas a câmera de teste
+  // Carregar apenas a câmera de teste pré-configurada
   useEffect(() => {
     loadTestCamera();
   }, []);
 
-  // Recarregar configs quando a sessão autenticar/mudar
-  useEffect(() => {
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (session?.access_token) {
-        loadTestCamera();
-      }
-    });
-    return () => {
-      try { listener?.subscription?.unsubscribe?.(); } catch {}
-    };
-  }, []);
-
-  const loadDVRs = async () => {
-    try {
-      const { data: session } = await supabase.auth.getSession();
-      if (!session.session?.access_token) {
-        toast({
-          title: "Erro de autenticação",
-          description: "Usuário não autenticado",
-          variant: "destructive"
-        });
-        return;
-      }
-
-      const response = await fetch(`https://avbswnnywjyvqfxezgfl.supabase.co/functions/v1/dvr-manager`, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${session.session.access_token}`,
-          'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF2YnN3bm55d2p5dnFmeGV6Z2ZsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQ3NTI3ODQsImV4cCI6MjA3MDMyODc4NH0.fmpP6MWxsz-GYT44mAvBfR5rXIFdR-PoUbswzkeClo4',
-          'Content-Type': 'application/json'
-        }
-      });
-
-      if (response.ok) {
-        const result = await response.json();
-        if (result.success && Array.isArray(result.configs)) {
-          const configs: DVRConfig[] = result.configs;
-          setDvrs(configs);
-
-          // Tentar pré-selecionar pelo query param (?dvr=ID) ou último salvo no localStorage
-          const urlParams = new URLSearchParams(window.location.search);
-          const preferredIdFromUrl = urlParams.get('dvr');
-          const preferredIdFromStorage = localStorage.getItem('lastDvrConfigId') || undefined;
-
-          let selected = configs.find(c => c.id === (preferredIdFromUrl || preferredIdFromStorage));
-
-          // Fallback: preferir 'connected', senão a primeira
-          if (!selected && configs.length > 0) {
-            selected = (configs as any[]).find(c => (c as any).status === 'connected') || configs[0];
-          }
-
-          if (selected) {
-            const fallbackPort = selected.port ?? 554;
-            setCameraId(selected.id);
-            const initialUrl = selected.stream_url || `rtsp://${selected.host}:${fallbackPort}/stream`;
-            setStreamUrl(initialUrl);
-            localStorage.setItem('lastDvrConfigId', selected.id);
-            localStorage.setItem('lastDvrStreamUrl', initialUrl);
-          }
-        }
-      } else {
-        console.error('Falha ao carregar configs do DVR (HTTP)', response.status);
-      }
-    } catch (error) {
-      console.error('Erro ao carregar DVRs:', error);
-    }
-  };
-
-  // Carregar somente a Câmera de Teste (remove streams demo)
+  // Carregar somente a Câmera de Teste Pré-configurada
   const loadTestCamera = async () => {
     try {
       const { data, error } = await supabase.functions.invoke('ip-camera-manager', {
@@ -129,36 +50,35 @@ export default function Live() {
         headers: { 'x-org-id': 'demo-org-id' }
       });
       if (error) throw error;
+      
       const cams = (data?.data || []) as any[];
-      // Preferir câmera cujo nome indica teste, ou a primeira online
-      const testCam = cams.find(c => /teste|test/i.test(c?.name || ''))
+      // Procurar especificamente pela câmera de teste TP-Link
+      const testCam = cams.find(c => c?.name === 'Câmera de Teste TP-Link' || c?.id === 'tp-link-tc73')
+        || cams.find(c => /teste|test/i.test(c?.name || ''))
         || cams.find(c => c?.status === 'online' || c?.status === 'configured')
         || cams[0];
+        
       if (testCam) {
-        setCameraName(testCam.name || 'Câmera de Teste');
+        setCameraName(testCam.name || 'Câmera de Teste TP-Link');
         setCameraId(testCam.id || 'test-camera');
         const hls = testCam?.stream_urls?.hls || testCam?.stream_urls?.hls_url;
         const rtsp = testCam?.stream_urls?.rtsp;
-        setStreamUrl(hls || rtsp || '');
+        setStreamUrl(hls || rtsp || 'rtsp://admin:admin@172.16.100.22:554/stream1');
+      } else {
+        // Fallback para câmera pré-configurada
+        setCameraName('Câmera de Teste TP-Link');
+        setCameraId('tp-link-tc73');
+        setStreamUrl('rtsp://admin:admin@172.16.100.22:554/stream1');
       }
-      // Esvaziar lista de DVRs para ocultar o seletor
-      setDvrs([]);
     } catch (e) {
       console.error('Erro ao carregar câmera de teste:', e);
+      // Fallback para câmera pré-configurada
+      setCameraName('Câmera de Teste TP-Link');
+      setCameraId('tp-link-tc73');
+      setStreamUrl('rtsp://admin:admin@172.16.100.22:554/stream1');
     }
   };
 
-const handleDVRChange = (dvrId: string) => {
-  const dvr = dvrs.find(d => d.id === dvrId);
-  if (dvr) {
-    setCameraId(dvrId);
-    localStorage.setItem('lastDvrConfigId', dvrId);
-    const fallbackPort = dvr.port ?? 554;
-    const url = dvr.stream_url || `rtsp://${dvr.host}:${fallbackPort}/stream`;
-    setStreamUrl(url);
-    localStorage.setItem('lastDvrStreamUrl', url);
-  }
-};
 
   const hlsRef = useRef<Hls | null>(null);
   const { toast } = useToast();
@@ -582,28 +502,18 @@ const handleDVRChange = (dvrId: string) => {
         {/* Controls */}
         <Card className="bg-slate-800/50 border-slate-700">
           <CardHeader>
-            <CardTitle className="text-white">Controles de Stream</CardTitle>
+            <CardTitle className="text-white">Câmera de Teste TP-Link TC73</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">Câmera Selecionada</label>
+                <label className="block text-sm font-medium text-slate-300 mb-2">Câmera de Teste Pré-configurada</label>
                 <Input
                   value={cameraName}
                   disabled
                   className="bg-slate-700 border-slate-600 text-white"
                 />
-                <p className="mt-2 text-xs text-slate-400">ID: {cameraId}</p>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">Camera ID</label>
-                <Input
-                  value={cameraId}
-                  onChange={(e) => setCameraId(e.target.value)}
-                  placeholder="Ex: 3e433952-236b-4993-9b1b..."
-                  className="bg-slate-700 border-slate-600 text-white placeholder-slate-400"
-                />
+                <p className="mt-2 text-xs text-slate-400">IP: 172.16.100.22 | ID: {cameraId}</p>
               </div>
 
                <div className="flex items-end space-x-2">
