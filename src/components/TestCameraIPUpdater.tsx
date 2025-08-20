@@ -102,6 +102,7 @@ export default function TestCameraIPUpdater() {
       const { data, error } = await supabase.functions.invoke('ip-camera-manager', {
         body: {
           action: 'test-connection',
+          camera_id: testCamera.id,
           name: testCamera.name,
           brand: testCamera.brand,
           model: testCamera.model,
@@ -120,8 +121,10 @@ export default function TestCameraIPUpdater() {
       
       if (data.success) {
         toast.success(`Conexão com ${newIP} bem-sucedida!`);
+        setTestCamera((prev) => prev ? { ...prev, status: 'online' } : prev);
       } else {
         toast.error(`Falha na conexão: ${data.error}`);
+        setTestCamera((prev) => prev ? { ...prev, status: 'offline' } : prev);
       }
     } catch (error) {
       console.error('Test connection error:', error);

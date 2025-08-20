@@ -51,13 +51,16 @@ async function testRTSPConnection(rtspUrl: string, timeout: number = 10000): Pro
     const ip = url.hostname;
     const port = url.port ? parseInt(url.port) : 554;
     
-    // Test basic TCP connectivity to RTSP port
-    const httpTest = await testHttpConnection(ip, port, 3000);
-    
-    if (!httpTest.success) {
-      return { success: false, error: `RTSP port (${port}) not accessible on ${ip}` };
+    // Note: Edge Functions cannot open RTSP sockets. We can't truly test the RTSP port here.
+    // We'll validate URL structure only and optionally do a non-blocking HTTP reachability check on port 80.
+    // This avoids false negatives when trying to "HTTP GET" an RTSP port.
+    try {
+      // Best-effort reachability check; do not fail based on this
+      await testHttpConnection(ip, 80, 1500);
+    } catch (_) {
+      // Ignore reachability errors; many cameras block plain HTTP
     }
-    
+
     // Real RTSP test would require RTSP client library
     // For now, just test TCP connectivity and URL format validation
     if (!rtspUrl.startsWith('rtsp://')) {
@@ -283,6 +286,7 @@ serve(async (req) => {
           }
         }
 
+        // Build response
         const result = {
           success: rtspSuccess,
           http_accessible: httpTest.success,
@@ -290,6 +294,23 @@ serve(async (req) => {
           tested_urls: rtspUrls,
           error: rtspSuccess ? undefined : rtspError
         };
+
+        // Optionally persist status if a camera_id was provided
+        if (requestBody.camera_id) {
+          try {
+            await supabase
+              .from('ip_cameras')
+              .update({
+                status: rtspSuccess ? 'online' : 'offline',
+                last_tested_at: new Date().toISOString(),
+                stream_urls: { rtsp: streamUrl },
+                error_message: rtspSuccess ? null : (rtspError || 'Connection failed')
+              })
+              .eq('id', requestBody.camera_id);
+          } catch (e) {
+            console.error('Failed to persist camera test status:', e);
+          }
+        }
 
         return new Response(
           JSON.stringify(result),
