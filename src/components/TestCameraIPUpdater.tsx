@@ -98,6 +98,10 @@ export default function TestCameraIPUpdater() {
 
     try {
       setTesting(true);
+      console.log('[TestCameraIPUpdater] Iniciando teste de conexão', {
+        cameraId: testCamera.id,
+        ip: newIP
+      });
       
       const { data, error } = await supabase.functions.invoke('ip-camera-manager', {
         body: {
@@ -208,6 +212,7 @@ export default function TestCameraIPUpdater() {
 
         <div className="flex gap-2">
           <Button
+            type="button"
             onClick={testConnection}
             disabled={testing || !newIP}
             variant="outline"
@@ -218,6 +223,7 @@ export default function TestCameraIPUpdater() {
           </Button>
           
           <Button
+            type="button"
             onClick={updateCameraIP}
             disabled={updating || !newIP || newIP === testCamera.ip_address}
             className="flex items-center gap-2"
