@@ -134,6 +134,7 @@ const SimpleDashboard = () => {
 
     console.log('Configurando vídeo para câmera:', cam);
     
+    const hlsUrl = (cam as any)?.stream_urls?.hls || (cam as any)?.stream_urls?.hls_url || null;
     const rtspUrl = cam.stream_urls?.rtsp;
     
     let hlsInstance: Hls | null = null;
@@ -141,19 +142,33 @@ const SimpleDashboard = () => {
     const attachHls = (url: string) => {
       if (!videoRef.current) return;
       console.log('Iniciando HLS player com URL:', url);
+      const video = videoRef.current;
       if (Hls.isSupported()) {
         hlsInstance = new Hls();
         hlsInstance.loadSource(url);
-        hlsInstance.attachMedia(videoRef.current);
+        hlsInstance.attachMedia(video);
+        hlsInstance.on(Hls.Events.MANIFEST_PARSED, () => {
+          video.play().catch((e) => console.log('Autoplay bloqueado:', e));
+        });
         hlsInstance.on(Hls.Events.ERROR, (_, data) => {
           console.error('HLS error:', data);
         });
-      } else if (videoRef.current.canPlayType('application/vnd.apple.mpegurl')) {
-        videoRef.current.src = url;
+      } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+        video.src = url;
+        const onCanPlay = () => {
+          video.play().catch((e) => console.log('Autoplay bloqueado (nativo):', e));
+        };
+        video.addEventListener('canplay', onCanPlay, { once: true });
       }
     };
 
-    // If only RTSP exists, start conversion automatically
+    // Se já houver HLS, anexar imediatamente
+    if (hlsUrl) {
+      attachHls(hlsUrl);
+      return () => { hlsInstance?.destroy(); };
+    }
+
+    // Se houver apenas RTSP, iniciar conversão automaticamente
     if (rtspUrl) {
       console.log('Stream RTSP detectado, iniciando conversão:', rtspUrl);
       (async () => {
@@ -178,7 +193,7 @@ const SimpleDashboard = () => {
           const gotUrl = data?.conversion?.hls_url || data?.hls_url;
           if (gotUrl) {
             console.log('URL HLS obtida:', gotUrl);
-            // Update local camera with HLS URL and attach player
+            // Atualizar câmera localmente e anexar player
             setCameras(prev => prev.map(c => c.id === cam.id ? {
               ...c,
               stream_urls: { ...(c.stream_urls || {}), hls: gotUrl, hls_url: gotUrl }
