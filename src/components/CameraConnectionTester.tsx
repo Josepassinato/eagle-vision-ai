@@ -114,9 +114,25 @@ export default function CameraConnectionTester() {
           conversionStatus: 'success'
         }));
         toast.success('Conversão RTSP → HLS concluída');
-      } else {
-        throw new Error('URL HLS não retornada');
-      }
+        } else {
+          // Fallback: poll de status por até 10s
+          for (let i = 0; i < 10; i++) {
+            await new Promise(r => setTimeout(r, 1000));
+            const { data: statusResp } = await supabase.functions.invoke('rtsp-to-hls', {
+              body: { action: 'status', camera_id: status.cameraData?.id || 'test-camera' }
+            });
+            const polled = statusResp?.conversion?.hls_url || statusResp?.hls_url;
+            if (polled) {
+              console.log('URL HLS obtida via polling:', polled);
+              setStatus(prev => ({ ...prev, hlsUrl: polled, conversionStatus: 'success' }));
+              toast.success('Conversão RTSP → HLS concluída');
+              break;
+            }
+          }
+          if (!status.hlsUrl) {
+            throw new Error('URL HLS não retornada');
+          }
+        }
     } catch (error) {
       console.error('Erro na conversão:', error);
       setStatus(prev => ({

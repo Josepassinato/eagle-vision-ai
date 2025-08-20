@@ -354,18 +354,29 @@ export default function Live() {
       if (result.success) {
         const newStreamUrl = result?.conversion?.hls_url || result?.hls_url;
         if (!newStreamUrl) {
-          throw new Error('HLS URL não retornada pela função');
+          // Fallback: poll de status por até 10s
+          for (let i = 0; i < 10; i++) {
+            await new Promise(r => setTimeout(r, 1000));
+            const { data: statusResp } = await supabase.functions.invoke('rtsp-to-hls', {
+              body: { action: 'status', camera_id: cameraIdToUse }
+            });
+            const polled = statusResp?.conversion?.hls_url || statusResp?.hls_url;
+            if (polled) {
+              setStreamUrl(polled);
+              toast({ title: 'Stream HLS disponível', description: 'Agora você pode ver o vídeo no browser!' });
+              break;
+            }
+          }
+          if (!streamUrl || streamUrl.startsWith('rtsp://')) {
+            throw new Error('HLS URL não retornada pela função');
+          }
+        } else {
+          setStreamUrl(newStreamUrl);
         }
-        setStreamUrl(newStreamUrl);
         
         if (result.instructions) {
           console.log('Instruções de setup:', result.instructions);
         }
-        
-        toast({
-          title: "Stream HLS disponível",
-          description: "Agora você pode ver o vídeo no browser!"
-        });
       } else {
         throw new Error(result.message || 'Erro na conversão');
       }

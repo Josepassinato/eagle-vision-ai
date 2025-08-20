@@ -45,15 +45,15 @@ const startConversion = async (request: ConversionRequest): Promise<ConversionSt
     console.log(`[DEBUG] Mapeado para Demo Escritório (pessoas): ${hls_url}`);
   } else if (rtsp_url.includes('demo-parking.internal')) {
     // Demo Estacionamento: carros e veículos
-    hls_url = `https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4`;
+    hls_url = `https://storage.googleapis.com/shaka-demo-assets/angel-one-hls/hls.m3u8`;
     console.log(`[DEBUG] Mapeado para Demo Estacionamento (veículos): ${hls_url}`);
   } else if (rtsp_url.includes('demo-retail.internal')) {
     // Demo Varejo: ambiente de loja
-    hls_url = `https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4`;
+    hls_url = `https://test-streams.mux.dev/tears-of-steel/tears-of-steel.m3u8`;
     console.log(`[DEBUG] Mapeado para Demo Varejo (loja): ${hls_url}`);
   } else if (rtsp_url.includes('demo-security.internal')) {
     // Demo Segurança: ambiente industrial
-    hls_url = `https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/Sintel.mp4`;
+    hls_url = `https://multiplatform-f.akamaihd.net/i/multi/will/bunny/big_buck_bunny_,640x360_400,640x360_700,640x360_1000,950x540_1500,.f4v.csmil/master.m3u8`;
     console.log(`[DEBUG] Mapeado para Demo Segurança (industrial): ${hls_url}`);
   } else {
     // Padrão: Demo genérico para testes - usando stream que funciona de verdade
@@ -239,6 +239,15 @@ serve(async (req) => {
               success: stopped,
               message: stopped ? 'Conversão parada' : 'Conversão não encontrada'
             }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        case 'status': {
+          const { camera_id } = body;
+          const status = camera_id ? activeConversions.get(camera_id) || null : null;
+          return new Response(
+            JSON.stringify({ success: true, conversion: status }),
             { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           );
         }

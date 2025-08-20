@@ -216,6 +216,29 @@ const SimpleDashboard = () => {
             toast.success('Stream HLS iniciado');
           } else {
             toast.warning('Conversão iniciada, aguardando URL HLS...');
+            // Poll de status por até 10s
+            for (let i = 0; i < 10; i++) {
+              await new Promise(r => setTimeout(r, 1000));
+              try {
+                const { data: statusData } = await supabase.functions.invoke('rtsp-to-hls', {
+                  body: { action: 'status', camera_id: cam.id }
+                });
+                const polledUrl = statusData?.conversion?.hls_url || statusData?.hls_url;
+                if (polledUrl) {
+                  console.log('URL HLS obtida via polling:', polledUrl);
+                  setCurrentHlsUrl(polledUrl);
+                  setCameras(prev => prev.map(c => c.id === cam.id ? {
+                    ...c,
+                    stream_urls: { ...(c.stream_urls || {}), hls: polledUrl, hls_url: polledUrl }
+                  } : c));
+                  attachHls(polledUrl);
+                  toast.success('Stream HLS iniciado');
+                  break;
+                }
+              } catch (e) {
+                console.warn('Falha no polling de status HLS:', e);
+              }
+            }
           }
         } catch (err) {
           console.error('RTSP→HLS exception:', err);
