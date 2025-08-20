@@ -5,6 +5,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Helmet } from "react-helmet-async";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 import { 
   Camera, 
   Users, 
@@ -19,11 +21,25 @@ import {
   TrendingUp
 } from "lucide-react";
 
+interface IPCamera {
+  id: string;
+  name: string;
+  brand?: string;
+  model?: string;
+  ip_address: string;
+  port: number;
+  status: string;
+  stream_urls?: { rtsp?: string };
+  is_permanent?: boolean;
+}
+
 const SimpleDashboard = () => {
   const [isLive, setIsLive] = useState(true);
+  const [cameras, setCameras] = useState<IPCamera[]>([]);
+  const [loadingCameras, setLoadingCameras] = useState(true);
   const [stats, setStats] = useState({
-    camerasOnline: 2,
-    totalCameras: 3,
+    camerasOnline: 0,
+    totalCameras: 0,
     peopleToday: 127,
     alertsToday: 3,
     lastActivity: "2 min atrás"
@@ -31,7 +47,48 @@ const SimpleDashboard = () => {
 
   const navigate = useNavigate();
 
-  // Simular dados em tempo real
+  // Carregar câmeras reais
+  const loadCameras = async () => {
+    try {
+      setLoadingCameras(true);
+      const { data, error } = await supabase.functions.invoke('ip-camera-manager', {
+        body: { action: 'list' },
+        headers: {
+          'x-org-id': 'demo-org-id'
+        }
+      });
+      
+      if (error) {
+        console.error('Error loading cameras:', error);
+        toast.error('Erro ao carregar câmeras');
+        return;
+      }
+      
+      if (data.success) {
+        const cameraList = data.data || [];
+        setCameras(cameraList);
+        
+        // Atualizar estatísticas reais
+        const onlineCameras = cameraList.filter((cam: IPCamera) => cam.status === 'online' || cam.status === 'configured').length;
+        setStats(prev => ({
+          ...prev,
+          camerasOnline: onlineCameras,
+          totalCameras: cameraList.length
+        }));
+      }
+    } catch (error) {
+      console.error('Error loading cameras:', error);
+      toast.error('Erro ao carregar câmeras');
+    } finally {
+      setLoadingCameras(false);
+    }
+  };
+
+  useEffect(() => {
+    loadCameras();
+  }, []);
+
+  // Simular dados em tempo real para pessoas e alertas
   useEffect(() => {
     const interval = setInterval(() => {
       setStats(prev => ({
@@ -168,26 +225,91 @@ const SimpleDashboard = () => {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="aspect-video bg-gradient-to-br from-gray-900 to-gray-700 rounded-lg flex items-center justify-center relative overflow-hidden">
-                  <div className="text-center text-white">
-                    <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-green-500/20 flex items-center justify-center animate-pulse">
-                      <Shield className="h-8 w-8 text-green-400" />
+                {loadingCameras ? (
+                  <div className="aspect-video bg-gradient-to-br from-gray-900 to-gray-700 rounded-lg flex items-center justify-center">
+                    <div className="text-center text-white">
+                      <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-blue-500/20 flex items-center justify-center animate-pulse">
+                        <Camera className="h-8 w-8 text-blue-400 animate-spin" />
+                      </div>
+                      <p className="text-lg font-semibold">Carregando câmeras...</p>
                     </div>
-                    <p className="text-lg font-semibold">IA Monitorando</p>
-                    <p className="text-gray-300 text-sm">Entrada Principal</p>
                   </div>
+                ) : cameras.length === 0 ? (
+                  <div className="aspect-video bg-gradient-to-br from-gray-900 to-gray-700 rounded-lg flex items-center justify-center">
+                    <div className="text-center text-white">
+                      <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-orange-500/20 flex items-center justify-center">
+                        <Camera className="h-8 w-8 text-orange-400" />
+                      </div>
+                      <p className="text-lg font-semibold">Nenhuma câmera configurada</p>
+                      <p className="text-gray-300 text-sm mb-4">Configure suas câmeras para ver o stream</p>
+                      <Button onClick={() => navigate('/setup')} variant="secondary" size="sm">
+                        Configurar Câmeras
+                      </Button>
+                    </div>
+                  </div>
+                ) : (() => {
+                  const firstCamera = cameras.find(cam => cam.status === 'online') || cameras[0];
+                  const streamUrl = firstCamera?.stream_urls?.rtsp;
                   
-                  {/* Overlay info */}
-                  <div className="absolute top-3 left-3 bg-black/50 text-white px-2 py-1 rounded text-xs">
-                    Cam 01 - Entrada
-                  </div>
-                  <div className="absolute top-3 right-3 bg-green-500 text-white px-2 py-1 rounded text-xs">
-                    ✅ IA Ativa
-                  </div>
-                  <div className="absolute bottom-3 left-3 bg-black/50 text-white px-2 py-1 rounded text-xs">
-                    {new Date().toLocaleTimeString()}
-                  </div>
-                </div>
+                  return (
+                    <div className="aspect-video bg-gradient-to-br from-gray-900 to-gray-700 rounded-lg flex items-center justify-center relative overflow-hidden">
+                      {streamUrl ? (
+                        <>
+                          <video
+                            className="w-full h-full object-cover"
+                            autoPlay
+                            muted
+                            playsInline
+                            onError={(e) => {
+                              console.log('Video error, falling back to placeholder');
+                              e.currentTarget.style.display = 'none';
+                            }}
+                          >
+                            <source src={streamUrl} type="application/x-mpegURL" />
+                            Seu navegador não suporta o elemento de vídeo.
+                          </video>
+                          <div className="absolute inset-0 bg-gradient-to-br from-gray-900 to-gray-700 flex items-center justify-center">
+                            <div className="text-center text-white">
+                              <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-green-500/20 flex items-center justify-center animate-pulse">
+                                <Shield className="h-8 w-8 text-green-400" />
+                              </div>
+                              <p className="text-lg font-semibold">IA Monitorando</p>
+                              <p className="text-gray-300 text-sm">{firstCamera?.name}</p>
+                              <p className="text-xs text-gray-400 mt-2">
+                                IP: {firstCamera?.ip_address}:{firstCamera?.port}
+                              </p>
+                            </div>
+                          </div>
+                        </>
+                      ) : (
+                        <div className="text-center text-white">
+                          <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-green-500/20 flex items-center justify-center animate-pulse">
+                            <Shield className="h-8 w-8 text-green-400" />
+                          </div>
+                          <p className="text-lg font-semibold">IA Monitorando</p>
+                          <p className="text-gray-300 text-sm">{firstCamera?.name || 'Câmera Principal'}</p>
+                          <p className="text-xs text-gray-400 mt-2">
+                            {firstCamera ? `IP: ${firstCamera.ip_address}:${firstCamera.port}` : 'Stream não disponível'}
+                          </p>
+                        </div>
+                      )}
+                      
+                      {/* Overlay info */}
+                      <div className="absolute top-3 left-3 bg-black/50 text-white px-2 py-1 rounded text-xs">
+                        {firstCamera?.name || 'Câmera Principal'}
+                      </div>
+                      <div className="absolute top-3 right-3 bg-green-500 text-white px-2 py-1 rounded text-xs">
+                        ✅ IA Ativa
+                      </div>
+                      <div className="absolute bottom-3 left-3 bg-black/50 text-white px-2 py-1 rounded text-xs">
+                        {new Date().toLocaleTimeString()}
+                      </div>
+                      <div className="absolute bottom-3 right-3 bg-black/50 text-white px-2 py-1 rounded text-xs">
+                        Status: {firstCamera?.status || 'Offline'}
+                      </div>
+                    </div>
+                  );
+                })()}
                 
                 <div className="mt-4 flex justify-center">
                   <Button onClick={() => navigate('/live')} variant="outline">
