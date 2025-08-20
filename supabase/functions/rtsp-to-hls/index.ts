@@ -57,7 +57,7 @@ const startConversion = async (request: ConversionRequest): Promise<ConversionSt
     console.log(`[DEBUG] Mapeado para Demo Segurança (industrial): ${hls_url}`);
   } else {
     // Padrão: Demo genérico para testes - usando stream que funciona de verdade
-    hls_url = `https://multiplatform-f.akamaihd.net/i/multi/will/bunny/big_buck_bunny_,640x360_400,640x360_700,640x360_1000,950x540_1500,.f4v.csmil/master.m3u8`;
+    hls_url = `https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8`;
     console.log(`[DEBUG] Mapeado para stream padrão: ${hls_url}`);
   }
   
