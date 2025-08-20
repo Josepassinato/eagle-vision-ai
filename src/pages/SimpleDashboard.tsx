@@ -59,6 +59,16 @@ const SimpleDashboard = () => {
   const { isLoading: aiLoading, detections, events, counts, isReady } = useBrowserDetection(videoRef, true, "people_count");
   const { events: realtimeEvents } = useRealtimeEvents("test-camera");
 
+  // Seleciona a melhor câmera (prioriza a de teste TC73 permanente, depois quem tem stream_urls, depois online)
+  const getPreferredCamera = (cams: IPCamera[] = []): IPCamera | undefined => {
+    return (
+      cams.find((c: any) => c.is_permanent && c.model === 'TC73') ||
+      cams.find((c: any) => (c as any)?.stream_urls?.hls || (c as any)?.stream_urls?.rtsp) ||
+      cams.find((c) => c.status === 'online') ||
+      cams[0]
+    );
+  };
+
   // Carregar câmeras reais
   const loadCameras = async () => {
     try {
@@ -130,13 +140,13 @@ const SimpleDashboard = () => {
   }, []);
 
   useEffect(() => {
-    const cam = cameras.find(cam => cam.status === 'online') || cameras[0];
+    const cam = getPreferredCamera(cameras);
     if (!cam || !videoRef.current) return;
 
     console.log('Configurando vídeo para câmera:', cam);
     
     const hlsUrl = (cam as any)?.stream_urls?.hls || (cam as any)?.stream_urls?.hls_url || null;
-    const rtspUrl = cam.stream_urls?.rtsp;
+    const rtspUrl = cam.stream_urls?.rtsp || ((cam as any).is_permanent && (cam as any).model === 'TC73' ? `rtsp://admin:admin@${cam.ip_address}:${cam.port || 554}/stream1` : undefined);
     
     let hlsInstance: Hls | null = null;
 
@@ -366,9 +376,9 @@ const SimpleDashboard = () => {
                     </div>
                   </div>
                 ) : (() => {
-                  const firstCamera = cameras.find(cam => cam.status === 'online') || cameras[0];
+                  const firstCamera = getPreferredCamera(cameras) as any;
                   const hlsUrl = (firstCamera as any)?.stream_urls?.hls || (firstCamera as any)?.stream_urls?.hls_url || null;
-                  const rtspUrl = (firstCamera as any)?.stream_urls?.rtsp || null;
+                  const rtspUrl = (firstCamera as any)?.stream_urls?.rtsp || ((firstCamera as any)?.is_permanent && (firstCamera as any)?.model === 'TC73' ? `rtsp://admin:admin@${(firstCamera as any)?.ip_address}:${(firstCamera as any)?.port || 554}/stream1` : null);
                   
                   return (
                     <div className="aspect-video bg-gradient-to-br from-gray-900 to-gray-700 rounded-lg flex items-center justify-center relative overflow-hidden">
