@@ -30,17 +30,18 @@ export default function Live() {
   const [streamUrl, setStreamUrl] = useState('');
   const [simulate, setSimulate] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [cameraName, setCameraName] = useState('Câmera de Teste');
 
-  // Carregar DVRs configurados
+  // Carregar apenas a câmera de teste
   useEffect(() => {
-    loadDVRs();
+    loadTestCamera();
   }, []);
 
   // Recarregar configs quando a sessão autenticar/mudar
   useEffect(() => {
     const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session?.access_token) {
-        loadDVRs();
+        loadTestCamera();
       }
     });
     return () => {
@@ -101,6 +102,33 @@ export default function Live() {
       }
     } catch (error) {
       console.error('Erro ao carregar DVRs:', error);
+    }
+  };
+
+  // Carregar somente a Câmera de Teste (remove streams demo)
+  const loadTestCamera = async () => {
+    try {
+      const { data, error } = await supabase.functions.invoke('ip-camera-manager', {
+        body: { action: 'list' },
+        headers: { 'x-org-id': 'demo-org-id' }
+      });
+      if (error) throw error;
+      const cams = (data?.data || []) as any[];
+      // Preferir câmera cujo nome indica teste, ou a primeira online
+      const testCam = cams.find(c => /teste|test/i.test(c?.name || ''))
+        || cams.find(c => c?.status === 'online' || c?.status === 'configured')
+        || cams[0];
+      if (testCam) {
+        setCameraName(testCam.name || 'Câmera de Teste');
+        setCameraId(testCam.id || 'test-camera');
+        const hls = testCam?.stream_urls?.hls || testCam?.stream_urls?.hls_url;
+        const rtsp = testCam?.stream_urls?.rtsp;
+        setStreamUrl(hls || rtsp || '');
+      }
+      // Esvaziar lista de DVRs para ocultar o seletor
+      setDvrs([]);
+    } catch (e) {
+      console.error('Erro ao carregar câmera de teste:', e);
     }
   };
 
@@ -536,24 +564,13 @@ const handleDVRChange = (dvrId: string) => {
           <CardContent className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">DVR/Câmera</label>
-                <Select value={cameraId} onValueChange={handleDVRChange} disabled={dvrs.length === 0}>
-                  <SelectTrigger className="bg-slate-700 border-slate-600 text-white">
-                    <SelectValue placeholder="Selecionar DVR..." />
-                  </SelectTrigger>
-                  <SelectContent className="z-50 bg-slate-800 border-slate-600 shadow-xl">
-                    {dvrs.map((dvr) => (
-                      <SelectItem key={dvr.id} value={dvr.id} className="text-white hover:bg-slate-700">
-                        {dvr.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                 </Select>
-                 {dvrs.length === 0 && (
-                   <p className="mt-2 text-xs text-slate-400">
-                     Nenhuma configuração encontrada. Salve em Test DVR e clique em Recarregar.
-                   </p>
-                 )}
+                <label className="block text-sm font-medium text-slate-300 mb-2">Câmera Selecionada</label>
+                <Input
+                  value={cameraName}
+                  disabled
+                  className="bg-slate-700 border-slate-600 text-white"
+                />
+                <p className="mt-2 text-xs text-slate-400">ID: {cameraId}</p>
               </div>
 
               <div>
@@ -645,9 +662,9 @@ const handleDVRChange = (dvrId: string) => {
                 <div className="absolute inset-0 bg-black/80 flex items-center justify-center">
                   <Alert className="max-w-md bg-slate-800 border-slate-600">
                     <AlertDescription className="text-white">
-                      <strong>⚠️ Browsers não reproduzem RTSP diretamente.</strong><br/>
-                      O sistema está processando o stream nos servidores.<br/>
-                      Para ver o vídeo no browser, clique em "Converter RTSP→HLS"
+                      <strong>⚠️ Stream RTSP detectado.</strong><br/>
+                      Convertendo automaticamente para HLS...<br/>
+                      Aguarde alguns segundos.
                     </AlertDescription>
                   </Alert>
                 </div>
