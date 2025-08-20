@@ -211,7 +211,7 @@ export default function TestCameraIPUpdater() {
             className="flex items-center gap-2"
           >
             <TestTube className="h-4 w-4" />
-            {testing ? 'Testando...' : 'Testar Conexão'}
+            {testing ? 'Testando...' : (newIP === testCamera.ip_address ? 'Testar Conexão (IP atual)' : 'Testar Conexão')}
           </Button>
           
           <Button
