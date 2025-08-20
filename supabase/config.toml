@@ -86,3 +86,6 @@ verify_jwt = false
 
 [functions.lgpd-compliance]
 verify_jwt = false
+
+[functions.ip-camera-manager]
+verify_jwt = false
