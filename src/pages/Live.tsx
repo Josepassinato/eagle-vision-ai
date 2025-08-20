@@ -248,9 +248,14 @@ const handleDVRChange = (dvrId: string) => {
       hls.loadSource(streamUrl);
 
     } else if (isHLS && video.canPlayType('application/vnd.apple.mpegurl')) {
-      // 🍎 HLS NATIVO (Safari)
+      // HLS NATIVO (Safari)
       console.log("🍎 [DEBUG] Usando HLS nativo (Safari)");
       video.src = streamUrl;
+      const onCanPlay = () => {
+        console.log("🍎 [DEBUG] Safari: canplay");
+        video.play().catch(e => console.log("🔇 [DEBUG] Autoplay bloqueado (Safari):", e));
+      };
+      video.addEventListener('canplay', onCanPlay, { once: true });
       video.addEventListener('error', (e) => {
         console.error("❌ [DEBUG] Safari HLS Error:", e);
       });
@@ -405,6 +410,19 @@ const handleDVRChange = (dvrId: string) => {
     }
   };
 
+  // Auto-converter RTSP -> HLS quando detectar URL RTSP
+  const lastConvertedRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!streamUrl) return;
+    if (streamUrl.startsWith('rtsp://')) {
+      if (lastConvertedRef.current === streamUrl) return;
+      toast({ title: 'Convertendo stream', description: 'Iniciando RTSP  HLS automaticamente' });
+      lastConvertedRef.current = streamUrl;
+      startRtspConversion();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [streamUrl]);
+
   // ========== Reset Player Function ==========
   const resetPlayer = () => {
     console.log("🔄 [DEBUG] Reset do player solicitado");
@@ -494,13 +512,6 @@ const handleDVRChange = (dvrId: string) => {
     return () => clearInterval(interval);
   }, [simulate, streamUrl]);
 
-  // ========== Demo Stream Buttons ==========
-  const demoStreams = [
-    { name: 'Escritório (EduBehavior)', url: 'rtsp://demo-office.internal:8554/stream' },
-    { name: 'Estacionamento (LPR)', url: 'rtsp://demo-parking.internal:8554/stream' },
-    { name: 'Loja (Antifurto)', url: 'rtsp://demo-retail.internal:8554/stream' },
-    { name: 'Fábrica (SafetyVision)', url: 'rtsp://demo-security.internal:8554/stream' }
-  ];
 
   const [diagnosticsOpen, setDiagnosticsOpen] = useState(false);
 
@@ -574,32 +585,6 @@ const handleDVRChange = (dvrId: string) => {
                </div>
             </div>
 
-            {/* Demo Stream Buttons */}
-            <div className="space-y-2">
-              <label className="block text-sm font-medium text-slate-300">Streams Demo</label>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                {demoStreams.map((demo, idx) => (
-                  <Button
-                    key={idx}
-                    onClick={() => {
-                      setStreamUrl(demo.url);
-                      try {
-                        const host = new URL(demo.url.replace('rtsp://', 'http://')).hostname;
-                        const id = host.replace('.internal', '');
-                        setCameraId(id);
-                      } catch {
-                        setCameraId('demo-camera');
-                      }
-                    }}
-                    variant="outline"
-                    size="sm"
-                    className="bg-slate-700 border-slate-600 text-white hover:bg-slate-600 text-xs"
-                  >
-                    {demo.name}
-                  </Button>
-                ))}
-              </div>
-            </div>
 
             {/* Action Buttons */}
             <div className="flex flex-wrap gap-2">
@@ -652,6 +637,7 @@ const handleDVRChange = (dvrId: string) => {
                 controls
                 muted
                 playsInline
+                autoPlay
               />
               
               {/* RTSP Message Overlay */}
