@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -20,6 +20,7 @@ import {
   Eye,
   TrendingUp
 } from "lucide-react";
+import Hls from 'hls.js';
 
 interface IPCamera {
   id: string;
@@ -46,6 +47,7 @@ const SimpleDashboard = () => {
   });
 
   const navigate = useNavigate();
+  const videoRef = useRef<HTMLVideoElement>(null);
 
   // Carregar câmeras reais
   const loadCameras = async () => {
@@ -101,6 +103,23 @@ const SimpleDashboard = () => {
 
     return () => clearInterval(interval);
   }, []);
+
+  useEffect(() => {
+    const cam = cameras.find(cam => cam.status === 'online') || cameras[0];
+    const hlsUrl = (cam as any)?.stream_urls?.hls || (cam as any)?.stream_urls?.hls_url || null;
+    if (!videoRef.current || !hlsUrl) return;
+
+    if (Hls.isSupported()) {
+      const hls = new Hls();
+      hls.loadSource(hlsUrl);
+      hls.attachMedia(videoRef.current);
+      return () => {
+        hls.destroy();
+      };
+    } else if (videoRef.current.canPlayType('application/vnd.apple.mpegurl')) {
+      videoRef.current.src = hlsUrl;
+    }
+  }, [cameras]);
 
   const recentEvents = [
     { time: "14:23", type: "person", message: "Pessoa detectada - Entrada Principal", status: "normal" },
@@ -167,7 +186,7 @@ const SimpleDashboard = () => {
                   </div>
                   <Camera className="h-8 w-8 text-green-600" />
                 </div>
-                <Progress value={(stats.camerasOnline / stats.totalCameras) * 100} className="mt-3" />
+                <Progress value={stats.totalCameras ? (stats.camerasOnline / stats.totalCameras) * 100 : 0} className="mt-3" />
               </CardContent>
             </Card>
 
