@@ -206,7 +206,7 @@ export default function TestCameraIPUpdater() {
         <div className="flex gap-2">
           <Button
             onClick={testConnection}
-            disabled={testing || !newIP || newIP === testCamera.ip_address}
+            disabled={testing || !newIP}
             variant="outline"
             className="flex items-center gap-2"
           >
