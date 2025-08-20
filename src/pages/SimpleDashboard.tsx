@@ -77,14 +77,29 @@ const SimpleDashboard = () => {
       
       if (data.success) {
         const cameraList = data.data || [];
-        setCameras(cameraList);
+        console.log('Câmeras carregadas:', cameraList);
+        
+        // Converter dados da API para formato esperado
+        const formattedCameras = cameraList.map((cam: any) => ({
+          id: cam.id,
+          name: cam.name || `Câmera ${cam.ip_address}`,
+          brand: cam.brand,
+          model: cam.model,
+          ip_address: cam.ip_address,
+          port: cam.port || 554,
+          status: cam.status,
+          stream_urls: cam.stream_urls || {},
+          is_permanent: cam.is_permanent
+        }));
+        
+        setCameras(formattedCameras);
         
         // Atualizar estatísticas reais
-        const onlineCameras = cameraList.filter((cam: IPCamera) => cam.status === 'online' || cam.status === 'configured').length;
+        const onlineCameras = formattedCameras.filter((cam: IPCamera) => cam.status === 'online' || cam.status === 'configured').length;
         setStats(prev => ({
           ...prev,
           camerasOnline: onlineCameras,
-          totalCameras: cameraList.length
+          totalCameras: formattedCameras.length
         }));
       }
     } catch (error) {
@@ -117,53 +132,52 @@ const SimpleDashboard = () => {
     const cam = cameras.find(cam => cam.status === 'online') || cameras[0];
     if (!cam || !videoRef.current) return;
 
-    const hlsUrl = (cam as any)?.stream_urls?.hls || (cam as any)?.stream_urls?.hls_url || null;
-    const rtspUrl = (cam as any)?.stream_urls?.rtsp || null;
-
+    console.log('Configurando vídeo para câmera:', cam);
+    
+    const rtspUrl = cam.stream_urls?.rtsp;
+    
     let hlsInstance: Hls | null = null;
 
     const attachHls = (url: string) => {
       if (!videoRef.current) return;
+      console.log('Iniciando HLS player com URL:', url);
       if (Hls.isSupported()) {
         hlsInstance = new Hls();
         hlsInstance.loadSource(url);
         hlsInstance.attachMedia(videoRef.current);
-                        hlsInstance.on(Hls.Events.ERROR, (_, data) => {
-                          console.error('HLS error:', data);
-                        });
-                      } else if (videoRef.current.canPlayType('application/vnd.apple.mpegurl')) {
-                        videoRef.current.src = url;
-                      }
-                    };
+        hlsInstance.on(Hls.Events.ERROR, (_, data) => {
+          console.error('HLS error:', data);
+        });
+      } else if (videoRef.current.canPlayType('application/vnd.apple.mpegurl')) {
+        videoRef.current.src = url;
+      }
+    };
 
-                    if (hlsUrl) {
-                      attachHls(hlsUrl);
-                      return () => { hlsInstance?.destroy(); };
-                    }
-
-    // If only RTSP exists, start conversion automatically with retry polling
-    if (!hlsUrl && rtspUrl) {
+    // If only RTSP exists, start conversion automatically
+    if (rtspUrl) {
+      console.log('Stream RTSP detectado, iniciando conversão:', rtspUrl);
       (async () => {
         try {
           setConverting(true);
           toast.info('Convertendo RTSP → HLS...');
-          let attempts = 0;
-          let gotUrl: string | undefined;
-          while (attempts < 3 && !gotUrl) {
-            attempts++;
-            const { data, error } = await supabase.functions.invoke('rtsp-to-hls', {
-              body: { action: 'start', rtsp_url: rtspUrl, camera_id: cam.id },
-            });
-            if (error) {
-              console.error('RTSP→HLS error:', error);
-              break;
-            }
-            gotUrl = data?.conversion?.hls_url as string | undefined;
-            if (!gotUrl) {
-              await new Promise(r => setTimeout(r, 1500));
-            }
+          
+          const { data, error } = await supabase.functions.invoke('rtsp-to-hls', {
+            body: { 
+              action: 'start', 
+              rtsp_url: rtspUrl, 
+              camera_id: cam.id 
+            },
+          });
+          
+          if (error) {
+            console.error('RTSP→HLS error:', error);
+            toast.error('Erro na conversão RTSP para HLS');
+            return;
           }
+          
+          const gotUrl = data?.conversion?.hls_url || data?.hls_url;
           if (gotUrl) {
+            console.log('URL HLS obtida:', gotUrl);
             // Update local camera with HLS URL and attach player
             setCameras(prev => prev.map(c => c.id === cam.id ? {
               ...c,
