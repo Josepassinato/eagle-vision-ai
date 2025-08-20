@@ -5,16 +5,12 @@ import SafetyVisionCard from "@/components/SafetyVisionCard";
 import EduBehaviorCard from "@/components/EduBehaviorCard";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-
-import { Label } from "@/components/ui/label";
-import { toast } from "@/hooks/use-toast";
-import { Send, Shield, Car, Users, Church, Star, CheckCircle } from "lucide-react";
+import { Shield, Car, Users, Church, Star, CheckCircle } from "lucide-react";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Helmet } from "react-helmet-async";
 
 const Index = () => {
-  const [diag, setDiag] = useState<string>("");
   const [isAuthed, setAuthed] = useState(false);
 
   useEffect(() => {
@@ -35,36 +31,6 @@ const Index = () => {
   }, []);
 
   console.log("Index render - isAuthed:", isAuthed);
-
-  const handleTestSupabase = async () => {
-    const ts = new Date().toISOString();
-    try {
-      const { data, error } = await supabase.functions.invoke("send_telegram", {
-        body: { text: `[Visão de Águia] Teste via Supabase - ${ts}` },
-      });
-      if (error) throw new Error(error.message || String(error));
-      setDiag(
-        JSON.stringify({ action: "send_telegram", ok: true, response: data }, null, 2)
-      );
-      toast({
-        title: "Notificação via Supabase enviada",
-        description: `Chats: ${data?.chat_ids?.length ?? "?"} (latência ${data?.latency_ms}ms)`,
-      });
-    } catch (e: any) {
-      setDiag(
-        JSON.stringify(
-          { action: "send_telegram", ok: false, error: e?.message || String(e) },
-          null,
-          2
-        )
-      );
-      toast({
-        title: "Falha via Supabase",
-        description: "Verifique o token do bot e se enviou /start para ele.",
-        variant: "destructive",
-      });
-    }
-  }; 
 
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
@@ -112,7 +78,6 @@ const Index = () => {
       <div className="min-h-screen bg-background">
           <Navbar />
           
-
           {/* CTA para Login/Cadastro */}
           <div className="text-center py-12 bg-gradient-to-br from-primary/5 to-primary/10 rounded-xl mb-12 border border-primary/20">
             <div className="max-w-2xl mx-auto">
@@ -375,8 +340,9 @@ const Index = () => {
           <Card>
             <CardContent className="pt-6">
               <p className="text-sm">
-                Nossa missão é tornar a visão computacional acessível e útil no dia a dia das operações.
-                Unimos modelos de IA de ponta a uma arquitetura simples de operar, com monitoramento e alta confiabilidade.
+                Nosso foco é democratizar a visão computacional para negócios de todos os tamanhos. 
+                Oferecemos soluções de IA que se integram facilmente às suas câmeras IP existentes, 
+                transformando-as em sistemas inteligentes de análise e detecção.
               </p>
               <p className="text-sm mt-3">
                 Operamos com segurança e privacidade: dados minimizados, criptografia em trânsito e retenção configurável.
@@ -403,31 +369,6 @@ const Index = () => {
       <MediaGatewayCard />
       <SafetyVisionCard />
       <EduBehaviorCard />
-      {isAuthed && (
-        <section className="container mx-auto px-4 py-8">
-          <Card>
-            <CardHeader>
-              <CardTitle>Teste de Notificação Telegram (Supabase)</CardTitle>
-            </CardHeader>
-            <CardContent className="flex flex-col gap-4">
-              <p className="text-sm text-muted-foreground md:max-w-xl">
-                Envie um teste via função Edge do Supabase (não precisa configurar URL).
-              </p>
-
-              <div className="flex flex-wrap gap-2">
-                <Button onClick={handleTestSupabase} variant="accent">
-                  <Send className="mr-2 h-4 w-4" /> Testar via Supabase
-                </Button>
-              </div>
-
-              <div className="rounded-md bg-muted/30 p-3 w-full md:max-w-xl">
-                <Label>Diagnóstico</Label>
-                <pre className="mt-2 max-h-64 overflow-auto text-xs whitespace-pre-wrap">{diag || "Sem dados ainda. Clique em “Testar via Supabase”."}</pre>
-              </div>
-            </CardContent>
-          </Card>
-        </section>
-      )}
     </div>
     </>
   );
