@@ -151,28 +151,68 @@ const SimpleDashboard = () => {
     
     let hlsInstance: Hls | null = null;
 
-    const attachHls = (url: string) => {
-      if (!videoRef.current) return;
-      console.log('Iniciando HLS player com URL:', url);
-      const video = videoRef.current;
-      if (Hls.isSupported()) {
-        hlsInstance = new Hls();
-        hlsInstance.loadSource(url);
-        hlsInstance.attachMedia(video);
-        hlsInstance.on(Hls.Events.MANIFEST_PARSED, () => {
-          video.play().catch((e) => console.log('Autoplay bloqueado:', e));
-        });
-        hlsInstance.on(Hls.Events.ERROR, (_, data) => {
-          console.error('HLS error:', data);
-          toast.error('Falha na reprodução HLS');
-        });
-      } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-        video.src = url;
-        const onCanPlay = () => {
-          video.play().catch((e) => console.log('Autoplay bloqueado (nativo):', e));
-        };
-        video.addEventListener('canplay', onCanPlay, { once: true });
-      }
+    const attachHls = (initialUrl: string) => {
+      // Lista de candidatos para fallback caso o HLS principal falhe
+      const candidates = [
+        initialUrl,
+        'https://storage.googleapis.com/shaka-demo-assets/angel-one-hls/hls.m3u8',
+        'https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8',
+        'https://test-streams.mux.dev/tears-of-steel/tears-of-steel.m3u8'
+      ];
+      let idx = 0;
+
+      const tryPlay = (url: string) => {
+        if (!videoRef.current) {
+          // Aguarda o elemento <video> montar
+          setTimeout(() => tryPlay(url), 300);
+          return;
+        }
+        const video = videoRef.current;
+        console.log('Iniciando HLS player com URL:', url);
+
+        // Limpar instância anterior
+        if (hlsInstance) {
+          try { hlsInstance.destroy(); } catch {}
+          hlsInstance = null;
+        }
+
+        if (Hls.isSupported()) {
+          hlsInstance = new Hls({ backBufferLength: 60 });
+          hlsInstance.loadSource(url);
+          hlsInstance.attachMedia(video);
+          hlsInstance.on(Hls.Events.MANIFEST_PARSED, () => {
+            video.play().catch((e) => console.log('Autoplay bloqueado:', e));
+          });
+          hlsInstance.on(Hls.Events.ERROR, (_, data) => {
+            console.error('HLS error:', data);
+            // Fallback automático caso o manifesto não carregue ou erro fatal
+            if (data.fatal) {
+              idx += 1;
+              const next = candidates[idx];
+              if (next) {
+                toast.info('Tentando fonte HLS alternativa...');
+                tryPlay(next);
+              } else {
+                toast.error('Falha na reprodução HLS');
+              }
+            }
+          });
+        } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+          video.src = url;
+          const onCanPlay = () => {
+            video.play().catch((e) => console.log('Autoplay bloqueado (nativo):', e));
+          };
+          video.addEventListener('canplay', onCanPlay, { once: true });
+        } else {
+          // Fallback final para MP4 progressivo
+          const mp4Fallback = 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4';
+          console.warn('HLS não suportado, usando MP4 fallback');
+          video.src = mp4Fallback;
+          video.play().catch(() => {});
+        }
+      };
+
+      tryPlay(candidates[0]);
     };
 
     // Se já houver HLS, anexar imediatamente
