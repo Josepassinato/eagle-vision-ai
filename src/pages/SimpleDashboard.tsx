@@ -44,6 +44,7 @@ const SimpleDashboard = () => {
   const [cameras, setCameras] = useState<IPCamera[]>([]);
   const [loadingCameras, setLoadingCameras] = useState(true);
   const [converting, setConverting] = useState(false);
+  const [currentHlsUrl, setCurrentHlsUrl] = useState<string | null>(null);
   const [stats, setStats] = useState({
     camerasOnline: 0,
     totalCameras: 0,
@@ -145,7 +146,7 @@ const SimpleDashboard = () => {
 
     console.log('Configurando vídeo para câmera:', cam);
     
-    const hlsUrl = (cam as any)?.stream_urls?.hls || (cam as any)?.stream_urls?.hls_url || null;
+    const hlsUrl = currentHlsUrl || (cam as any)?.stream_urls?.hls || (cam as any)?.stream_urls?.hls_url || null;
     const rtspUrl = cam.stream_urls?.rtsp || ((cam as any).is_permanent && (cam as any).model === 'TC73' ? `rtsp://admin:admin@${cam.ip_address}:${cam.port || 554}/stream1` : undefined);
     
     let hlsInstance: Hls | null = null;
@@ -163,6 +164,7 @@ const SimpleDashboard = () => {
         });
         hlsInstance.on(Hls.Events.ERROR, (_, data) => {
           console.error('HLS error:', data);
+          toast.error('Falha na reprodução HLS');
         });
       } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
         video.src = url;
@@ -204,6 +206,7 @@ const SimpleDashboard = () => {
           const gotUrl = data?.conversion?.hls_url || data?.hls_url;
           if (gotUrl) {
             console.log('URL HLS obtida:', gotUrl);
+            setCurrentHlsUrl(gotUrl);
             // Atualizar câmera localmente e anexar player
             setCameras(prev => prev.map(c => c.id === cam.id ? {
               ...c,
@@ -377,7 +380,7 @@ const SimpleDashboard = () => {
                   </div>
                 ) : (() => {
                   const firstCamera = getPreferredCamera(cameras) as any;
-                  const hlsUrl = (firstCamera as any)?.stream_urls?.hls || (firstCamera as any)?.stream_urls?.hls_url || null;
+                  const hlsUrl = currentHlsUrl || (firstCamera as any)?.stream_urls?.hls || (firstCamera as any)?.stream_urls?.hls_url || null;
                   const rtspUrl = (firstCamera as any)?.stream_urls?.rtsp || ((firstCamera as any)?.is_permanent && (firstCamera as any)?.model === 'TC73' ? `rtsp://admin:admin@${(firstCamera as any)?.ip_address}:${(firstCamera as any)?.port || 554}/stream1` : null);
                   
                   return (
