@@ -142,7 +142,7 @@ const SimpleDashboard = () => {
 
   useEffect(() => {
     const cam = getPreferredCamera(cameras);
-    if (!cam || !videoRef.current) return;
+    if (!cam) return;
 
     console.log('Configurando vídeo para câmera:', cam);
     
