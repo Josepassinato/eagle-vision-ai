@@ -4,6 +4,7 @@ import { useRealtimeEvents, type RealtimeEvent } from '@/hooks/useRealtimeEvents
 import { useRealtimeDetections } from '@/hooks/useRealtimeDetections';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -12,7 +13,7 @@ import OverlayCanvas from '@/components/OverlayCanvas';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { ChevronDown, ChevronUp, Play, Square, RotateCcw, Brain, Car, Shield, Users } from 'lucide-react';
+import { ChevronDown, ChevronUp, Play, Square, RotateCcw, Brain, Car, Shield, Users, Camera } from 'lucide-react';
 import { useBrowserDetection } from "@/hooks/useBrowserDetection";
 
 
@@ -20,8 +21,10 @@ export default function Live() {
   const [cameraId, setCameraId] = useState('');
   const [streamUrl, setStreamUrl] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
-  const [cameraName, setCameraName] = useState('Câmera de Teste TP-Link');
+  const [cameraName, setCameraName] = useState('');
   const [simulate, setSimulate] = useState(false);
+  const [availableCameras, setAvailableCameras] = useState<any[]>([]);
+  const [selectedCamera, setSelectedCamera] = useState<string>('');
   
   // AI Detection Controls
   const [aiEnabled, setAiEnabled] = useState(() => {
@@ -37,13 +40,13 @@ export default function Live() {
   const { isLoading: aiLoading, detections, events: aiEvents, counts, isReady } = useBrowserDetection(videoRef, aiEnabled, analysisType);
   const { events: realtimeEvents } = useRealtimeEvents("test-camera");
 
-  // Carregar apenas a câmera de teste pré-configurada
+  // Carregar câmeras configuradas
   useEffect(() => {
-    loadTestCamera();
+    loadSavedCameras();
   }, []);
 
-  // Carregar somente a Câmera de Teste Pré-configurada
-  const loadTestCamera = async () => {
+  // Carregar todas as câmeras salvas
+  const loadSavedCameras = async () => {
     try {
       const { data, error } = await supabase.functions.invoke('ip-camera-manager', {
         body: { action: 'list' },
@@ -52,30 +55,54 @@ export default function Live() {
       if (error) throw error;
       
       const cams = (data?.data || []) as any[];
-      // Procurar especificamente pela câmera de teste TP-Link
-      const testCam = cams.find(c => c?.name === 'Câmera de Teste TP-Link' || c?.id === 'tp-link-tc73')
-        || cams.find(c => /teste|test/i.test(c?.name || ''))
-        || cams.find(c => c?.status === 'online' || c?.status === 'configured')
-        || cams[0];
-        
-      if (testCam) {
-        setCameraName(testCam.name || 'Câmera de Teste TP-Link');
-        setCameraId(testCam.id || 'test-camera');
-        const hls = testCam?.stream_urls?.hls || testCam?.stream_urls?.hls_url;
-        const rtsp = testCam?.stream_urls?.rtsp;
-        setStreamUrl(hls || rtsp || 'rtsp://admin:admin@172.16.100.22:554/stream1');
+      setAvailableCameras(cams);
+      
+      // Se há câmeras salvas, selecionar a primeira
+      if (cams.length > 0) {
+        const firstCamera = cams[0];
+        selectCamera(firstCamera.id);
       } else {
-        // Fallback para câmera pré-configurada
-        setCameraName('Câmera de Teste TP-Link');
-        setCameraId('tp-link-tc73');
-        setStreamUrl('rtsp://admin:admin@172.16.100.22:554/stream1');
+        // Fallback para câmera de teste se nenhuma foi configurada
+        setCameraName('Nenhuma câmera configurada');
+        setCameraId('demo-camera');
+        setStreamUrl('');
+        toast({
+          title: "Nenhuma câmera encontrada",
+          description: "Configure uma câmera na aba Setup primeiro",
+          variant: "destructive"
+        });
       }
     } catch (e) {
-      console.error('Erro ao carregar câmera de teste:', e);
-      // Fallback para câmera pré-configurada
-      setCameraName('Câmera de Teste TP-Link');
-      setCameraId('tp-link-tc73');
-      setStreamUrl('rtsp://admin:admin@172.16.100.22:554/stream1');
+      console.error('Erro ao carregar câmeras:', e);
+      toast({
+        title: "Erro ao carregar câmeras",
+        description: "Verifique sua conexão",
+        variant: "destructive"
+      });
+    }
+  };
+
+  // Selecionar uma câmera específica
+  const selectCamera = (cameraId: string) => {
+    const camera = availableCameras.find(c => c.id === cameraId);
+    if (camera) {
+      setSelectedCamera(cameraId);
+      setCameraId(camera.id);
+      setCameraName(camera.name);
+      
+      // Definir URL do stream baseado na configuração da câmera
+      const hls = camera?.stream_urls?.hls || camera?.stream_urls?.hls_url;
+      const rtsp = camera?.stream_urls?.rtsp;
+      
+      // Construir URL RTSP se não existir
+      const rtspUrl = rtsp || `rtsp://${camera.username}:${camera.password}@${camera.ip_address}:${camera.port}${camera.rtsp_path || '/stream1'}`;
+      
+      setStreamUrl(hls || rtspUrl);
+      
+      toast({
+        title: "Câmera selecionada",
+        description: `Conectando com ${camera.name}`
+      });
     }
   };
 
@@ -513,19 +540,58 @@ export default function Live() {
         {/* Controls */}
         <Card className="bg-slate-800/50 border-slate-700">
           <CardHeader>
-            <CardTitle className="text-white">Câmera de Teste TP-Link TC73</CardTitle>
+            <CardTitle className="text-white">Live Stream - Câmeras Configuradas</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
+            <div className="flex flex-col sm:flex-row gap-4 mb-6">
+              <Card className="flex-1">
+                <CardContent className="p-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Camera className="w-5 h-5" />
+                    <span className="font-medium">Selecionar Câmera</span>
+                  </div>
+                  {availableCameras.length > 0 ? (
+                    <Select value={selectedCamera} onValueChange={selectCamera}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Escolha uma câmera" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {availableCameras.map((camera) => (
+                          <SelectItem key={camera.id} value={camera.id}>
+                            <div className="flex items-center gap-2">
+                              <span>{camera.name}</span>
+                              <Badge variant={camera.status === 'configured' ? 'default' : 'secondary'}>
+                                {camera.status}
+                              </Badge>
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">
+                      Nenhuma câmera configurada. Configure uma câmera na aba Setup primeiro.
+                    </p>
+                  )}
+                </CardContent>
+              </Card>
+              
+              {cameraName && (
+                <Card className="flex-1">
+                  <CardContent className="p-4">
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium text-white">{cameraName}</span>
+                        <Badge variant="outline">Ativa</Badge>
+                      </div>
+                      <p className="text-xs text-slate-400">ID: {cameraId}</p>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+            
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">Câmera de Teste Pré-configurada</label>
-                <Input
-                  value={cameraName}
-                  disabled
-                  className="bg-slate-700 border-slate-600 text-white"
-                />
-                <p className="mt-2 text-xs text-slate-400">IP: 172.16.100.22 | ID: {cameraId}</p>
-              </div>
 
                <div className="flex items-end space-x-2">
                  <Button 
@@ -537,11 +603,11 @@ export default function Live() {
                    Reset Player
                  </Button>
                  <Button 
-                   onClick={loadTestCamera}
+                   onClick={loadSavedCameras}
                    variant="outline"
                    className="bg-slate-700 border-slate-600 text-white hover:bg-slate-600"
                  >
-                   Recarregar Câmera
+                   Recarregar Câmeras
                  </Button>
                </div>
             </div>
