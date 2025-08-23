@@ -1,15 +1,41 @@
 # Log
 logLevel: info
+logDestinations: [stdout]
 
-# Habilitar protocolos modernos
+# Protocolos habilitados
 rtsp: yes
+rtspAddress: :8554
 rtmp: yes
+rtmpAddress: :1935
 hls: yes
-# Janela DVR de ~20s (10 segmentos de 2s)
+hlsAddress: :8888
 hlsSegmentDuration: 2s
 hlsSegmentCount: 10
+hlsVariant: lowLatency
+hlsAllowOrigin: "*"
 webrtc: yes
+webrtcAddress: :8889
+webrtcAllowOrigin: "*"
 srt: yes
+srtAddress: :8890
+
+# API para controle
+api: yes
+apiAddress: :9997
+apiAllowOrigin: "*"
+
+# Métricas
+metrics: yes
+metricsAddress: :9998
+
+# PlayBack/DVR
+playback: yes
+playbackAddress: :9999
+
+# Configurações de rede
+readTimeout: 10s
+writeTimeout: 10s
+readBufferCount: 512
 
 # Diretório de gravações on-demand (se ativar record)
 recordPath: /recordings
