@@ -1,0 +1,29 @@
+FROM bluenviron/mediamtx:latest
+
+# Copy configuration files
+COPY mediamtx.yml /mediamtx.yml
+COPY nginx-hls.conf /nginx-hls.conf
+
+# Install nginx for HLS serving
+USER root
+RUN apk add --no-cache nginx
+
+# Create nginx directories
+RUN mkdir -p /var/log/nginx /var/lib/nginx/tmp
+
+# Setup nginx config
+RUN cp /nginx-hls.conf /etc/nginx/http.d/default.conf
+
+# Create start script
+RUN echo '#!/bin/sh' > /start.sh && \
+    echo 'nginx &' >> /start.sh && \
+    echo 'exec /mediamtx' >> /start.sh && \
+    chmod +x /start.sh
+
+EXPOSE $PORT
+EXPOSE 8080
+EXPOSE 8888
+EXPOSE 8889
+EXPOSE 9997
+
+CMD ["/start.sh"]

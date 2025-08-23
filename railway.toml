@@ -1,0 +1,12 @@
+[build]
+builder = "DOCKER"
+dockerfilePath = "Dockerfile.railway"
+
+[deploy]
+healthcheckPath = "/api/health"
+healthcheckTimeout = 300
+restartPolicyType = "ON_FAILURE"
+
+[[services]]
+name = "mediamtx"
+source = "."
