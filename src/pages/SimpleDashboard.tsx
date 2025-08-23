@@ -205,11 +205,8 @@ const SimpleDashboard = () => {
           };
           video.addEventListener('canplay', onCanPlay, { once: true });
         } else {
-          // Fallback final para MP4 progressivo
-          const mp4Fallback = 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4';
-          console.warn('HLS não suportado, usando MP4 fallback');
-          video.src = mp4Fallback;
-          video.play().catch(() => {});
+          console.warn('HLS não suportado e nenhuma câmera real configurada');
+          video.style.display = 'none';
         }
       };
 

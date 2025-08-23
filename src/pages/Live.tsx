@@ -57,18 +57,18 @@ export default function Live() {
       const cams = (data?.data || []) as any[];
       setAvailableCameras(cams);
       
-      // Se há câmeras salvas, selecionar a primeira
+      // Mostrar apenas câmeras realmente configuradas
       if (cams.length > 0) {
         const firstCamera = cams[0];
         selectCamera(firstCamera.id);
       } else {
-        // Fallback para câmera de teste se nenhuma foi configurada
-        setCameraName('Nenhuma câmera configurada');
-        setCameraId('demo-camera');
+        // Sem câmeras configuradas - não mostrar vídeos demo
+        setCameraName('');
+        setCameraId('');
         setStreamUrl('');
         toast({
           title: "Nenhuma câmera encontrada",
-          description: "Configure uma câmera na aba Setup primeiro",
+          description: "Configure uma câmera na aba Setup para visualizar streams reais",
           variant: "destructive"
         });
       }
@@ -462,31 +462,17 @@ export default function Live() {
     if (!simulate || !streamUrl) return;
 
     const simulateDetections = () => {
-      // Definir cenários baseados na URL do stream
+      // Aplicar simulação apenas para câmeras reais configuradas
       let detectionScenarios: any[] = [];
       
-      if (streamUrl.includes('demo-office') || streamUrl.includes('BigBuckBunny')) {
-        // EduBehavior: Detecções de pessoas
+      // Verificar se é uma câmera real baseada no ID
+      const isRealCamera = availableCameras.some(cam => cam.id === cameraId);
+      
+      if (isRealCamera && cameraId) {
+        // Simular detecções baseadas no tipo de câmera
         detectionScenarios = [
           { type: 'person', zone: { x: 100, y: 150, width: 80, height: 120 } },
-          { type: 'person', zone: { x: 300, y: 180, width: 75, height: 110 } }
-        ];
-      } else if (streamUrl.includes('demo-parking') || streamUrl.includes('Sintel')) {
-        // LPR: Detecções de veículos e placas
-        detectionScenarios = [
-          { type: 'vehicle', zone: { x: 200, y: 200, width: 150, height: 100 } },
-          { type: 'license_plate', zone: { x: 250, y: 280, width: 60, height: 20 } }
-        ];
-      } else if (streamUrl.includes('demo-retail')) {
-        // Antifurto: Detecções de produtos e pessoas
-        detectionScenarios = [
-          { type: 'person', zone: { x: 150, y: 100, width: 70, height: 130 } },
-          { type: 'product', zone: { x: 400, y: 250, width: 50, height: 40 } }
-        ];
-      } else if (streamUrl.includes('demo-security')) {
-        // SafetyVision: Detecções de segurança
-        detectionScenarios = [
-          { type: 'ppe_violation', zone: { x: 180, y: 120, width: 90, height: 140 } },
+          { type: 'motion', zone: { x: 200, y: 200, width: 100, height: 80 } },
           { type: 'safety_equipment', zone: { x: 350, y: 200, width: 60, height: 80 } }
         ];
       }
@@ -519,7 +505,7 @@ export default function Live() {
 
     const interval = setInterval(simulateDetections, 2000 + Math.random() * 3000); // 2-5 segundos
     return () => clearInterval(interval);
-  }, [simulate, streamUrl]);
+  }, [simulate, streamUrl, cameraId, availableCameras]);
 
 
   const [diagnosticsOpen, setDiagnosticsOpen] = useState(false);
