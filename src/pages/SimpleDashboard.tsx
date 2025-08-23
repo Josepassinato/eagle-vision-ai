@@ -153,12 +153,9 @@ const SimpleDashboard = () => {
     let hlsInstance: Hls | null = null;
 
     const attachHls = (initialUrl: string) => {
-      // Lista de candidatos para fallback caso o HLS principal falhe
+      // Reproduzir somente fontes reais (sem fallbacks de demo)
       const candidates = [
-        initialUrl,
-        'https://storage.googleapis.com/shaka-demo-assets/angel-one-hls/hls.m3u8',
-        'https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8',
-        'https://test-streams.mux.dev/tears-of-steel/tears-of-steel.m3u8'
+        initialUrl
       ];
       let idx = 0;
 

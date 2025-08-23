@@ -33,32 +33,19 @@ const startConversion = async (request: ConversionRequest): Promise<ConversionSt
   const ffmpegCommand = generateFFmpegCommand(rtsp_url, camera_id, quality);
   console.log(`FFmpeg command: ${ffmpegCommand}`);
   
-  // 🎯 STREAMS HLS REAIS para cada ANALÍTICO
-  let hls_url: string;
+  // Não retornar streams de demonstração. Apenas iniciar processo e aguardar URL HLS real (quando integrado a um gateway RTSP→HLS)
+  let hls_url: string | undefined;
   
-  console.log(`[DEBUG] Mapeando RTSP URL: ${rtsp_url}`);
+  console.log(`[DEBUG] Mapeando RTSP URL (sem fallback de demo): ${rtsp_url}`);
   
-  // 🎯 STREAMS DIFERENCIADOS para cada ANALÍTICO específico
-  if (rtsp_url.includes('demo-office.internal')) {
-    // Demo Escritório: pessoas em ambiente corporativo
-    hls_url = `https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8`;
-    console.log(`[DEBUG] Mapeado para Demo Escritório (pessoas): ${hls_url}`);
-  } else if (rtsp_url.includes('demo-parking.internal')) {
-    // Demo Estacionamento: carros e veículos
-    hls_url = `https://storage.googleapis.com/shaka-demo-assets/angel-one-hls/hls.m3u8`;
-    console.log(`[DEBUG] Mapeado para Demo Estacionamento (veículos): ${hls_url}`);
-  } else if (rtsp_url.includes('demo-retail.internal')) {
-    // Demo Varejo: ambiente de loja
-    hls_url = `https://test-streams.mux.dev/tears-of-steel/tears-of-steel.m3u8`;
-    console.log(`[DEBUG] Mapeado para Demo Varejo (loja): ${hls_url}`);
-  } else if (rtsp_url.includes('demo-security.internal')) {
-    // Demo Segurança: ambiente industrial
-    hls_url = `https://multiplatform-f.akamaihd.net/i/multi/will/bunny/big_buck_bunny_,640x360_400,640x360_700,640x360_1000,950x540_1500,.f4v.csmil/master.m3u8`;
-    console.log(`[DEBUG] Mapeado para Demo Segurança (industrial): ${hls_url}`);
+  // Bloquear URLs de demo conhecidas
+  const looksLikeDemo = /demo-|mux\.dev|akamaihd\.net|shaka-demo|tears-of-steel|BigBuckBunny/i.test(rtsp_url);
+  if (looksLikeDemo) {
+    console.warn('[DEBUG] URL parece demo; hls_url não será definido.');
   } else {
-    // Padrão: Demo genérico para testes - usando stream que funciona de verdade
-    hls_url = `https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8`;
-    console.log(`[DEBUG] Mapeado para stream padrão: ${hls_url}`);
+    // Aqui, em produção, você deve integrar com seu gateway (ex.: MediaMTX) e gerar a URL HLS pública
+    // Exemplo (futuro): const base = Deno.env.get('MEDIAMTX_PUBLIC_BASE'); hls_url = `${base}/live/${camera_id}/index.m3u8`;
+    hls_url = undefined;
   }
   
   console.log(`Mapped RTSP URL ${rtsp_url} to HLS URL: ${hls_url}`);
