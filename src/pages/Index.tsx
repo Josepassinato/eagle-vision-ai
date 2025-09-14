@@ -12,6 +12,30 @@ import { Helmet } from "react-helmet-async";
 
 const Index = () => {
   const [isAuthed, setAuthed] = useState(false);
+  const [testStatus, setTestStatus] = useState('');
+
+  const testSystem = async () => {
+    setTestStatus('Testando...');
+    try {
+      // Test MediaMTX health endpoint
+      const healthResponse = await fetch('/health');
+      const healthOk = healthResponse.ok;
+      
+      // Test demo router function
+      const { data: demoData, error: demoError } = await supabase.functions.invoke('demo-router', {
+        body: { action: 'start', analytic: 'people_count' }
+      });
+      
+      if (healthOk && !demoError) {
+        setTestStatus('✅ Sistema funcionando corretamente!');
+      } else {
+        setTestStatus('⚠️ Alguns componentes podem estar offline');
+      }
+    } catch (error) {
+      console.error('Test error:', error);
+      setTestStatus('❌ Erro no teste do sistema');
+    }
+  };
 
   useEffect(() => {
     console.log("Index page mounted successfully");
@@ -106,7 +130,15 @@ const Index = () => {
                 <Button variant="outline" size="lg" asChild className="text-lg px-8">
                   <a href="/auth">Já Tenho Conta</a>
                 </Button>
+                <Button onClick={testSystem} variant="secondary" size="lg" className="text-lg px-8">
+                  Testar Sistema
+                </Button>
               </div>
+              {testStatus && (
+                <div className="mt-4 p-3 bg-muted rounded-lg">
+                  <p className="text-sm font-medium">{testStatus}</p>
+                </div>
+              )}
               <p className="text-xs text-muted-foreground mt-4">
                 ✅ Sem cartão de crédito • ✅ Cancele quando quiser • ✅ Suporte brasileiro
               </p>
