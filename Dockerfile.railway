@@ -2,25 +2,27 @@ FROM bluenviron/mediamtx:latest
 
 # Copy configuration files
 COPY mediamtx.yml /mediamtx.yml
-COPY nginx-hls.conf /nginx-hls.conf
+COPY nginx-hls.conf /nginx-hls.conf.template
 
-# Install nginx for HLS serving
+# Install nginx and gettext for envsubst
 USER root
-RUN apk add --no-cache nginx
+RUN apk add --no-cache nginx gettext
 
 # Create nginx directories
 RUN mkdir -p /var/log/nginx /var/lib/nginx/tmp
 
-# Setup nginx config
-RUN cp /nginx-hls.conf /etc/nginx/http.d/default.conf
-
-# Create start script
+# Create start script that handles PORT substitution
 RUN echo '#!/bin/sh' > /start.sh && \
+    echo 'echo "Starting with PORT=${PORT}"' >> /start.sh && \
+    echo 'envsubst < /nginx-hls.conf.template > /etc/nginx/http.d/default.conf' >> /start.sh && \
+    echo 'echo "Generated nginx config:"' >> /start.sh && \
+    echo 'cat /etc/nginx/http.d/default.conf' >> /start.sh && \
     echo 'nginx &' >> /start.sh && \
     echo 'exec /mediamtx' >> /start.sh && \
     chmod +x /start.sh
 
-EXPOSE $PORT
+# Use fixed ports for EXPOSE (Railway will map PORT dynamically)
+EXPOSE 8554
 EXPOSE 8080
 EXPOSE 8888
 EXPOSE 8889
