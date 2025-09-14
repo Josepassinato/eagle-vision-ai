@@ -1,31 +1,60 @@
 FROM bluenviron/mediamtx:latest
 
-# Copy configuration files
-COPY mediamtx.yml /mediamtx.yml
-COPY nginx-hls.conf /nginx-hls.conf.template
-
-# Install nginx and gettext for envsubst
+# Install nginx
 USER root
-RUN apk add --no-cache nginx gettext
+RUN apk add --no-cache nginx
 
 # Create nginx directories
-RUN mkdir -p /var/log/nginx /var/lib/nginx/tmp
+RUN mkdir -p /var/log/nginx /var/lib/nginx/tmp /etc/nginx/http.d
 
-# Create start script that handles PORT substitution
+# Copy MediaMTX config
+COPY mediamtx.yml /mediamtx.yml
+
+# Create nginx config template that will be processed at runtime
+RUN echo 'server {' > /etc/nginx/http.d/default.conf.template && \
+    echo '    listen $PORT;' >> /etc/nginx/http.d/default.conf.template && \
+    echo '    server_name localhost;' >> /etc/nginx/http.d/default.conf.template && \
+    echo '' >> /etc/nginx/http.d/default.conf.template && \
+    echo '    # CORS headers' >> /etc/nginx/http.d/default.conf.template && \
+    echo '    add_header Access-Control-Allow-Origin *;' >> /etc/nginx/http.d/default.conf.template && \
+    echo '    add_header Access-Control-Allow-Methods "GET, POST, OPTIONS";' >> /etc/nginx/http.d/default.conf.template && \
+    echo '    add_header Access-Control-Allow-Headers "Content-Type, Authorization";' >> /etc/nginx/http.d/default.conf.template && \
+    echo '' >> /etc/nginx/http.d/default.conf.template && \
+    echo '    location /hls/ {' >> /etc/nginx/http.d/default.conf.template && \
+    echo '        proxy_pass http://127.0.0.1:8888/;' >> /etc/nginx/http.d/default.conf.template && \
+    echo '        proxy_set_header Host $host;' >> /etc/nginx/http.d/default.conf.template && \
+    echo '        add_header Cache-Control no-cache;' >> /etc/nginx/http.d/default.conf.template && \
+    echo '        add_header Access-Control-Allow-Origin *;' >> /etc/nginx/http.d/default.conf.template && \
+    echo '    }' >> /etc/nginx/http.d/default.conf.template && \
+    echo '' >> /etc/nginx/http.d/default.conf.template && \
+    echo '    location /api/ {' >> /etc/nginx/http.d/default.conf.template && \
+    echo '        proxy_pass http://127.0.0.1:9997/;' >> /etc/nginx/http.d/default.conf.template && \
+    echo '        proxy_set_header Host $host;' >> /etc/nginx/http.d/default.conf.template && \
+    echo '    }' >> /etc/nginx/http.d/default.conf.template && \
+    echo '' >> /etc/nginx/http.d/default.conf.template && \
+    echo '    location /health {' >> /etc/nginx/http.d/default.conf.template && \
+    echo '        return 200 "OK";' >> /etc/nginx/http.d/default.conf.template && \
+    echo '        add_header Content-Type text/plain;' >> /etc/nginx/http.d/default.conf.template && \
+    echo '    }' >> /etc/nginx/http.d/default.conf.template && \
+    echo '}' >> /etc/nginx/http.d/default.conf.template
+
+# Create startup script
 RUN echo '#!/bin/sh' > /start.sh && \
-    echo 'echo "Starting with PORT=${PORT}"' >> /start.sh && \
-    echo 'envsubst < /nginx-hls.conf.template > /etc/nginx/http.d/default.conf' >> /start.sh && \
+    echo 'set -e' >> /start.sh && \
+    echo 'echo "Starting with PORT=${PORT:-8080}"' >> /start.sh && \
+    echo 'PORT=${PORT:-8080}' >> /start.sh && \
+    echo 'sed "s/\\$PORT/$PORT/g" /etc/nginx/http.d/default.conf.template > /etc/nginx/http.d/default.conf' >> /start.sh && \
     echo 'echo "Generated nginx config:"' >> /start.sh && \
     echo 'cat /etc/nginx/http.d/default.conf' >> /start.sh && \
+    echo 'nginx -t' >> /start.sh && \
     echo 'nginx &' >> /start.sh && \
     echo 'exec /mediamtx' >> /start.sh && \
     chmod +x /start.sh
 
-# Use fixed ports for EXPOSE (Railway will map PORT dynamically)
-EXPOSE 8554
+# Fixed ports for container network
 EXPOSE 8080
+EXPOSE 8554
 EXPOSE 8888
-EXPOSE 8889
 EXPOSE 9997
 
 CMD ["/start.sh"]
