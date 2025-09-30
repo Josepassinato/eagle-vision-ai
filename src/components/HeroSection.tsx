@@ -2,8 +2,10 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Eye, Zap, Target, Brain, SkipForward } from "lucide-react";
 import heroImage from "@/assets/eagle-vision-hero.jpg";
+import { useTranslation } from "react-i18next";
 
 const HeroSection = () => {
+  const { t } = useTranslation();
   return (
     <section className="relative min-h-screen flex items-center justify-center overflow-hidden bg-gradient-hero">
       {/* Background Image */}
@@ -23,35 +25,34 @@ const HeroSection = () => {
           className="mb-6 px-4 py-2 text-accent border-accent/30 bg-accent/10 animate-pulse-glow"
         >
           <Zap className="w-4 h-4 mr-2" />
-          Tecnologia de Visão Computacional Avançada
+          {t('hero.badge')}
         </Badge>
 
         <h1 className="text-5xl md:text-7xl font-bold mb-6 bg-gradient-to-r from-foreground to-accent bg-clip-text text-transparent">
-          Visão de Águia
+          {t('hero.title')}
         </h1>
 
         <p className="text-xl md:text-2xl text-muted-foreground mb-8 max-w-3xl mx-auto leading-relaxed">
-          Sistema de inteligência artificial com precisão cirúrgica para análise visual.
-          Detecte, analise e processe imagens com a acuidade de uma águia.
+          {t('hero.description')}
         </p>
 
         <div className="flex flex-col sm:flex-row gap-4 justify-center mb-12">
           <Button variant="hero" size="lg" className="text-lg" asChild>
             <a href="/auth">
               <Eye className="w-5 h-5 mr-2" />
-              Iniciar Análise
+              {t('hero.cta.start')}
             </a>
           </Button>
           <Button variant="tech" size="lg" className="text-lg" asChild>
             <a href="/app/dashboard">
               <Brain className="w-5 h-5 mr-2" />
-              Explorar Sistema
+              {t('hero.cta.explore')}
             </a>
           </Button>
           <Button variant="outline" size="lg" className="text-lg" asChild>
             <a href="#produtos">
               <SkipForward className="w-5 h-5 mr-2" />
-              Pular Apresentação
+              {t('hero.cta.skip')}
             </a>
           </Button>
         </div>
@@ -60,18 +61,18 @@ const HeroSection = () => {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-16">
           <FeatureCard
             icon={<Target className="w-8 h-8" />}
-            title="Precisão Extrema"
-            description="Análise detalhada com precisão de 99.8% em reconhecimento de padrões"
+            title={t('hero.features.realtime.title')}
+            description={t('hero.features.realtime.description')}
           />
           <FeatureCard
             icon={<Eye className="w-8 h-8" />}
-            title="Visão Aprimorada"
-            description="Processamento avançado de imagens com algoritmos de deep learning"
+            title={t('hero.features.analytics.title')}
+            description={t('hero.features.analytics.description')}
           />
           <FeatureCard
             icon={<Zap className="w-8 h-8" />}
-            title="Velocidade Extrema"
-            description="Análise em tempo real com processamento otimizado"
+            title={t('hero.features.privacy.title')}
+            description={t('hero.features.privacy.description')}
           />
         </div>
       </div>

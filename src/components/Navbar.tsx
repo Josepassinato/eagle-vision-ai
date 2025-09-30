@@ -3,9 +3,12 @@ import { Eye, Menu, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { NavLink } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { useTranslation } from "react-i18next";
+import { LanguageSelector } from "./LanguageSelector";
 const Navbar = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isAuthed, setAuthed] = useState(false);
+  const { t } = useTranslation();
 
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
@@ -27,7 +30,7 @@ const Navbar = () => {
               <Eye className="w-6 h-6 text-primary-foreground" aria-hidden="true" />
             </div>
             <span className="text-2xl font-display font-bold bg-gradient-to-r from-foreground to-accent bg-clip-text text-transparent">
-              Visão de Águia
+              {t('hero.title')}
             </span>
           </div>
 
@@ -35,15 +38,15 @@ const Navbar = () => {
           <div className="hidden md:flex items-center space-x-6">
             {isAuthed ? (
               <>
-                <TopNavLink to="/dashboard-simple">Painel</TopNavLink>
+                <TopNavLink to="/dashboard-simple">{t('nav.dashboard')}</TopNavLink>
                 <TopNavLink to="/setup">Configurar</TopNavLink>
                 <TopNavLink to="/app/dashboard">Avançado</TopNavLink>
               </>
             ) : (
               <>
-                <TopNavLink to="/#produtos">Produtos</TopNavLink>
-                <TopNavLink to="/#precos">Preços</TopNavLink>
-                <TopNavLink to="/#sobre">Quem somos</TopNavLink>
+                <TopNavLink to="/#produtos">{t('nav.products')}</TopNavLink>
+                <TopNavLink to="/#precos">{t('nav.pricing')}</TopNavLink>
+                <TopNavLink to="/#sobre">{t('nav.about')}</TopNavLink>
                 
               </>
             )}
@@ -51,17 +54,18 @@ const Navbar = () => {
 
           {/* Action Buttons */}
           <div className="hidden md:flex items-center space-x-4">
+            <LanguageSelector />
             {isAuthed ? (
               <Button variant="accent" size="sm" asChild>
-                <NavLink to="/dashboard-simple" aria-label="Ir para o painel">Ir para o painel</NavLink>
+                <NavLink to="/dashboard-simple" aria-label="Ir para o painel">{t('nav.dashboard')}</NavLink>
               </Button>
             ) : (
               <>
                 <Button variant="ghost" size="sm" asChild>
-                  <NavLink to="/auth" aria-label="Entrar">Entrar</NavLink>
+                  <NavLink to="/auth" aria-label="Entrar">{t('nav.login')}</NavLink>
                 </Button>
                 <Button variant="accent" size="sm" asChild>
-                  <NavLink to="/auth" aria-label="Criar conta">Criar conta</NavLink>
+                  <NavLink to="/auth" aria-label="Criar conta">{t('nav.login')}</NavLink>
                 </Button>
               </>
             )}
@@ -85,31 +89,35 @@ const Navbar = () => {
             <div className="flex flex-col space-y-4">
               {isAuthed ? (
                 <>
-                  <TopNavLink to="/dashboard-simple" mobile>Painel</TopNavLink>
+                  <TopNavLink to="/dashboard-simple" mobile>{t('nav.dashboard')}</TopNavLink>
                   <TopNavLink to="/setup" mobile>Configurar</TopNavLink>
                   <TopNavLink to="/app/dashboard" mobile>Avançado</TopNavLink>
                   <div className="flex flex-col space-y-2 pt-4">
                     <Button variant="accent" size="sm" asChild>
-                      <NavLink to="/dashboard-simple">Ir para o painel</NavLink>
+                      <NavLink to="/dashboard-simple">{t('nav.dashboard')}</NavLink>
                     </Button>
                   </div>
                 </>
               ) : (
                 <>
-                  <TopNavLink to="/#produtos" mobile>Produtos</TopNavLink>
-                  <TopNavLink to="/#precos" mobile>Preços</TopNavLink>
-                  <TopNavLink to="/#sobre" mobile>Quem somos</TopNavLink>
+                  <TopNavLink to="/#produtos" mobile>{t('nav.products')}</TopNavLink>
+                  <TopNavLink to="/#precos" mobile>{t('nav.pricing')}</TopNavLink>
+                  <TopNavLink to="/#sobre" mobile>{t('nav.about')}</TopNavLink>
                   
                   <div className="flex flex-col space-y-2 pt-4">
                     <Button variant="ghost" size="sm" className="justify-start" asChild>
-                      <NavLink to="/auth">Entrar</NavLink>
+                      <NavLink to="/auth">{t('nav.login')}</NavLink>
                     </Button>
                     <Button variant="accent" size="sm" asChild>
-                      <NavLink to="/auth">Criar conta</NavLink>
+                      <NavLink to="/auth">{t('nav.login')}</NavLink>
                     </Button>
                   </div>
                 </>
               )}
+              
+              <div className="pt-4 border-t border-border/50">
+                <LanguageSelector />
+              </div>
             </div>
           </div>
         )}

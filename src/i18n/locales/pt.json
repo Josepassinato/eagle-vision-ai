@@ -1,0 +1,230 @@
+{
+  "nav": {
+    "home": "Início",
+    "products": "Produtos",
+    "pricing": "Preços",
+    "about": "Sobre",
+    "login": "Entrar",
+    "dashboard": "Painel",
+    "logout": "Sair"
+  },
+  "hero": {
+    "badge": "Tecnologia de Visão Computacional Avançada",
+    "title": "Visão de Águia",
+    "description": "Transforme sua segurança com nossa plataforma de IA que detecta comportamentos suspeitos, monitora ocupação e gera insights em tempo real para proteger o que mais importa.",
+    "cta": {
+      "start": "Iniciar Análise",
+      "explore": "Explorar Sistema",
+      "skip": "Pular Apresentação"
+    },
+    "features": {
+      "realtime": {
+        "title": "Detecção em Tempo Real",
+        "description": "IA avançada que identifica comportamentos e eventos instantaneamente"
+      },
+      "analytics": {
+        "title": "Analytics Inteligente",
+        "description": "Relatórios automáticos e insights profundos sobre padrões de comportamento"
+      },
+      "privacy": {
+        "title": "Privacidade Garantida",
+        "description": "Processamento local com total conformidade LGPD e proteção de dados"
+      }
+    }
+  },
+  "cta": {
+    "title": "Experimente Grátis Por 7 Dias",
+    "subtitle": "Nenhum cartão de crédito necessário. Configure em minutos.",
+    "benefits": {
+      "setup": "Configuração em 5 minutos",
+      "support": "Suporte técnico incluído",
+      "cancel": "Cancele quando quiser"
+    },
+    "buttons": {
+      "trial": "Iniciar Teste Grátis",
+      "login": "Fazer Login",
+      "test": "Testar Sistema"
+    },
+    "testFeedback": {
+      "testing": "Testando sistema...",
+      "success": "✅ Sistema funcionando perfeitamente!",
+      "error": "❌ Erro no teste do sistema"
+    }
+  },
+  "products": {
+    "title": "Nossos Produtos",
+    "antitheft": {
+      "title": "Antifurto & Evasão",
+      "description": "Detecte comportamentos suspeitos automaticamente com nossa IA avançada."
+    },
+    "lpr": {
+      "title": "Leitura de Placas",
+      "description": "Reconhecimento automático de placas de veículos em tempo real."
+    },
+    "counting": {
+      "title": "Contagem de Pessoas",
+      "description": "Monitore ocupação e fluxo de pessoas com precisão."
+    },
+    "learnMore": "Saiba mais"
+  },
+  "vision4church": {
+    "title": "Vision4Church",
+    "subtitle": "IA Especializada para Igrejas",
+    "description": "Uma solução completa de análise comportamental desenvolvida especificamente para ambientes religiosos, garantindo privacidade e insights valiosos.",
+    "features": {
+      "privacy": {
+        "title": "100% Privado",
+        "description": "Nenhum dado pessoal é coletado ou armazenado"
+      },
+      "analytics": {
+        "title": "Analytics Comportamental",
+        "description": "Entenda padrões de engajamento da congregação"
+      },
+      "security": {
+        "title": "Segurança Avançada",
+        "description": "Proteção discreta durante cultos e eventos"
+      }
+    },
+    "cta": "Conhecer Vision4Church"
+  },
+  "howItWorks": {
+    "antitheft": {
+      "title": "Como Funciona: Antifurto & Evasão",
+      "steps": {
+        "install": {
+          "title": "1. Instalação Simples",
+          "description": "Conecte suas câmeras existentes à nossa plataforma em minutos."
+        },
+        "train": {
+          "title": "2. Treinamento Automático",
+          "description": "Nossa IA aprende os padrões normais do seu ambiente automaticamente."
+        },
+        "detect": {
+          "title": "3. Detecção Inteligente",
+          "description": "Identifica comportamentos suspeitos e envia alertas em tempo real."
+        },
+        "act": {
+          "title": "4. Ação Imediata",
+          "description": "Receba notificações instantâneas e tome ações preventivas."
+        }
+      }
+    },
+    "lpr": {
+      "title": "Como Funciona: Leitura de Placas",
+      "steps": {
+        "capture": {
+          "title": "1. Captura Automática",
+          "description": "Detecta e captura imagens de veículos automaticamente."
+        },
+        "recognize": {
+          "title": "2. Reconhecimento OCR",
+          "description": "Extrai texto das placas com alta precisão usando IA."
+        },
+        "validate": {
+          "title": "3. Validação Inteligente",
+          "description": "Verifica formato e valida informações da placa."
+        },
+        "log": {
+          "title": "4. Registro Completo",
+          "description": "Armazena dados com timestamp e localização para relatórios."
+        }
+      }
+    },
+    "counting": {
+      "title": "Como Funciona: Contagem de Pessoas",
+      "steps": {
+        "detect": {
+          "title": "1. Detecção de Pessoas",
+          "description": "Identifica pessoas em tempo real usando visão computacional."
+        },
+        "track": {
+          "title": "2. Rastreamento Inteligente",
+          "description": "Acompanha movimento e direção para contagem precisa."
+        },
+        "count": {
+          "title": "3. Contagem em Tempo Real",
+          "description": "Mantém contador atualizado de entradas e saídas."
+        },
+        "analyze": {
+          "title": "4. Análise de Padrões",
+          "description": "Gera relatórios de ocupação e fluxo de pessoas."
+        }
+      }
+    }
+  },
+  "pricing": {
+    "title": "Planos e Preços",
+    "starter": {
+      "name": "Starter",
+      "price": "R$ 97",
+      "period": "/mês",
+      "description": "Perfeito para pequenos negócios",
+      "features": [
+        "Até 4 câmeras",
+        "Detecção básica",
+        "Relatórios mensais",
+        "Suporte por email"
+      ]
+    },
+    "pro": {
+      "name": "Pro",
+      "price": "R$ 297",
+      "period": "/mês",
+      "description": "Ideal para empresas em crescimento",
+      "features": [
+        "Até 15 câmeras",
+        "IA avançada",
+        "Relatórios em tempo real",
+        "Suporte prioritário",
+        "Integrações personalizadas"
+      ],
+      "popular": "Mais Popular"
+    },
+    "enterprise": {
+      "name": "Enterprise",
+      "price": "Sob consulta",
+      "description": "Para grandes organizações",
+      "features": [
+        "Câmeras ilimitadas",
+        "IA personalizada",
+        "SLA garantido",
+        "Suporte 24/7",
+        "Implantação dedicada"
+      ]
+    },
+    "cta": "Escolher Plano"
+  },
+  "about": {
+    "title": "Sobre a Inigrai",
+    "description": "Somos especialistas em análise de vídeo alimentada por IA, oferecendo soluções de ponta para segurança e análise comportamental.",
+    "mission": {
+      "title": "Nossa Missão",
+      "description": "Democratizar o acesso à tecnologia de visão computacional avançada, tornando-a acessível e eficaz para organizações de todos os tamanhos."
+    },
+    "focus": {
+      "title": "Nosso Foco",
+      "description": "Desenvolvemos soluções de IA especializadas que se adaptam às necessidades específicas de cada setor, garantindo máxima eficiência e conformidade."
+    },
+    "deliverables": {
+      "title": "O Que Entregamos",
+      "items": [
+        "🔍 Detecção comportamental em tempo real",
+        "📊 Analytics e relatórios automatizados",
+        "🔒 Conformidade total com LGPD",
+        "⚡ Integração rápida e fácil",
+        "🎯 Soluções personalizadas por vertical"
+      ]
+    }
+  },
+  "footer": {
+    "company": "Inigrai",
+    "description": "Tecnologia de visão computacional avançada para um mundo mais seguro e inteligente.",
+    "rights": "Todos os direitos reservados."
+  },
+  "language": {
+    "select": "Selecionar idioma",
+    "portuguese": "Português",
+    "english": "English",
+    "spanish": "Español"
+  }
+}

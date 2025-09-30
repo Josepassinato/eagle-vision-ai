@@ -1,0 +1,230 @@
+{
+  "nav": {
+    "home": "Home",
+    "products": "Products",
+    "pricing": "Pricing",
+    "about": "About",
+    "login": "Login",
+    "dashboard": "Dashboard",
+    "logout": "Logout"
+  },
+  "hero": {
+    "badge": "Advanced Computer Vision Technology",
+    "title": "Eagle Vision",
+    "description": "Transform your security with our AI platform that detects suspicious behavior, monitors occupancy, and generates real-time insights to protect what matters most.",
+    "cta": {
+      "start": "Start Analysis",
+      "explore": "Explore System",
+      "skip": "Skip Presentation"
+    },
+    "features": {
+      "realtime": {
+        "title": "Real-Time Detection",
+        "description": "Advanced AI that identifies behaviors and events instantly"
+      },
+      "analytics": {
+        "title": "Smart Analytics",
+        "description": "Automated reports and deep insights into behavior patterns"
+      },
+      "privacy": {
+        "title": "Privacy Guaranteed",
+        "description": "Local processing with full GDPR compliance and data protection"
+      }
+    }
+  },
+  "cta": {
+    "title": "Try Free for 7 Days",
+    "subtitle": "No credit card required. Set up in minutes.",
+    "benefits": {
+      "setup": "5-minute setup",
+      "support": "Technical support included",
+      "cancel": "Cancel anytime"
+    },
+    "buttons": {
+      "trial": "Start Free Trial",
+      "login": "Sign In",
+      "test": "Test System"
+    },
+    "testFeedback": {
+      "testing": "Testing system...",
+      "success": "✅ System working perfectly!",
+      "error": "❌ System test error"
+    }
+  },
+  "products": {
+    "title": "Our Products",
+    "antitheft": {
+      "title": "Anti-theft & Evasion",
+      "description": "Detect suspicious behavior automatically with our advanced AI."
+    },
+    "lpr": {
+      "title": "License Plate Reading",
+      "description": "Automatic vehicle license plate recognition in real-time."
+    },
+    "counting": {
+      "title": "People Counting",
+      "description": "Monitor occupancy and people flow with precision."
+    },
+    "learnMore": "Learn more"
+  },
+  "vision4church": {
+    "title": "Vision4Church",
+    "subtitle": "Specialized AI for Churches",
+    "description": "A complete behavioral analysis solution developed specifically for religious environments, ensuring privacy and valuable insights.",
+    "features": {
+      "privacy": {
+        "title": "100% Private",
+        "description": "No personal data is collected or stored"
+      },
+      "analytics": {
+        "title": "Behavioral Analytics",
+        "description": "Understand congregation engagement patterns"
+      },
+      "security": {
+        "title": "Advanced Security",
+        "description": "Discreet protection during services and events"
+      }
+    },
+    "cta": "Discover Vision4Church"
+  },
+  "howItWorks": {
+    "antitheft": {
+      "title": "How It Works: Anti-theft & Evasion",
+      "steps": {
+        "install": {
+          "title": "1. Simple Installation",
+          "description": "Connect your existing cameras to our platform in minutes."
+        },
+        "train": {
+          "title": "2. Automatic Training",
+          "description": "Our AI learns the normal patterns of your environment automatically."
+        },
+        "detect": {
+          "title": "3. Smart Detection",
+          "description": "Identifies suspicious behavior and sends real-time alerts."
+        },
+        "act": {
+          "title": "4. Immediate Action",
+          "description": "Receive instant notifications and take preventive actions."
+        }
+      }
+    },
+    "lpr": {
+      "title": "How It Works: License Plate Reading",
+      "steps": {
+        "capture": {
+          "title": "1. Automatic Capture",
+          "description": "Detects and captures vehicle images automatically."
+        },
+        "recognize": {
+          "title": "2. OCR Recognition",
+          "description": "Extracts text from plates with high accuracy using AI."
+        },
+        "validate": {
+          "title": "3. Smart Validation",
+          "description": "Verifies format and validates plate information."
+        },
+        "log": {
+          "title": "4. Complete Logging",
+          "description": "Stores data with timestamp and location for reports."
+        }
+      }
+    },
+    "counting": {
+      "title": "How It Works: People Counting",
+      "steps": {
+        "detect": {
+          "title": "1. People Detection",
+          "description": "Identifies people in real-time using computer vision."
+        },
+        "track": {
+          "title": "2. Smart Tracking",
+          "description": "Tracks movement and direction for accurate counting."
+        },
+        "count": {
+          "title": "3. Real-Time Counting",
+          "description": "Maintains updated counter of entries and exits."
+        },
+        "analyze": {
+          "title": "4. Pattern Analysis",
+          "description": "Generates occupancy and people flow reports."
+        }
+      }
+    }
+  },
+  "pricing": {
+    "title": "Plans and Pricing",
+    "starter": {
+      "name": "Starter",
+      "price": "$29",
+      "period": "/month",
+      "description": "Perfect for small businesses",
+      "features": [
+        "Up to 4 cameras",
+        "Basic detection",
+        "Monthly reports",
+        "Email support"
+      ]
+    },
+    "pro": {
+      "name": "Pro",
+      "price": "$89",
+      "period": "/month",
+      "description": "Ideal for growing companies",
+      "features": [
+        "Up to 15 cameras",
+        "Advanced AI",
+        "Real-time reports",
+        "Priority support",
+        "Custom integrations"
+      ],
+      "popular": "Most Popular"
+    },
+    "enterprise": {
+      "name": "Enterprise",
+      "price": "Custom",
+      "description": "For large organizations",
+      "features": [
+        "Unlimited cameras",
+        "Custom AI",
+        "SLA guaranteed",
+        "24/7 support",
+        "Dedicated deployment"
+      ]
+    },
+    "cta": "Choose Plan"
+  },
+  "about": {
+    "title": "About Inigrai",
+    "description": "We are specialists in AI-powered video analysis, offering cutting-edge solutions for security and behavioral analysis.",
+    "mission": {
+      "title": "Our Mission",
+      "description": "Democratize access to advanced computer vision technology, making it accessible and effective for organizations of all sizes."
+    },
+    "focus": {
+      "title": "Our Focus",
+      "description": "We develop specialized AI solutions that adapt to the specific needs of each sector, ensuring maximum efficiency and compliance."
+    },
+    "deliverables": {
+      "title": "What We Deliver",
+      "items": [
+        "🔍 Real-time behavioral detection",
+        "📊 Automated analytics and reports",
+        "🔒 Full GDPR compliance",
+        "⚡ Fast and easy integration",
+        "🎯 Custom solutions by vertical"
+      ]
+    }
+  },
+  "footer": {
+    "company": "Inigrai",
+    "description": "Advanced computer vision technology for a safer and smarter world.",
+    "rights": "All rights reserved."
+  },
+  "language": {
+    "select": "Select language",
+    "portuguese": "Português",
+    "english": "English",
+    "spanish": "Español"
+  }
+}
