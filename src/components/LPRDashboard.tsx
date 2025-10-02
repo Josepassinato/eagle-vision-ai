@@ -4,6 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Progress } from '@/components/ui/progress';
+import { VehicleDetectionsDashboard } from './VehicleDetectionsDashboard';
 import { 
   Car, 
   Shield, 
@@ -17,7 +18,8 @@ import {
   XCircle,
   Eye,
   Settings,
-  Building
+  Building,
+  Database
 } from 'lucide-react';
 
 interface LPRDashboardProps {
@@ -119,13 +121,21 @@ export const LPRDashboard: React.FC<LPRDashboardProps> = ({ cameraId }) => {
         </Card>
       </div>
 
-      <Tabs defaultValue="access" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-4">
+      <Tabs defaultValue="detections" className="space-y-6">
+        <TabsList className="grid w-full grid-cols-5">
+          <TabsTrigger value="detections">
+            <Database className="h-4 w-4 mr-2" />
+            Detecções
+          </TabsTrigger>
           <TabsTrigger value="access">Controle de Acesso</TabsTrigger>
           <TabsTrigger value="security">Segurança</TabsTrigger>
           <TabsTrigger value="reports">Relatórios</TabsTrigger>
           <TabsTrigger value="settings">Configurações</TabsTrigger>
         </TabsList>
+
+        <TabsContent value="detections" className="space-y-6">
+          <VehicleDetectionsDashboard />
+        </TabsContent>
 
         <TabsContent value="access" className="space-y-6">
           <Card>

@@ -19,9 +19,13 @@ logger = logging.getLogger("lpr")
 import easyocr
 import re
 
-# Initialize EasyOCR reader for license plates
-LPR_LANGUAGES = os.getenv("LPR_LANGUAGES", "en").split(",")
+# Initialize EasyOCR reader for Brazilian license plates
+LPR_LANGUAGES = os.getenv("LPR_LANGUAGES", "pt,en").split(",")  # Suporte para PT e EN
 ocr_reader = None
+
+# Padrões de placas brasileiras
+PLATE_PATTERN_MERCOSUL = r'^[A-Z]{3}\d[A-Z]\d{2}$'  # ABC1D23
+PLATE_PATTERN_OLD = r'^[A-Z]{3}\d{4}$'  # ABC1234
 
 lpr_latency = Histogram('lpr_detect_seconds', 'Latency of plate detection')
 lpr_detect_total = Counter('lpr_detect_total', 'Plate detection outcomes', ['outcome'])
@@ -29,18 +33,12 @@ lpr_detect_total = Counter('lpr_detect_total', 'Plate detection outcomes', ['out
 app = FastAPI(title="LPR Service")
 
 class PlateDetectRequest(BaseModel):
-    jpg_b64: str
-
-class PlateBBox(BaseModel):
-    x1: int
-    y1: int
-    x2: int
-    y2: int
+    image_jpg_b64: str  # Match clip-exporter esperado
 
 class PlateDetectResponse(BaseModel):
-    plate: Optional[str]
-    confidence: Optional[float]
-    bbox: Optional[PlateBBox]
+    plate_text: Optional[str] = None
+    confidence: Optional[float] = None
+    bbox: Optional[Dict[str, int]] = None
 
 def init_ocr():
     """Initialize EasyOCR reader"""
@@ -53,10 +51,24 @@ def init_ocr():
         ocr_reader = easyocr.Reader(LPR_LANGUAGES, gpu=False)
 
 def clean_plate_text(text: str) -> str:
-    """Clean and format detected plate text"""
-    # Remove non-alphanumeric characters and normalize
-    cleaned = re.sub(r'[^A-Z0-9]', '', text.upper())
-    return cleaned
+    """
+    Clean and normalize detected text for Brazilian plates.
+    Removes spaces, special chars, converts to upper case.
+    """
+    text = text.upper().strip()
+    text = re.sub(r"[^A-Z0-9]", "", text)
+    return text
+
+def is_valid_brazilian_plate(text: str) -> bool:
+    """
+    Valida se o texto corresponde a uma placa brasileira válida.
+    Suporta tanto placas Mercosul (ABC1D23) quanto antigas (ABC1234).
+    """
+    text = text.upper().strip()
+    return bool(
+        re.match(PLATE_PATTERN_MERCOSUL, text) or 
+        re.match(PLATE_PATTERN_OLD, text)
+    )
 
 def _detect_plate(img: Image.Image) -> Optional[Dict[str, Any]]:
     """Real license plate detection using EasyOCR"""
@@ -75,16 +87,12 @@ def _detect_plate(img: Image.Image) -> Optional[Dict[str, Any]]:
         best_bbox = None
         
         for (bbox, text, confidence) in results:
-            # Filter potential license plates
+            # Filtrar e validar placas brasileiras
             clean_text = clean_plate_text(text)
             
-            # Basic license plate patterns (adjust for your region)
-            # US: 3 letters + 3-4 numbers or similar patterns
-            # BR: 3 letters + 4 numbers (ABC1234) or Mercosul (ABC1D23)
-            if (re.match(r'^[A-Z]{2,3}[0-9]{3,4}$', clean_text) or 
-                re.match(r'^[A-Z]{3}[0-9][A-Z][0-9]{2}$', clean_text) or  # Mercosul
-                len(clean_text) >= 5):  # Generic minimum length
-                
+            # Validar padrões de placas brasileiras (Mercosul ou antigas)
+            if is_valid_brazilian_plate(clean_text):
+                logger.info(f"Placa válida detectada: {clean_text} (conf: {confidence:.2f})")
                 if confidence > best_confidence:
                     best_confidence = confidence
                     best_plate = clean_text
@@ -97,10 +105,10 @@ def _detect_plate(img: Image.Image) -> Optional[Dict[str, Any]]:
         
         if best_plate and best_confidence > 0.5:  # Minimum confidence threshold
             return {
-                "plate": best_plate,
+                "plate_text": best_plate,
                 "confidence": float(best_confidence),
-                "bbox": PlateBBox(x1=best_bbox[0], y1=best_bbox[1], 
-                                x2=best_bbox[2], y2=best_bbox[3])
+                "bbox": {"x1": best_bbox[0], "y1": best_bbox[1], 
+                        "x2": best_bbox[2], "y2": best_bbox[3]}
             }
         
         return None
@@ -118,12 +126,12 @@ async def startup_event():
 def plate_detect(req: PlateDetectRequest):
     start = time.time()
     try:
-        b64 = req.jpg_b64.split(',')[-1]
+        b64 = req.image_jpg_b64.split(',')[-1]
         img = Image.open(BytesIO(base64.b64decode(b64))).convert('RGB')
         result = _detect_plate(img)
         if not result:
             lpr_detect_total.labels('none').inc()
-            return PlateDetectResponse(plate=None, confidence=None, bbox=None)
+            return PlateDetectResponse(plate_text=None, confidence=None, bbox=None)
         lpr_detect_total.labels('ok').inc()
         return PlateDetectResponse(**result)
     finally:

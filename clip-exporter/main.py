@@ -227,37 +227,44 @@ async def detect_faces_in_frame(frame_b64: str) -> List[ROIDetection]:
 
 @with_correlation
 async def detect_plates_in_frame(frame_b64: str) -> List[ROIDetection]:
-    """Detect license plates in frame using ALPR service"""
+    """
+    Detecta placas de veículos usando o LPR service.
+    Retorna lista de ROI detections para blur.
+    """
     start_time = time.time()
+    LPR_SERVICE_URL = os.getenv("LPR_SERVICE_URL", "http://lpr-service:8016")
+    
     try:
-        # Try ALPR service first
+        payload = {"image_jpg_b64": frame_b64}
+        data = await resilient_post_json(
+            f"{LPR_SERVICE_URL}/plate_detect",
+            json=payload,
+            service_name="clip-exporter",
+            timeout=5.0
+        )
+        
+        roi_detections = []
+        if data and data.get("plate_text"):
+            # LPR service retornou uma detecção
+            bbox = data.get("bbox", {})
+            if bbox:
+                roi_detections.append(ROIDetection(
+                    x1=int(bbox.get("x1", 0)),
+                    y1=int(bbox.get("y1", 0)),
+                    x2=int(bbox.get("x2", 100)),
+                    y2=int(bbox.get("y2", 100)),
+                    confidence=data.get("confidence", 0.0),
+                    detection_type="plate"
+                ))
+        
+        roi_detection_duration.labels(detection_type='plate').observe(time.time() - start_time)
+        return roi_detections
+        
+    except Exception as e:
+        logger.warning(f"LPR service unavailable, trying YOLO fallback: {e}")
+        
+        # Fallback: usar YOLO para detectar veículos e estimar região da placa
         try:
-            payload = {"image": frame_b64}
-            data = await resilient_post_json(
-                f"{ALPR_SERVICE_URL}/detect",
-                json=payload,
-                service_name="clip-exporter",
-                timeout=5.0
-            )
-            
-            roi_detections = []
-            if data and "detections" in data:
-                for detection in data["detections"]:
-                    bbox = detection.get("bbox", {})
-                    roi_detections.append(ROIDetection(
-                        x1=int(bbox.get("x1", 0)),
-                        y1=int(bbox.get("y1", 0)),
-                        x2=int(bbox.get("x2", 100)),
-                        y2=int(bbox.get("y2", 100)),
-                        confidence=detection.get("confidence", 0.8),
-                        detection_type="plate"
-                    ))
-            
-            roi_detection_duration.labels(detection_type='plate').observe(time.time() - start_time)
-            return roi_detections
-            
-        except Exception:
-            # Fallback to YOLO detection for vehicles (rough plate estimation)
             payload = {"jpg_b64": frame_b64}
             data = await resilient_post_json(
                 f"{YOLO_SERVICE_URL}/detect",
@@ -269,25 +276,25 @@ async def detect_plates_in_frame(frame_b64: str) -> List[ROIDetection]:
             roi_detections = []
             if data and "boxes" in data:
                 for box in data["boxes"]:
-                    if box.get("cls") in ["car", "truck", "bus"]:  # Vehicle classes
+                    if box.get("cls") in ["car", "truck", "bus"]:
                         xyxy = box["xyxy"]
-                        # Estimate plate region (bottom 20% of vehicle)
+                        # Estimar região da placa (parte inferior do veículo)
                         plate_height = int((xyxy[3] - xyxy[1]) * 0.2)
                         roi_detections.append(ROIDetection(
                             x1=xyxy[0],
                             y1=xyxy[3] - plate_height,
                             x2=xyxy[2],
                             y2=xyxy[3],
-                            confidence=0.6,  # Lower confidence for estimated regions
+                            confidence=0.5,  # Menor confiança para estimativas
                             detection_type="plate"
                         ))
             
             roi_detection_duration.labels(detection_type='plate').observe(time.time() - start_time)
             return roi_detections
-        
-    except Exception as e:
-        logger.error(f"Plate detection failed: {e}")
-        return []
+            
+        except Exception as fallback_error:
+            logger.error(f"Plate detection failed completely: {fallback_error}")
+            return []
 
 async def extract_frame_for_analysis(video_path: str, timestamp_seconds: float) -> Optional[str]:
     """Extract a frame from video at specific timestamp for ROI detection"""

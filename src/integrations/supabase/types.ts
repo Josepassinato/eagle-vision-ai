@@ -5054,6 +5054,48 @@ export type Database = {
         }
         Relationships: []
       }
+      vehicle_detections: {
+        Row: {
+          bbox: Json | null
+          camera_id: string
+          color: string | null
+          confidence: number
+          created_at: string
+          detected_at: string
+          id: string
+          image_url: string | null
+          org_id: string
+          plate_text: string
+          vehicle_type: string | null
+        }
+        Insert: {
+          bbox?: Json | null
+          camera_id: string
+          color?: string | null
+          confidence: number
+          created_at?: string
+          detected_at?: string
+          id?: string
+          image_url?: string | null
+          org_id: string
+          plate_text: string
+          vehicle_type?: string | null
+        }
+        Update: {
+          bbox?: Json | null
+          camera_id?: string
+          color?: string | null
+          confidence?: number
+          created_at?: string
+          detected_at?: string
+          id?: string
+          image_url?: string | null
+          org_id?: string
+          plate_text?: string
+          vehicle_type?: string | null
+        }
+        Relationships: []
+      }
       vehicle_events: {
         Row: {
           bbox: Json | null
@@ -5446,7 +5488,7 @@ export type Database = {
       }
       l2_normalize: {
         Args: { "": string } | { "": unknown } | { "": unknown }
-        Returns: unknown
+        Returns: string
       }
       log_data_access: {
         Args: {
@@ -5488,6 +5530,17 @@ export type Database = {
       process_data_deletion_request: {
         Args: { p_data_subject_id: string; p_tenant_id: string }
         Returns: Json
+      }
+      search_plates: {
+        Args: { limit_count?: number; search_term: string }
+        Returns: {
+          camera_id: string
+          confidence: number
+          detected_at: string
+          id: string
+          image_url: string
+          plate_text: string
+        }[]
       }
       set_config: {
         Args: { parameter: string; value: string }
