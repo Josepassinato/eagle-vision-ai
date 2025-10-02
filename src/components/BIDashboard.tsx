@@ -60,9 +60,6 @@ const BIDashboard = () => {
   const [occupancyData, setOccupancyData] = useState<any[]>([]);
   const [attendanceStats, setAttendanceStats] = useState<any>(null);
 
-  // Mock tenant API key for demo
-  const mockApiKey = "vsk_demo_12345_abcdef";
-
   useEffect(() => {
     fetchServices();
     fetchReports();
@@ -94,9 +91,7 @@ const BIDashboard = () => {
 
   const fetchSyncStatus = async () => {
     try {
-      const { data, error } = await supabase.functions.invoke('bigquery-sync/status', {
-        headers: { 'x-api-key': mockApiKey }
-      });
+      const { data, error } = await supabase.functions.invoke('bigquery-sync/status');
 
       if (error) throw error;
       setSyncStatus(data);
@@ -107,9 +102,7 @@ const BIDashboard = () => {
 
   const fetchReports = async () => {
     try {
-      const { data, error } = await supabase.functions.invoke('bi-reports/reports', {
-        headers: { 'x-api-key': mockApiKey }
-      });
+      const { data, error } = await supabase.functions.invoke('bi-reports/reports');
 
       if (error) throw error;
       setReports(data.reports || []);
@@ -122,8 +115,7 @@ const BIDashboard = () => {
     try {
       setIsLoading(true);
       const { data, error } = await supabase.functions.invoke('bigquery-sync/sync', {
-        method: 'POST',
-        headers: { 'x-api-key': mockApiKey }
+        method: 'POST'
       });
 
       if (error) throw error;
@@ -163,8 +155,7 @@ const BIDashboard = () => {
         body: { 
           service_id: selectedService.id,
           report_type: 'service_summary'
-        },
-        headers: { 'x-api-key': mockApiKey }
+        }
       });
 
       if (error) throw error;
@@ -198,21 +189,12 @@ const BIDashboard = () => {
     }
 
     try {
-      const response = await fetch(`https://avbswnnywjyvqfxezgfl.supabase.co/functions/v1/bi-reports/export-csv?service_id=${selectedService.id}&format=${format}`, {
-        headers: { 'x-api-key': mockApiKey }
+      const { data, error } = await supabase.functions.invoke('bi-reports/export-csv', {
+        body: { service_id: selectedService.id, format }
       });
+      
+      if (error) throw error;
 
-      if (!response.ok) throw new Error('Export failed');
-
-      const blob = await response.blob();
-      const downloadUrl = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = downloadUrl;
-      link.download = `${format}_${selectedService.name.replace(/\s+/g, '_')}.csv`;
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      window.URL.revokeObjectURL(downloadUrl);
 
       toast({
         title: "Exportação Concluída",
@@ -228,27 +210,6 @@ const BIDashboard = () => {
     }
   };
 
-  // Mock data for charts
-  const mockOccupancyData = [
-    { time: '09:00', count: 0 },
-    { time: '09:15', count: 12 },
-    { time: '09:30', count: 45 },
-    { time: '09:45', count: 89 },
-    { time: '10:00', count: 156 },
-    { time: '10:15', count: 203 },
-    { time: '10:30', count: 187 },
-    { time: '10:45', count: 165 },
-    { time: '11:00', count: 142 },
-    { time: '11:15', count: 98 },
-    { time: '11:30', count: 45 },
-    { time: '11:45', count: 12 }
-  ];
-
-  const mockVisitorData = [
-    { name: 'Membros', value: 75, color: '#8884d8' },
-    { name: 'Visitantes Recorrentes', value: 15, color: '#82ca9d' },
-    { name: 'Novos Visitantes', value: 10, color: '#ffc658' }
-  ];
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -340,15 +301,21 @@ const BIDashboard = () => {
                 <CardDescription>Fluxo de pessoas durante o culto</CardDescription>
               </CardHeader>
               <CardContent>
-                <ResponsiveContainer width="100%" height={200}>
-                  <LineChart data={mockOccupancyData}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="time" />
-                    <YAxis />
-                    <Tooltip />
-                    <Line type="monotone" dataKey="count" stroke="#8884d8" strokeWidth={2} />
-                  </LineChart>
-                </ResponsiveContainer>
+                {occupancyData.length > 0 ? (
+                  <ResponsiveContainer width="100%" height={200}>
+                    <LineChart data={occupancyData}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="time" />
+                      <YAxis />
+                      <Tooltip />
+                      <Line type="monotone" dataKey="count" stroke="#8884d8" strokeWidth={2} />
+                    </LineChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="h-[200px] flex items-center justify-center text-muted-foreground">
+                    Sem dados de ocupação disponíveis
+                  </div>
+                )}
               </CardContent>
             </Card>
 
@@ -358,23 +325,29 @@ const BIDashboard = () => {
                 <CardDescription>Distribuição por tipo de visitante</CardDescription>
               </CardHeader>
               <CardContent>
-                <ResponsiveContainer width="100%" height={200}>
-                  <PieChart>
-                    <Pie
-                      data={mockVisitorData}
-                      cx="50%"
-                      cy="50%"
-                      outerRadius={80}
-                      dataKey="value"
-                      label={({ name, value }) => `${name}: ${value}%`}
-                    >
-                      {mockVisitorData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.color} />
-                      ))}
-                    </Pie>
-                    <Tooltip />
-                  </PieChart>
-                </ResponsiveContainer>
+                {attendanceStats ? (
+                  <ResponsiveContainer width="100%" height={200}>
+                    <PieChart>
+                      <Pie
+                        data={attendanceStats}
+                        cx="50%"
+                        cy="50%"
+                        outerRadius={80}
+                        dataKey="value"
+                        label={({ name, value }) => `${name}: ${value}%`}
+                      >
+                        {attendanceStats.map((entry: any, index: number) => (
+                          <Cell key={`cell-${index}`} fill={entry.color} />
+                        ))}
+                      </Pie>
+                      <Tooltip />
+                    </PieChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="h-[200px] flex items-center justify-center text-muted-foreground">
+                    Sem dados de visitantes disponíveis
+                  </div>
+                )}
               </CardContent>
             </Card>
           </div>

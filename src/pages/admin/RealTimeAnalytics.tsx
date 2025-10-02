@@ -69,10 +69,6 @@ const RealTimeAnalytics = () => {
     loadPredictions();
   }, []);
 
-  useEffect(() => {
-    generateMockHeatMapData();
-  }, []);
-
   const loadDashboardData = async () => {
     try {
       const data = await getDashboardData(timeframe);
@@ -99,14 +95,6 @@ const RealTimeAnalytics = () => {
     }
   };
 
-  const generateMockHeatMapData = () => {
-    const rows = 20;
-    const cols = 30;
-    const data = Array(rows).fill(null).map(() => 
-      Array(cols).fill(null).map(() => Math.random())
-    );
-    setHeatMapData(data);
-  };
 
   const handleWebSocketToggle = () => {
     if (isConnected) {
@@ -124,20 +112,6 @@ const RealTimeAnalytics = () => {
     }
   };
 
-  const mockTimeSeriesData = [
-    { time: '00:00', frameRate: 28, latency: 45, systemLoad: 65 },
-    { time: '00:05', frameRate: 32, latency: 38, systemLoad: 58 },
-    { time: '00:10', frameRate: 29, latency: 52, systemLoad: 72 },
-    { time: '00:15', frameRate: 35, latency: 41, systemLoad: 63 },
-    { time: '00:20', frameRate: 31, latency: 47, systemLoad: 69 },
-    { time: '00:25', frameRate: 33, latency: 39, systemLoad: 61 },
-  ];
-
-  const mockHotSpots = [
-    { x: 150, y: 100, intensity: 0.85, relative_position: { x_percent: 37.5, y_percent: 33.3 } },
-    { x: 300, y: 200, intensity: 0.72, relative_position: { x_percent: 75, y_percent: 66.7 } },
-    { x: 100, y: 250, intensity: 0.68, relative_position: { x_percent: 25, y_percent: 83.3 } },
-  ];
 
   return (
     <div className="container mx-auto px-4 py-6 space-y-6">
@@ -314,28 +288,34 @@ const RealTimeAnalytics = () => {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <ResponsiveContainer width="100%" height={300}>
-                  <LineChart data={mockTimeSeriesData}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="time" />
-                    <YAxis />
-                    <Tooltip />
-                    <Line 
-                      type="monotone" 
-                      dataKey="frameRate" 
-                      stroke="#8884d8" 
-                      strokeWidth={2}
-                      name="Frame Rate (FPS)"
-                    />
-                    <Line 
-                      type="monotone" 
-                      dataKey="latency" 
-                      stroke="#82ca9d" 
-                      strokeWidth={2}
-                      name="Latência (ms)"
-                    />
-                  </LineChart>
-                </ResponsiveContainer>
+                {dashboardData?.timeSeries ? (
+                  <ResponsiveContainer width="100%" height={300}>
+                    <LineChart data={dashboardData.timeSeries}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="time" />
+                      <YAxis />
+                      <Tooltip />
+                      <Line 
+                        type="monotone" 
+                        dataKey="frameRate" 
+                        stroke="#8884d8" 
+                        strokeWidth={2}
+                        name="Frame Rate (FPS)"
+                      />
+                      <Line 
+                        type="monotone" 
+                        dataKey="latency" 
+                        stroke="#82ca9d" 
+                        strokeWidth={2}
+                        name="Latência (ms)"
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="h-[300px] flex items-center justify-center text-muted-foreground">
+                    Sem dados de séries temporais disponíveis
+                  </div>
+                )}
               </CardContent>
             </Card>
 
@@ -347,22 +327,28 @@ const RealTimeAnalytics = () => {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <ResponsiveContainer width="100%" height={300}>
-                  <AreaChart data={mockTimeSeriesData}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="time" />
-                    <YAxis />
-                    <Tooltip />
-                    <Area 
-                      type="monotone" 
-                      dataKey="systemLoad" 
-                      stroke="#ffc658" 
-                      fill="#ffc658" 
-                      fillOpacity={0.6}
-                      name="Carga (%)"
-                    />
-                  </AreaChart>
-                </ResponsiveContainer>
+                {dashboardData?.timeSeries ? (
+                  <ResponsiveContainer width="100%" height={300}>
+                    <AreaChart data={dashboardData.timeSeries}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="time" />
+                      <YAxis />
+                      <Tooltip />
+                      <Area 
+                        type="monotone" 
+                        dataKey="systemLoad" 
+                        stroke="#ffc658" 
+                        fill="#ffc658" 
+                        fillOpacity={0.6}
+                        name="Carga (%)"
+                      />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="h-[300px] flex items-center justify-center text-muted-foreground">
+                    Sem dados de carga do sistema disponíveis
+                  </div>
+                )}
               </CardContent>
             </Card>
           </div>
@@ -438,19 +424,31 @@ const RealTimeAnalytics = () => {
 
         {/* Heat Map Tab */}
         <TabsContent value="heatmap" className="space-y-6">
-          <HeatMapVisualization
-            data={heatMapData}
-            width={600}
-            height={400}
-            colorScheme="heat"
-            hotSpots={mockHotSpots}
-            onZoneSelect={(zone) => {
-              toast({
-                title: "Zona Selecionada",
-                description: `Analisando zona: ${zone.x}, ${zone.y} (${zone.width}x${zone.height})`,
-              });
-            }}
-          />
+          {heatMapData.length > 0 ? (
+            <HeatMapVisualization
+              data={heatMapData}
+              width={600}
+              height={400}
+              colorScheme="heat"
+              hotSpots={[]}
+              onZoneSelect={(zone) => {
+                toast({
+                  title: "Zona Selecionada",
+                  description: `Analisando zona: ${zone.x}, ${zone.y} (${zone.width}x${zone.height})`,
+                });
+              }}
+            />
+          ) : (
+            <Card>
+              <CardContent className="p-12 text-center">
+                <MapPin className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
+                <h3 className="text-lg font-semibold mb-2">Sem Dados de Heat Map</h3>
+                <p className="text-muted-foreground">
+                  Os dados de mapa de calor serão exibidos quando houver atividade nas câmeras
+                </p>
+              </CardContent>
+            </Card>
+          )}
         </TabsContent>
 
         {/* Behavior Tab */}

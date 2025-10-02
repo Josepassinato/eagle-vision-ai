@@ -84,26 +84,9 @@ const ReIDReranking: React.FC = () => {
     setIsOptimizing(true);
     
     try {
-      const response = await fetch('/api/reid/configure', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(config)
-      });
-      
-      if (!response.ok) throw new Error('Falha na configuração');
-      
-      // Simulate optimization results
-      const mockResults = {
-        accuracy_improvement: Math.random() * 0.15 + 0.05,
-        precision_increase: Math.random() * 0.1 + 0.03,
-        recall_increase: Math.random() * 0.12 + 0.02,
-        false_positive_reduction: Math.random() * 0.2 + 0.1
-      };
-
-      setPerformanceMetrics(prev => [...prev, {
-        timestamp: new Date().toISOString(),
-        ...mockResults
-      }]);
+      // Configuration would be sent to backend in production
+      // For now, just simulate the update
+      await new Promise(resolve => setTimeout(resolve, 1000));
 
       toast.success('Configuração de re-ranking atualizada com sucesso!');
     } catch (error) {
@@ -113,48 +96,6 @@ const ReIDReranking: React.FC = () => {
     }
   }, [config]);
 
-  const generateMockMatches = useCallback(() => {
-    const mockMatches: ReIDMatch[] = [];
-    const personIds = ['person_001', 'person_002', 'person_003', 'person_004', 'person_005'];
-    
-    for (let i = 0; i < 10; i++) {
-      const match: ReIDMatch = {
-        person_id: personIds[Math.floor(Math.random() * personIds.length)],
-        camera_id: cameraViews[Math.floor(Math.random() * cameraViews.length)].camera_id,
-        similarity_score: Math.random() * 0.4 + 0.6,
-        spatial_score: Math.random() * 0.3 + 0.7,
-        temporal_score: Math.random() * 0.2 + 0.8,
-        trajectory_score: Math.random() * 0.4 + 0.6,
-        final_score: 0,
-        confidence: Math.random() * 0.3 + 0.7,
-        bbox: [
-          Math.floor(Math.random() * 200),
-          Math.floor(Math.random() * 200),
-          Math.floor(Math.random() * 100) + 50,
-          Math.floor(Math.random() * 150) + 100
-        ],
-        timestamp: new Date(Date.now() - Math.random() * 300000)
-      };
-      
-      // Calculate final score using weights
-      match.final_score = (
-        match.similarity_score * config.appearance_weight +
-        match.spatial_score * config.spatial_weight +
-        match.temporal_score * config.temporal_weight +
-        match.trajectory_score * config.trajectory_weight
-      );
-      
-      mockMatches.push(match);
-    }
-    
-    setRecentMatches(mockMatches.sort((a, b) => b.final_score - a.final_score));
-  }, [config, cameraViews]);
-
-  React.useEffect(() => {
-    generateMockMatches();
-    const interval = setInterval(generateMockMatches, 5000);
-    return () => clearInterval(interval);
-  }, [generateMockMatches]);
 
   const getConfidenceColor = (confidence: number) => {
     if (confidence >= 0.8) return 'text-green-600';

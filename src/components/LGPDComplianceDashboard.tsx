@@ -79,9 +79,6 @@ const LGPDComplianceDashboard = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [deletionSubjectId, setDeletionSubjectId] = useState("");
 
-  // Mock tenant API key for demo
-  const mockApiKey = "vsk_demo_12345_abcdef";
-
   useEffect(() => {
     fetchComplianceStatus();
     fetchCostData();
@@ -89,9 +86,7 @@ const LGPDComplianceDashboard = () => {
 
   const fetchComplianceStatus = async () => {
     try {
-      const { data, error } = await supabase.functions.invoke('lgpd-compliance/lgpd-compliance-status', {
-        headers: { 'x-api-key': mockApiKey }
-      });
+      const { data, error } = await supabase.functions.invoke('lgpd-compliance/lgpd-compliance-status');
 
       if (error) throw error;
       setComplianceStatus(data);
@@ -126,8 +121,7 @@ const LGPDComplianceDashboard = () => {
       setIsLoading(true);
       const { data, error } = await supabase.functions.invoke('lgpd-compliance/update-privacy-settings', {
         method: 'POST',
-        body: privacySettings,
-        headers: { 'x-api-key': mockApiKey }
+        body: privacySettings
       });
 
       if (error) throw error;
@@ -214,8 +208,7 @@ const LGPDComplianceDashboard = () => {
         body: { 
           data_subject_id: deletionSubjectId,
           data_subject_type: 'visitor'
-        },
-        headers: { 'x-api-key': mockApiKey }
+        }
       });
 
       if (error) throw error;
@@ -241,9 +234,7 @@ const LGPDComplianceDashboard = () => {
 
   const generatePrivacyNoticeQR = async () => {
     try {
-      const { data, error } = await supabase.functions.invoke('lgpd-compliance/privacy-notice-qr', {
-        headers: { 'x-api-key': mockApiKey }
-      });
+      const { data, error } = await supabase.functions.invoke('lgpd-compliance/privacy-notice-qr');
 
       if (error) throw error;
 
@@ -272,14 +263,6 @@ const LGPDComplianceDashboard = () => {
     return Math.round((passedChecks / totalChecks) * 100);
   };
 
-  const mockObservabilityData = [
-    { time: '09:00', latency_p50: 45, latency_p95: 89, false_positives: 2 },
-    { time: '10:00', latency_p50: 52, latency_p95: 95, false_positives: 1 },
-    { time: '11:00', latency_p50: 48, latency_p95: 87, false_positives: 3 },
-    { time: '12:00', latency_p50: 55, latency_p95: 102, false_positives: 2 },
-    { time: '13:00', latency_p50: 49, latency_p95: 91, false_positives: 1 },
-    { time: '14:00', latency_p50: 47, latency_p95: 85, false_positives: 4 }
-  ];
 
   return (
     <div className="space-y-6">
@@ -669,35 +652,13 @@ const LGPDComplianceDashboard = () => {
               <CardDescription>Prometheus/Grafana - Latência e Falsos Positivos</CardDescription>
             </CardHeader>
             <CardContent>
-              <ResponsiveContainer width="100%" height={300}>
-                <LineChart data={mockObservabilityData}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="time" />
-                  <YAxis />
-                  <Tooltip />
-                  <Line 
-                    type="monotone" 
-                    dataKey="latency_p50" 
-                    stroke="#10b981" 
-                    strokeWidth={2} 
-                    name="p50 Latência (ms)"
-                  />
-                  <Line 
-                    type="monotone" 
-                    dataKey="latency_p95" 
-                    stroke="#f59e0b" 
-                    strokeWidth={2} 
-                    name="p95 Latência (ms)"
-                  />
-                  <Line 
-                    type="monotone" 
-                    dataKey="false_positives" 
-                    stroke="#ef4444" 
-                    strokeWidth={2} 
-                    name="Falsos Positivos"
-                  />
-                </LineChart>
-              </ResponsiveContainer>
+              <div className="h-[300px] flex items-center justify-center text-muted-foreground">
+                <div className="text-center">
+                  <Activity className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                  <p>Métricas de observabilidade serão exibidas aqui</p>
+                  <p className="text-sm">Conecte ao Prometheus/Grafana para visualizar</p>
+                </div>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>

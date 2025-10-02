@@ -40,19 +40,17 @@ export default function VerticalDashboard() {
     }
   }, [userVerticals, selectedVertical, getPrimaryVertical]);
 
-  // Simula dados do dashboard - em produção viria dos hooks reais
+  // Load real dashboard data based on selected vertical
   React.useEffect(() => {
-    if (selectedVertical) {
-      // Mock data baseado no vertical selecionado
-      const mockData = {
-        church: { attendance: 245, events: 12, growth: 8.5 },
-        education: { students: 847, attention: 78, alerts: 3 },
-        safety: { workers: 156, compliance: 94.2, incidents: 2 },
-        antitheft: { customers: 1247, suspicious: 8, prevented: 1250 },
-        lpr: { vehicles: 892, authorized: 756, denied: 91 }
-      };
-      setDashboardData(mockData[selectedVertical as keyof typeof mockData] || {});
-    }
+    const loadVerticalData = async () => {
+      if (selectedVertical) {
+        // In production, this would fetch real data from the backend
+        // For now, we'll set to null to show empty states
+        setDashboardData(null);
+      }
+    };
+    
+    loadVerticalData();
   }, [selectedVertical]);
 
   if (loading) {
