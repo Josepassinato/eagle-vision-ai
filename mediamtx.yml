@@ -43,6 +43,20 @@ recordPath: /recordings
 # Paths (rotas) — escolha UMA das opções abaixo por câmera
 
 paths:
+  # Path dinâmico que puxa qualquer stream RTSP on-demand
+  # Formato: http://mediamtx:8888/{camera_id}/index.m3u8
+  # O stream RTSP deve estar armazenado no banco de dados
+  ~^.*$:
+    # Permitir qualquer câmera ser acessada via runOnInit (configuração via API)
+    runOnDemand: true
+    runOnDemandRestart: yes
+    runOnDemandStartTimeout: 10s
+    runOnDemandCloseAfter: 60s
+    readUser: 
+    readPass: 
+    publishUser:
+    publishPass:
+
   # (A) PULL de uma câmera IP: a nuvem puxa via RTSP quando houver leitor
   entrada:
     source: rtsp://USUARIO:Senha@IP_DA_CAMERA:554/stream1

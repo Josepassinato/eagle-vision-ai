@@ -23,29 +23,31 @@ interface ConversionStatus {
 // Store active conversions in memory
 const activeConversions = new Map<string, ConversionStatus>();
 
-// Simular conversão RTSP→HLS
+// Simular conversão RTSP→HLS usando MediaMTX
 const startConversion = async (request: ConversionRequest): Promise<ConversionStatus> => {
   const { rtsp_url, camera_id, quality = 'medium' } = request;
   
   console.log(`Starting RTSP→HLS conversion for camera ${camera_id}`);
   
-  // Simular configuração FFmpeg
-  const ffmpegCommand = generateFFmpegCommand(rtsp_url, camera_id, quality);
-  console.log(`FFmpeg command: ${ffmpegCommand}`);
+  // Gerar URL HLS usando MediaMTX
+  const mediamtxBase = Deno.env.get('MEDIAMTX_PUBLIC_BASE') || 'http://localhost:8888';
   
-  // Não retornar streams de demonstração. Apenas iniciar processo e aguardar URL HLS real (quando integrado a um gateway RTSP→HLS)
-  let hls_url: string | undefined;
-  
-  console.log(`[DEBUG] Mapeando RTSP URL (sem fallback de demo): ${rtsp_url}`);
+  console.log(`[DEBUG] Gerando URL HLS para RTSP: ${rtsp_url}`);
+  console.log(`[DEBUG] MediaMTX base URL: ${mediamtxBase}`);
   
   // Bloquear URLs de demo conhecidas
   const looksLikeDemo = /demo-|mux\.dev|akamaihd\.net|shaka-demo|tears-of-steel|BigBuckBunny/i.test(rtsp_url);
+  
+  let hls_url: string | undefined;
+  
   if (looksLikeDemo) {
     console.warn('[DEBUG] URL parece demo; hls_url não será definido.');
-  } else {
-    // Aqui, em produção, você deve integrar com seu gateway (ex.: MediaMTX) e gerar a URL HLS pública
-    // Exemplo (futuro): const base = Deno.env.get('MEDIAMTX_PUBLIC_BASE'); hls_url = `${base}/live/${camera_id}/index.m3u8`;
     hls_url = undefined;
+  } else {
+    // Gerar URL HLS usando o camera_id como nome do stream no MediaMTX
+    // MediaMTX serve HLS em: http://mediamtx:8888/{stream_name}/index.m3u8
+    hls_url = `${mediamtxBase}/${camera_id}/index.m3u8`;
+    console.log(`[DEBUG] URL HLS gerada: ${hls_url}`);
   }
   
   console.log(`Mapped RTSP URL ${rtsp_url} to HLS URL: ${hls_url}`);
@@ -60,8 +62,8 @@ const startConversion = async (request: ConversionRequest): Promise<ConversionSt
   
   activeConversions.set(camera_id, status);
   
-  // Start real conversion process (would need FFmpeg on server)
-  startRealConversion(camera_id, rtsp_url);
+  // Configurar MediaMTX para puxar este stream
+  configureMediaMTXStream(camera_id, rtsp_url);
   
   return status;
 };
@@ -84,25 +86,39 @@ const generateFFmpegCommand = (rtsp_url: string, camera_id: string, quality: str
     "/tmp/hls/${camera_id}/playlist.m3u8"`;
 };
 
-const startRealConversion = async (camera_id: string, rtsp_url: string) => {
+const configureMediaMTXStream = async (camera_id: string, rtsp_url: string) => {
   try {
-    // Real conversion would require FFmpeg installed on server
-    console.log(`Starting real RTSP→HLS conversion for ${camera_id} from ${rtsp_url}`);
+    const mediamtxApiUrl = Deno.env.get('MEDIAMTX_API_URL') || 'http://localhost:9997';
     
-    // Log the required setup for production
-    console.log('PRODUCTION SETUP REQUIRED:');
-    console.log('1. Install FFmpeg: apt-get install ffmpeg');
-    console.log('2. Create HLS directory: mkdir -p /tmp/hls');
-    console.log('3. Start nginx for serving HLS files');
-    console.log(`4. Execute: ${generateFFmpegCommand(rtsp_url, camera_id, 'medium')}`);
+    console.log(`Configuring MediaMTX stream for ${camera_id}`);
+    console.log(`MediaMTX API URL: ${mediamtxApiUrl}`);
     
-    await new Promise(resolve => setTimeout(resolve, 2000));
+    // Configurar path no MediaMTX via API
+    const pathConfig = {
+      name: camera_id,
+      source: rtsp_url,
+      sourceProtocol: 'tcp',
+      sourceOnDemand: true,
+      sourceOnDemandStartTimeout: '10s',
+      sourceOnDemandCloseAfter: '60s',
+    };
+
+    const response = await fetch(`${mediamtxApiUrl}/v3/config/paths/add/${camera_id}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(pathConfig),
+    });
+
+    if (!response.ok && response.status !== 409) {
+      console.warn(`MediaMTX API warning: ${response.status}`);
+    } else {
+      console.log(`MediaMTX configured successfully for ${camera_id}`);
+    }
     
     const status = activeConversions.get(camera_id);
     if (status) {
       status.status = 'running';
       activeConversions.set(camera_id, status);
-      console.log(`Conversion running for camera ${camera_id}`);
     }
     
     // Manter conversão ativa por 30 minutos
@@ -111,13 +127,13 @@ const startRealConversion = async (camera_id: string, rtsp_url: string) => {
     }, 30 * 60 * 1000);
     
   } catch (error) {
+    console.error(`MediaMTX config error for camera ${camera_id}:`, error);
     const status = activeConversions.get(camera_id);
     if (status) {
       status.status = 'error';
       status.error_message = error.message;
       activeConversions.set(camera_id, status);
     }
-    console.error(`Conversion error for camera ${camera_id}:`, error);
   }
 };
 
