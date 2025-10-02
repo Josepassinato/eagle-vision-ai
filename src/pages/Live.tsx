@@ -45,30 +45,53 @@ export default function Live() {
     loadSavedCameras();
   }, []);
 
-  // Carregar todas as câmeras salvas
+  // Carregar todas as câmeras salvas (IP Cameras + DVRs)
   const loadSavedCameras = async () => {
     try {
-      const { data, error } = await supabase.functions.invoke('ip-camera-manager', {
+      // Carregar câmeras IP
+      const { data: ipData, error: ipError } = await supabase.functions.invoke('ip-camera-manager', {
         body: { action: 'list' },
         headers: { 'x-org-id': 'demo-org-id' }
       });
-      if (error) throw error;
+      if (ipError) throw ipError;
       
-      const cams = (data?.data || []) as any[];
-      setAvailableCameras(cams);
+      const ipCameras = (ipData?.data || []) as any[];
       
-      // Mostrar apenas câmeras realmente configuradas
-      if (cams.length > 0) {
-        const firstCamera = cams[0];
+      // Carregar DVRs configurados
+      const { data: dvrData, error: dvrError } = await supabase.functions.invoke('dvr-manager', {
+        method: 'GET'
+      });
+      
+      const dvrConfigs = (dvrData?.configs || [])
+        .filter((config: any) => config.status === 'connected')
+        .map((config: any) => ({
+          id: config.id,
+          name: config.name,
+          ip_address: config.host,
+          port: config.port,
+          username: config.username,
+          password: config.password,
+          stream_urls: { rtsp: config.stream_url },
+          brand: config.protocol,
+          isDVR: true
+        }));
+      
+      // Combinar câmeras IP e DVRs
+      const allCameras = [...ipCameras, ...dvrConfigs];
+      setAvailableCameras(allCameras);
+      
+      // Selecionar primeira câmera disponível
+      if (allCameras.length > 0) {
+        const firstCamera = allCameras[0];
         selectCamera(firstCamera.id);
       } else {
-        // Sem câmeras configuradas - não mostrar vídeos demo
+        // Sem câmeras configuradas
         setCameraName('');
         setCameraId('');
         setStreamUrl('');
         toast({
           title: "Nenhuma câmera encontrada",
-          description: "Configure uma câmera na aba Setup para visualizar streams reais",
+          description: "Configure uma câmera ou DVR na aba Setup para visualizar streams",
           variant: "destructive"
         });
       }
