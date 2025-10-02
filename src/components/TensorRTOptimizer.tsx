@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { supabase } from '@/integrations/supabase/client';
 
 interface TensorRTConfig {
   precision: 'FP32' | 'FP16' | 'INT8';
@@ -91,22 +92,20 @@ const TensorRTOptimizer: React.FC = () => {
     setOptimizationJobs(prev => [newJob, ...prev]);
 
     try {
-      // Start optimization
-      const response = await fetch('/api/tensorrt/optimize', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+      // Start optimization via Supabase Edge Function
+      const { data, error } = await supabase.functions.invoke('tensorrt-optimizer', {
+        body: {
           job_id: jobId,
           model_name: selectedModel,
           config: tensorrtConfig
-        })
+        }
       });
 
-      if (!response.ok) throw new Error('Falha na otimização');
+      if (error) throw error;
 
       // Simulate progress updates
       for (let progress = 10; progress <= 100; progress += 10) {
-        await new Promise(resolve => setTimeout(resolve, 2000));
+        await new Promise(resolve => setTimeout(resolve, 1500));
         
         setOptimizationJobs(prev => 
           prev.map(job => 
@@ -117,18 +116,16 @@ const TensorRTOptimizer: React.FC = () => {
         );
       }
 
-      // Complete optimization with mock metrics
-      const mockMetrics: PerformanceMetrics = {
+      // Use real metrics from optimization
+      const realMetrics: PerformanceMetrics = {
         model: selectedModel,
-        original_fps: Math.floor(Math.random() * 30) + 20,
-        optimized_fps: Math.floor(Math.random() * 60) + 40,
-        speedup: 0,
-        memory_usage: Math.floor(Math.random() * 2048) + 512,
-        accuracy_retention: 0.95 + Math.random() * 0.04,
-        inference_time_ms: Math.floor(Math.random() * 50) + 10
+        original_fps: data.metrics.original_fps,
+        optimized_fps: data.metrics.optimized_fps,
+        speedup: data.metrics.speedup,
+        memory_usage: data.metrics.memory_usage,
+        accuracy_retention: data.metrics.accuracy_retention,
+        inference_time_ms: data.metrics.inference_time_ms
       };
-      
-      mockMetrics.speedup = mockMetrics.optimized_fps / mockMetrics.original_fps;
 
       setOptimizationJobs(prev => 
         prev.map(job => 
@@ -137,15 +134,15 @@ const TensorRTOptimizer: React.FC = () => {
                 ...job, 
                 status: 'completed', 
                 progress: 100,
-                metrics: mockMetrics,
+                metrics: realMetrics,
                 completed_at: new Date()
               }
             : job
         )
       );
 
-      setPerformanceHistory(prev => [...prev, mockMetrics]);
-      toast.success(`Modelo ${selectedModel} otimizado com sucesso!`);
+      setPerformanceHistory(prev => [...prev, realMetrics]);
+      toast.success(`Modelo ${selectedModel} otimizado com ${realMetrics.speedup.toFixed(1)}x speedup!`);
 
     } catch (error) {
       setOptimizationJobs(prev => 
