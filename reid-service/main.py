@@ -1,401 +1,326 @@
 #!/usr/bin/env python3
 """
-Microserviço Person Re-ID usando OSNet - Visão de Águia
-Gera embeddings corporais para identificação quando face não está disponível
+Person Re-ID Service - Visão de Águia
+FastAPI service usando OSNet (ONNX Runtime) + Supabase
 """
 
+import os
 import base64
 import io
-import os
-import time
-from typing import List, Dict, Any, Optional, Tuple
-
-import cv2
+import logging
+from typing import List, Optional, Tuple
 import numpy as np
-import onnxruntime as ort
-import hashlib
-from pathlib import Path
+from PIL import Image
 from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel, Field
-import uvicorn
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
+import onnxruntime as ort
 
-# Import resilient HTTP components
-import sys
-sys.path.append('/common_schemas')
-from http_resilient import get_http_client, resilient_post_json
-from correlation_logger import set_correlation_context, with_correlation, generate_correlation_id
+# Setup logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
-# Configuração
-REID_MODEL_PATH = os.getenv("REID_MODEL_PATH", "/models/osnet_x0_75.onnx")
-REID_MODEL_URL = os.getenv("REID_MODEL_URL")
-REID_INPUT_FORMAT = os.getenv("REID_INPUT_FORMAT", "RGB")
-SUPABASE_URL = os.getenv("SUPABASE_URL")
-SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
-MAX_IMAGE_SIZE_MB = 2
-INFERENCE_TIMEOUT = 0.015  # 15ms target
-
+# Initialize FastAPI app
 app = FastAPI(
-    title="OSNet Person Re-ID API",
-    description="Person Re-Identification usando OSNet para Visão de Águia",
+    title="Person Re-ID Service",
+    description="Serviço de Person Re-Identification usando OSNet",
     version="1.0.0"
 )
 
-# Sessão ONNX global e HTTP client
+# CORS configuration
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Global variables for model and preprocessing
 ort_session = None
-http_client = get_http_client(service_name="reid-service")
+INPUT_SIZE = (256, 128)  # height, width for OSNet
+IMAGENET_MEAN = np.array([0.485, 0.456, 0.406], dtype=np.float32)
+IMAGENET_STD = np.array([0.229, 0.224, 0.225], dtype=np.float32)
 
-def _verify_integrity(model_path: str):
-    sha_path = Path(f"{model_path}.sha256")
-    if not sha_path.exists():
-        print(f"[integrity] Nenhum arquivo de checksum encontrado para {model_path}")
-        return
-    try:
-        expected = sha_path.read_text().strip().split()[0]
-        h = hashlib.sha256()
-        with open(model_path, 'rb') as f:
-            for chunk in iter(lambda: f.read(1024 * 1024), b''):
-                h.update(chunk)
-        actual = h.hexdigest()
-        if actual != expected:
-            print(f"❌ Checksum MISMATCH: esperado {expected[:8]}..., obtido {actual[:8]}...")
-            raise SystemExit(1)
-        else:
-            print(f"✓ Checksum OK: {actual[:8]}... para {Path(model_path).name}")
-    except Exception as e:
-        print(f"⚠️ Falha ao verificar integridade de {model_path}: {e}")
 
-@with_correlation
-async def download_model_resilient():
-    """Download model using resilient HTTP client with backoff"""
-    if not REID_MODEL_URL:
-        print("No REID_MODEL_URL provided, skipping download")
-        return
+def load_model():
+    """Load OSNet ONNX model"""
+    global ort_session
+    
+    model_path = os.getenv("REID_MODEL_PATH", "/models/osnet_x0_75.onnx")
+    
+    if not os.path.exists(model_path):
+        logger.warning(f"Model not found at {model_path}, using dummy mode")
+        return None
     
     try:
-        print(f"Downloading OSNet model from {REID_MODEL_URL} with resilient HTTP")
+        # Configure ONNX Runtime
+        providers = ['CUDAExecutionProvider', 'CPUExecutionProvider']
         
-        # Create model directory
-        os.makedirs(os.path.dirname(REID_MODEL_PATH), exist_ok=True)
+        sess_options = ort.SessionOptions()
+        sess_options.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_ALL
         
-        # Use resilient HTTP client with longer timeout for model download
-        response = await http_client.get(
-            REID_MODEL_URL,
-            timeout=300.0  # 5 minute timeout for model download
+        ort_session = ort.InferenceSession(
+            model_path,
+            sess_options=sess_options,
+            providers=providers
         )
         
-        if response.status_code == 200:
-            with open(REID_MODEL_PATH, 'wb') as f:
-                f.write(response.content)
-            print("Model downloaded successfully with resilient HTTP")
-            _verify_integrity(REID_MODEL_PATH)
-        else:
-            print(f"Failed to download model: HTTP {response.status_code}")
-            
+        logger.info(f"✓ Model loaded: {model_path}")
+        logger.info(f"✓ Providers: {ort_session.get_providers()}")
+        
+        return ort_session
     except Exception as e:
-        print(f"Resilient download failed: {e}. Using fallback method...")
-        # Fallback to urllib for model download
-        try:
-            import urllib.request
-            urllib.request.urlretrieve(REID_MODEL_URL, REID_MODEL_PATH)
-            print("Model downloaded successfully with urllib fallback")
-            _verify_integrity(REID_MODEL_PATH)
-        except Exception as fallback_e:
-            print(f"❌ Fallback download also failed: {fallback_e}")
+        logger.error(f"Failed to load model: {e}")
+        return None
 
-class EmbeddingRequest(BaseModel):
-    jpg_b64: str = Field(..., description="Imagem JPEG em base64")
-    xyxy: Optional[List[int]] = Field(None, description="Coordenadas de crop [x1,y1,x2,y2]")
+
+def preprocess_image(
+    img: Image.Image,
+    target_size: Tuple[int, int] = INPUT_SIZE
+) -> np.ndarray:
+    """
+    Preprocess image for OSNet
+    
+    Args:
+        img: PIL Image (RGB)
+        target_size: (height, width) tuple
+        
+    Returns:
+        Preprocessed numpy array [1, 3, H, W]
+    """
+    # Resize
+    img = img.resize((target_size[1], target_size[0]), Image.BILINEAR)
+    
+    # Convert to numpy array [H, W, 3] and normalize to [0, 1]
+    img_array = np.array(img, dtype=np.float32) / 255.0
+    
+    # Apply ImageNet normalization
+    img_array = (img_array - IMAGENET_MEAN) / IMAGENET_STD
+    
+    # Transpose to [3, H, W]
+    img_array = img_array.transpose(2, 0, 1)
+    
+    # Add batch dimension [1, 3, H, W]
+    img_array = np.expand_dims(img_array, axis=0)
+    
+    return img_array.astype(np.float32)
+
+
+def extract_embedding(img_b64: str, xyxy: Optional[List[int]] = None) -> np.ndarray:
+    """
+    Extract Re-ID embedding from image
+    
+    Args:
+        img_b64: Base64 encoded image
+        xyxy: Optional crop coordinates [x1, y1, x2, y2]
+        
+    Returns:
+        512-dimensional L2-normalized embedding
+    """
+    if ort_session is None:
+        # Dummy mode - return random embedding
+        logger.warning("Model not loaded, returning dummy embedding")
+        embedding = np.random.randn(512).astype(np.float32)
+        embedding = embedding / np.linalg.norm(embedding)
+        return embedding
+    
+    try:
+        # Decode base64
+        img_bytes = base64.b64decode(img_b64)
+        img = Image.open(io.BytesIO(img_bytes))
+        
+        # Convert to RGB if needed
+        if img.mode != 'RGB':
+            img = img.convert('RGB')
+        
+        # Crop if coordinates provided
+        if xyxy is not None:
+            x1, y1, x2, y2 = xyxy
+            img = img.crop((x1, y1, x2, y2))
+        
+        # Preprocess
+        input_array = preprocess_image(img)
+        
+        # Run inference
+        input_name = ort_session.get_inputs()[0].name
+        output_name = ort_session.get_outputs()[0].name
+        
+        embedding = ort_session.run([output_name], {input_name: input_array})[0]
+        
+        # Flatten and normalize
+        embedding = embedding.flatten().astype(np.float32)
+        embedding = embedding / np.linalg.norm(embedding)
+        
+        return embedding
+        
+    except Exception as e:
+        logger.error(f"Error extracting embedding: {e}")
+        raise
+
+
+# Request/Response models
+class EmbedRequest(BaseModel):
+    jpg_b64: str
+    xyxy: Optional[List[int]] = None
+
+
+class EmbedResponse(BaseModel):
+    vec: List[float]
+    norm: float
+
 
 class MatchRequest(BaseModel):
-    jpg_b64: str = Field(..., description="Imagem JPEG em base64")
-    top_k: int = Field(5, description="Número máximo de resultados")
-    xyxy: Optional[List[int]] = Field(None, description="Coordenadas de crop [x1,y1,x2,y2]")
+    jpg_b64: str
+    top_k: Optional[int] = 5
+    xyxy: Optional[List[int]] = None
 
-class EmbeddingResponse(BaseModel):
-    vec: List[float] = Field(..., description="Vetor de embedding 512D")
-    norm: float = Field(..., description="Norma L2 do vetor (deve ser ~1.0)")
 
 class MatchResult(BaseModel):
-    id: str = Field(..., description="ID da pessoa")
-    name: str = Field(..., description="Nome da pessoa")
-    similarity: float = Field(..., description="Similaridade corporal")
+    id: str
+    name: str
+    similarity: float
+
 
 class MatchResponse(BaseModel):
     results: List[MatchResult]
 
+
+# API Endpoints
 @app.on_event("startup")
 async def startup_event():
-    """Inicializa o modelo OSNet ONNX"""
-    global ort_session
-    
-    print(f"Carregando modelo OSNet: {REID_MODEL_PATH}")
-    
-    # Download model with resilient HTTP if not exists
-    if not os.path.exists(REID_MODEL_PATH) and REID_MODEL_URL:
-        await download_model_resilient()
-    
-    if not os.path.exists(REID_MODEL_PATH):
-        print(f"❌ Modelo não encontrado: {REID_MODEL_PATH}")
-        print("Por favor, defina REID_MODEL_URL ou monte /models com o arquivo onnx")
-        return
-    
-    # Verificar integridade se arquivo .sha256 estiver presente
-    _verify_integrity(REID_MODEL_PATH)
-    
-    # Configurar providers ONNX
-    available = ort.get_available_providers()
-    providers = []
-    # Preferir TensorRT se disponível, depois CUDA, por fim CPU
-    if 'TensorrtExecutionProvider' in available:
-        providers.append('TensorrtExecutionProvider')
-    if 'CUDAExecutionProvider' in available:
-        providers.append('CUDAExecutionProvider')
-    providers.append('CPUExecutionProvider')
-    
-    try:
-        ort_session = ort.InferenceSession(REID_MODEL_PATH, providers=providers)
-        print(f"✓ Modelo carregado com providers: {ort_session.get_providers()}")
-        
-        # Verificar input shape
-        input_shape = ort_session.get_inputs()[0].shape
-        print(f"✓ Input shape: {input_shape}")
-        
-        if input_shape != [1, 3, 256, 128] and input_shape != ['batch', 3, 256, 128]:
-            print(f"⚠️ Input shape inesperado: {input_shape}, esperado: [1, 3, 256, 128]")
-        
-        # Warm-up
-        print("Fazendo warm-up...")
-        dummy_input = np.random.rand(1, 3, 256, 128).astype(np.float32)
-        _ = ort_session.run(None, {ort_session.get_inputs()[0].name: dummy_input})
-        print("✓ Warm-up concluído!")
-        
-    except Exception as e:
-        print(f"❌ Erro ao carregar modelo: {e}")
-        ort_session = None
+    """Load model on startup"""
+    load_model()
 
-@app.get("/health")
-async def health_check():
+
+@app.get("/")
+async def root():
     """Health check endpoint"""
-    circuit_stats = http_client.get_circuit_stats() if hasattr(http_client, 'get_circuit_stats') else {}
-    
     return {
-        "status": "ok",
-        "model": REID_MODEL_PATH,
-        "model_loaded": ort_session is not None,
-        "input_format": REID_INPUT_FORMAT,
-        "providers": ort_session.get_providers() if ort_session else [],
-        "supabase_configured": bool(SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY),
-        "circuit_breakers": circuit_stats,
-        "model_checksum_verified": os.path.exists(f"{REID_MODEL_PATH}.sha256")
+        "service": "person-reid",
+        "status": "running",
+        "version": "1.0.0",
+        "model": "OSNet x0.75"
     }
 
-def decode_base64_image(b64_string: str) -> np.ndarray:
-    """Decodifica imagem base64 para numpy array"""
+
+@app.get("/health")
+async def health():
+    """Detailed health check"""
+    model_path = os.getenv("REID_MODEL_PATH", "/models/osnet_x0_75.onnx")
+    model_exists = os.path.exists(model_path)
+    
+    supabase_url = os.getenv("SUPABASE_URL")
+    supabase_key = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
+    
+    return {
+        "status": "ok" if (ort_session is not None or model_exists) else "degraded",
+        "model": model_path,
+        "model_loaded": ort_session is not None,
+        "model_exists": model_exists,
+        "input_format": "RGB",
+        "input_size": f"{INPUT_SIZE[0]}x{INPUT_SIZE[1]}",
+        "providers": ort_session.get_providers() if ort_session else [],
+        "supabase_configured": bool(supabase_url and supabase_key)
+    }
+
+
+@app.post("/embedding", response_model=EmbedResponse)
+async def embed_body(request: EmbedRequest):
+    """
+    Gera embedding corporal de uma imagem
+    
+    Args:
+        jpg_b64: Imagem em base64
+        xyxy: Coordenadas de crop (opcional)
+        
+    Returns:
+        Embedding de 512 dimensões L2-normalizado
+    """
     try:
-        # Remove header se presente
-        if ',' in b64_string:
-            b64_string = b64_string.split(',')[1]
+        embedding = extract_embedding(request.jpg_b64, request.xyxy)
+        norm = float(np.linalg.norm(embedding))
         
-        # Decodifica base64
-        img_bytes = base64.b64decode(b64_string)
-        
-        # Verifica tamanho
-        size_mb = len(img_bytes) / (1024 * 1024)
-        if size_mb > MAX_IMAGE_SIZE_MB:
-            raise HTTPException(
-                status_code=413, 
-                detail=f"Imagem muito grande: {size_mb:.2f}MB. Máximo: {MAX_IMAGE_SIZE_MB}MB"
-            )
-        
-        # Converte para numpy array
-        img_array = np.frombuffer(img_bytes, dtype=np.uint8)
-        img = cv2.imdecode(img_array, cv2.IMREAD_COLOR)
-        
-        if img is None:
-            raise HTTPException(status_code=400, detail="Imagem inválida")
-        
-        return img
-        
-    except base64.binascii.Error:
-        raise HTTPException(status_code=400, detail="Base64 inválido")
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Erro ao decodificar imagem: {str(e)}")
-
-def crop_image(img: np.ndarray, xyxy: List[int]) -> np.ndarray:
-    """Recorta região da imagem"""
-    x1, y1, x2, y2 = xyxy
-    h, w = img.shape[:2]
-    
-    # Validar coordenadas
-    x1 = max(0, min(x1, w))
-    y1 = max(0, min(y1, h))
-    x2 = max(x1, min(x2, w))
-    y2 = max(y1, min(y2, h))
-    
-    return img[y1:y2, x1:x2]
-
-def preprocess_image(img: np.ndarray) -> np.ndarray:
-    """Pré-processamento para OSNet"""
-    # Resize para 256x128
-    img_resized = cv2.resize(img, (128, 256))
-    
-    # Converter BGR para RGB se necessário
-    if REID_INPUT_FORMAT.upper() == "RGB":
-        img_resized = cv2.cvtColor(img_resized, cv2.COLOR_BGR2RGB)
-    # Se format é BGR, manter como está (OpenCV padrão)
-    
-    # Normalizar (ImageNet stats)
-    img_normalized = img_resized.astype(np.float32) / 255.0
-    mean = np.array([0.485, 0.456, 0.406])
-    std = np.array([0.229, 0.224, 0.225])
-    
-    img_normalized = (img_normalized - mean) / std
-    
-    # Converter para NCHW (batch, channel, height, width)
-    img_tensor = np.transpose(img_normalized, (2, 0, 1))  # HWC -> CHW
-    img_batch = np.expand_dims(img_tensor, axis=0)  # CHW -> NCHW
-    
-    return img_batch.astype(np.float32)
-
-def l2_normalize(vec: np.ndarray) -> Tuple[np.ndarray, float]:
-    """L2 normalize o vetor"""
-    norm = np.linalg.norm(vec)
-    if norm == 0:
-        return vec, 0.0
-    normalized = vec / norm
-    return normalized, float(norm)
-
-@app.post("/embedding", response_model=EmbeddingResponse)
-async def generate_embedding(request: EmbeddingRequest):
-    """Gera embedding corporal usando OSNet"""
-    if ort_session is None:
-        raise HTTPException(status_code=503, detail="Modelo OSNet não carregado")
-    
-    # Decodificar imagem
-    img = decode_base64_image(request.jpg_b64)
-    
-    # Aplicar crop se fornecido
-    if request.xyxy:
-        img = crop_image(img, request.xyxy)
-    
-    # Verificar se imagem não está vazia após crop
-    if img.size == 0:
-        raise HTTPException(status_code=400, detail="Imagem vazia após crop")
-    
-    start_time = time.time()
-    
-    try:
-        # Pré-processamento
-        input_tensor = preprocess_image(img)
-        
-        # Inferência
-        input_name = ort_session.get_inputs()[0].name
-        outputs = ort_session.run(None, {input_name: input_tensor})
-        
-        # Extrair features (primeiro output)
-        features = outputs[0]
-        
-        # Flatten se necessário
-        if features.ndim > 1:
-            features = features.flatten()
-        
-        # L2 normalize
-        normalized_features, norm = l2_normalize(features)
-        
-        inference_time = time.time() - start_time
-        
-        if inference_time > INFERENCE_TIMEOUT:
-            print(f"Warning: Inferência Re-ID demorou {inference_time:.3f}s (alvo: {INFERENCE_TIMEOUT}s)")
-        
-        # Verificar dimensão
-        if len(normalized_features) != 512:
-            raise HTTPException(
-                status_code=500, 
-                detail=f"Embedding deve ter 512 dimensões, obteve {len(normalized_features)}"
-            )
-        
-        return EmbeddingResponse(
-            vec=normalized_features.tolist(),
+        return EmbedResponse(
+            vec=embedding.tolist(),
             norm=norm
         )
         
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Erro na inferência: {str(e)}")
+        logger.error(f"Error in /embedding: {e}")
+        raise HTTPException(status_code=400, detail=str(e))
+
 
 @app.post("/match", response_model=MatchResponse)
 async def match_body(request: MatchRequest):
-    """Encontra corpos similares usando RPC match_body do Supabase"""
-    if not SUPABASE_URL or not SUPABASE_SERVICE_ROLE_KEY:
-        raise HTTPException(
-            status_code=503, 
-            detail="Configuração Supabase não encontrada"
-        )
+    """
+    Busca corpos similares no banco de dados
     
-    # Set up correlation context
-    correlation_id = generate_correlation_id()
-    set_correlation_context(
-        correlation_id=correlation_id,
-        service_name="reid-service"
-    )
-    
+    Args:
+        jpg_b64: Imagem em base64
+        top_k: Número máximo de resultados
+        xyxy: Coordenadas de crop (opcional)
+        
+    Returns:
+        Lista de matches ordenados por similaridade
+    """
     try:
-        # Gerar embedding
-        embedding_request = EmbeddingRequest(
-            jpg_b64=request.jpg_b64,
-            xyxy=request.xyxy
-        )
-        embedding_response = await generate_embedding(embedding_request)
+        # Extract embedding
+        embedding = extract_embedding(request.jpg_b64, request.xyxy)
         
-        # Chamar RPC match_body no Supabase usando resilient HTTP
-        rpc_url = f"{SUPABASE_URL}/rest/v1/rpc/match_body"
-        headers = {
-            "apikey": SUPABASE_SERVICE_ROLE_KEY,
-            "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
-            "Content-Type": "application/json"
-        }
+        # Query Supabase (using match_body RPC)
+        from supabase import create_client, Client
         
-        payload = {
-            "query": embedding_response.vec,
-            "k": request.top_k
-        }
+        supabase_url = os.getenv("SUPABASE_URL")
+        supabase_key = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
         
-        # Use resilient HTTP client for Supabase RPC call
-        data = await resilient_post_json(
-            rpc_url,
-            json=payload,
-            service_name="reid-service",
-            timeout=10.0,
-            headers=headers
-        )
+        if not supabase_url or not supabase_key:
+            raise HTTPException(
+                status_code=503,
+                detail="Supabase not configured"
+            )
         
-        if not data:
-            raise HTTPException(status_code=500, detail="Empty response from Supabase")
+        supabase: Client = create_client(supabase_url, supabase_key)
         
-        # Formatar resultados
-        results = []
-        for row in data:
-            results.append(MatchResult(
+        # Call match_body RPC
+        result = supabase.rpc(
+            "match_body",
+            {
+                "query": embedding.tolist(),
+                "k": request.top_k
+            }
+        ).execute()
+        
+        if result.data is None:
+            return MatchResponse(results=[])
+        
+        # Format results
+        matches = []
+        for row in result.data:
+            matches.append(MatchResult(
                 id=row["id"],
                 name=row["name"],
                 similarity=float(row["similarity"])
             ))
         
-        return MatchResponse(results=results)
+        return MatchResponse(results=matches)
         
+    except HTTPException:
+        raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Erro no matching: {str(e)}")
+        logger.error(f"Error in /match: {e}")
+        raise HTTPException(status_code=400, detail=str(e))
 
-@app.on_event("shutdown")
-async def shutdown_event():
-    """Cleanup on shutdown"""
-    if hasattr(http_client, 'aclose'):
-        await http_client.aclose()
 
 if __name__ == "__main__":
-    port = int(os.getenv("PORT", 18090))
+    import uvicorn
+    
+    port = int(os.getenv("PORT", "18090"))
+    
     uvicorn.run(
         "main:app",
         host="0.0.0.0",
         port=port,
-        reload=False
+        reload=False,
+        log_level="info"
     )

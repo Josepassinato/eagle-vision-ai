@@ -10,3 +10,5 @@ onnxruntime-gpu==1.18.1
 python-dotenv==1.0.1
 python-multipart==0.0.6
 prometheus-client==0.21.0
+pillow==10.4.0
+supabase==2.9.1
