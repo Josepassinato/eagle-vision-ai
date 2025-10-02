@@ -23,6 +23,7 @@ import CreditSuccess from "./pages/admin/CreditSuccess";
 
 import TestDVR from "./pages/TestDVR";
 import DVRAnalytics from "./pages/DVRAnalytics";
+import CameraSetup from "./pages/CameraSetup";
 
 import Safety from "./pages/admin/Safety";
 import EduBehavior from "./pages/admin/EduBehavior";
@@ -71,6 +72,7 @@ const App = () => (
           <Route path="/edge" element={<EdgeDeviceManager />} />
           <Route path="/onboarding" element={<ProtectedRoute><Onboarding /></ProtectedRoute>} />
           <Route path="/setup" element={<ProtectedRoute><Setup /></ProtectedRoute>} />
+          <Route path="/camera-setup" element={<ProtectedRoute><CameraSetup /></ProtectedRoute>} />
           <Route path="/dashboard-simple" element={<ProtectedRoute><SimpleDashboard /></ProtectedRoute>} />
           <Route path="/test-dvr" element={<ProtectedRoute><TestDVR /></ProtectedRoute>} />
           <Route path="/dvr-analytics" element={<ProtectedRoute><DVRAnalytics /></ProtectedRoute>} />
