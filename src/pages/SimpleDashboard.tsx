@@ -357,6 +357,25 @@ const SimpleDashboard = () => {
               </div>
               
               <div className="flex items-center space-x-3">
+                <Button 
+                  variant="default" 
+                  size="sm" 
+                  onClick={handleAddTestCamera}
+                  disabled={addingTestCamera}
+                  className="bg-primary hover:bg-primary/90"
+                >
+                  {addingTestCamera ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Adicionando...
+                    </>
+                  ) : (
+                    <>
+                      <Zap className="h-4 w-4 mr-2" />
+                      Câmera Teste
+                    </>
+                  )}
+                </Button>
                 <Button variant="outline" size="sm" onClick={() => navigate('/setup')}>
                   <Settings className="h-4 w-4 mr-2" />
                   Configurar
@@ -379,41 +398,6 @@ const SimpleDashboard = () => {
             </p>
           </div>
 
-          {/* Test Camera Quick Add */}
-          {cameras.length === 0 && !loadingCameras && (
-            <Card className="mb-8 border-primary/50 bg-primary/5">
-              <CardContent className="pt-6">
-                <div className="flex items-center justify-between">
-                  <div className="space-y-1">
-                    <h3 className="font-semibold flex items-center gap-2">
-                      <Zap className="h-4 w-4 text-primary" />
-                      Adicionar Câmera de Teste
-                    </h3>
-                    <p className="text-sm text-muted-foreground">
-                      rtsp://47.226.188.54/1 - Clique para adicionar e começar a monitorar
-                    </p>
-                  </div>
-                  <Button 
-                    onClick={handleAddTestCamera}
-                    disabled={addingTestCamera}
-                    size="sm"
-                  >
-                    {addingTestCamera ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Adicionando...
-                      </>
-                    ) : (
-                      <>
-                        <Camera className="mr-2 h-4 w-4" />
-                        Adicionar Agora
-                      </>
-                    )}
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          )}
 
           {/* Status Cards */}
           <div className="grid md:grid-cols-4 gap-6 mb-8">
