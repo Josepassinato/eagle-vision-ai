@@ -105,6 +105,36 @@ export const SimpleCameraOnboarding = () => {
     }
   };
 
+  const handleAddTestCamera = async () => {
+    setSaving(true);
+    
+    try {
+      const { data, error } = await supabase.functions.invoke('ip-camera-manager', {
+        body: {
+          action: 'save-config',
+          name: 'Câmera Teste RTSP',
+          ip_address: '47.226.188.54',
+          brand: 'generic',
+          username: '',
+          password: '',
+          port: 554,
+          http_port: 80,
+          stream_urls: {
+            main: 'rtsp://47.226.188.54/1'
+          }
+        }
+      });
+
+      if (error) throw error;
+
+      toast.success('Câmera de teste adicionada com sucesso! 🎉');
+    } catch (error) {
+      toast.error('Erro ao adicionar câmera de teste');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const handleSaveCamera = async () => {
     if (!name || !ip) {
       toast.error('Preencha nome e IP da câmera');
@@ -152,6 +182,32 @@ export const SimpleCameraOnboarding = () => {
           Adicione sua câmera em apenas 3 passos simples
         </p>
       </div>
+
+      <Card className="border-primary/50 bg-primary/5">
+        <CardContent className="pt-6">
+          <div className="flex items-center justify-between">
+            <div className="space-y-1">
+              <h3 className="font-semibold flex items-center gap-2">
+                <Zap className="h-4 w-4 text-primary" />
+                Câmera de Teste
+              </h3>
+              <p className="text-sm text-muted-foreground">
+                rtsp://47.226.188.54/1
+              </p>
+            </div>
+            <Button 
+              onClick={handleAddTestCamera}
+              disabled={saving}
+              size="sm"
+            >
+              {saving ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : null}
+              Adicionar Agora
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
 
       <Tabs value={mode} onValueChange={(v) => setMode(v as 'auto' | 'manual')} className="w-full">
         <TabsList className="grid w-full grid-cols-2">
