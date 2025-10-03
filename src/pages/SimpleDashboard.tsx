@@ -79,14 +79,20 @@ const SimpleDashboard = () => {
     setAddingTestCamera(true);
     
     try {
-      // Primeiro, remover todas as câmeras antigas
-      const { error: deleteError } = await supabase
+      // Primeiro, remover todas as câmeras não-permanentes
+      const { data: existingCameras } = await supabase
         .from('ip_cameras')
-        .delete()
-        .neq('id', '00000000-0000-0000-0000-000000000000'); // Deleta todas
+        .select('id')
+        .eq('is_permanent', false);
       
-      if (deleteError) {
-        console.error('Erro ao limpar câmeras antigas:', deleteError);
+      if (existingCameras && existingCameras.length > 0) {
+        for (const cam of existingCameras) {
+          await supabase
+            .from('ip_cameras')
+            .delete()
+            .eq('id', cam.id);
+        }
+        console.log(`Removidas ${existingCameras.length} câmeras antigas`);
       }
 
       // Adicionar a nova câmera de teste
@@ -219,9 +225,12 @@ const SimpleDashboard = () => {
           const video = videoRef.current;
           console.log('Iniciando HLS player com URL:', url);
 
-          // Evitar URLs locais quando o servidor HLS não está disponível no ambiente atual
+          // Evitar URLs locais - MediaMTX não está configurado
           if (url.includes('localhost')) {
-            toast.error('HLS indisponível: configure o servidor MediaMTX (URL aponta para localhost).');
+            console.warn('MediaMTX não configurado - URL HLS aponta para localhost');
+            toast.error('Stream indisponível: MediaMTX não está configurado neste ambiente', {
+              description: 'O servidor de conversão RTSP→HLS não está acessível'
+            });
             return;
           }
 
@@ -273,72 +282,31 @@ const SimpleDashboard = () => {
       return () => { hlsInstance?.destroy(); };
     }
 
-    // Se houver apenas RTSP, iniciar conversão automaticamente
-    if (rtspUrl) {
-      console.log('Stream RTSP detectado, iniciando conversão:', rtspUrl);
-      (async () => {
-        try {
-          setConverting(true);
-          toast.info('Convertendo RTSP → HLS...');
-          
-          const { data, error } = await supabase.functions.invoke('rtsp-to-hls', {
-            body: { 
-              action: 'start', 
-              rtsp_url: rtspUrl, 
-              camera_id: cam.id 
-            },
-          });
-          
-          if (error) {
-            console.error('RTSP→HLS error:', error);
-            toast.error('Erro na conversão RTSP para HLS');
-            return;
-          }
-          
-          const gotUrl = data?.conversion?.hls_url || data?.hls_url;
-          if (gotUrl) {
-            console.log('URL HLS obtida:', gotUrl);
-            setCurrentHlsUrl(gotUrl);
-            // Atualizar câmera localmente e anexar player
-            setCameras(prev => prev.map(c => c.id === cam.id ? {
-              ...c,
-              stream_urls: { ...(c.stream_urls || {}), hls: gotUrl, hls_url: gotUrl }
-            } : c));
-            attachHls(gotUrl);
-            toast.success('Stream HLS iniciado');
-          } else {
-            toast.warning('Conversão iniciada, aguardando URL HLS...');
-            // Poll de status por até 10s
-            for (let i = 0; i < 10; i++) {
-              await new Promise(r => setTimeout(r, 1000));
-              try {
-                const { data: statusData } = await supabase.functions.invoke('rtsp-to-hls', {
-                  body: { action: 'status', camera_id: cam.id }
-                });
-                const polledUrl = statusData?.conversion?.hls_url || statusData?.hls_url;
-                if (polledUrl) {
-                  console.log('URL HLS obtida via polling:', polledUrl);
-                  setCurrentHlsUrl(polledUrl);
-                  setCameras(prev => prev.map(c => c.id === cam.id ? {
-                    ...c,
-                    stream_urls: { ...(c.stream_urls || {}), hls: polledUrl, hls_url: polledUrl }
-                  } : c));
-                  attachHls(polledUrl);
-                  toast.success('Stream HLS iniciado');
-                  break;
-                }
-              } catch (e) {
-                console.warn('Falha no polling de status HLS:', e);
-              }
-            }
-          }
-        } catch (err) {
-          console.error('RTSP→HLS exception:', err);
-          toast.error('Erro ao converter RTSP para HLS');
-        } finally {
-          setConverting(false);
-        }
-      })();
+    // Se houver apenas RTSP, mostrar aviso sobre MediaMTX
+    if (rtspUrl && !hlsUrl) {
+      console.log('Stream RTSP detectado:', rtspUrl);
+      console.warn('⚠️ MediaMTX não configurado - conversão RTSP→HLS não disponível');
+      
+      toast.error('Stream RTSP não pode ser reproduzido diretamente', {
+        description: 'Configure o MediaMTX para conversão RTSP→HLS',
+        duration: 5000,
+      });
+      
+      // Mostrar mensagem no player
+      if (videoRef.current) {
+        const video = videoRef.current;
+        video.style.display = 'none';
+        
+        // Criar elemento de mensagem
+        const msg = document.createElement('div');
+        msg.style.cssText = 'position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; color: white; background: rgba(0,0,0,0.7); padding: 20px; border-radius: 8px; max-width: 400px;';
+        msg.innerHTML = `
+          <h3 style="margin: 0 0 10px 0;">⚠️ Stream Indisponível</h3>
+          <p style="margin: 0;">Esta câmera usa RTSP, que requer conversão para HLS.</p>
+          <p style="margin: 10px 0 0 0; font-size: 0.9em; opacity: 0.8;">Configure o MediaMTX para habilitar a reprodução.</p>
+        `;
+        video.parentElement?.appendChild(msg);
+      }
     }
 
     return () => { hlsInstance?.destroy(); };
