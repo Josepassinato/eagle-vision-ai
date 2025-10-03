@@ -64,11 +64,11 @@ const SimpleDashboard = () => {
   const { isLoading: aiLoading, detections, events, counts, isReady } = useBrowserDetection(videoRef, true, "people_count");
   const { events: realtimeEvents } = useRealtimeEvents("test-camera");
 
-  // Seleciona a melhor câmera (prioriza a de teste TC73 permanente, depois quem tem stream_urls, depois online)
+  // Seleciona a melhor câmera (prioriza quem já tem HLS; depois câmeras não permanentes; depois online)
   const getPreferredCamera = (cams: IPCamera[] = []): IPCamera | undefined => {
     return (
-      cams.find((c: any) => c.is_permanent && c.model === 'TC73') ||
-      cams.find((c: any) => (c as any)?.stream_urls?.hls || (c as any)?.stream_urls?.rtsp) ||
+      cams.find((c: any) => (c as any)?.stream_urls?.hls || (c as any)?.stream_urls?.hls_url) ||
+      cams.find((c: any) => !(c as any).is_permanent) ||
       cams.find((c) => c.status === 'online') ||
       cams[0]
     );
@@ -199,14 +199,20 @@ const SimpleDashboard = () => {
       ];
       let idx = 0;
 
-      const tryPlay = (url: string) => {
-        if (!videoRef.current) {
-          // Aguarda o elemento <video> montar
-          setTimeout(() => tryPlay(url), 300);
-          return;
-        }
-        const video = videoRef.current;
-        console.log('Iniciando HLS player com URL:', url);
+        const tryPlay = (url: string) => {
+          if (!videoRef.current) {
+            // Aguarda o elemento <video> montar
+            setTimeout(() => tryPlay(url), 300);
+            return;
+          }
+          const video = videoRef.current;
+          console.log('Iniciando HLS player com URL:', url);
+
+          // Evitar URLs locais quando o servidor HLS não está disponível no ambiente atual
+          if (url.includes('localhost')) {
+            toast.error('HLS indisponível: configure o servidor MediaMTX (URL aponta para localhost).');
+            return;
+          }
 
         // Limpar instância anterior
         if (hlsInstance) {
