@@ -6,11 +6,21 @@ PORT=${PORT:-8080}
 
 echo "Starting MediaMTX + Nginx on port $PORT"
 
-# Generate nginx config with correct port
-envsubst '${PORT}' < /etc/nginx/http.d/default.conf.template > /etc/nginx/http.d/default.conf
+# Determine nginx include dir and generate config
+NGINX_CONF=/etc/nginx/nginx.conf
+DEST_DIR=/etc/nginx/http.d
+if grep -q "http\.d/\*\.conf" "$NGINX_CONF"; then
+  DEST_DIR=/etc/nginx/http.d
+elif grep -q "conf\.d/\*\.conf" "$NGINX_CONF"; then
+  DEST_DIR=/etc/nginx/conf.d
+fi
 
+mkdir -p "$DEST_DIR"
+envsubst '${PORT}' < /etc/nginx/http.d/default.conf.template > "$DEST_DIR/default.conf"
+
+echo "Using nginx include dir: $DEST_DIR"
 echo "Generated nginx configuration:"
-cat /etc/nginx/http.d/default.conf
+cat "$DEST_DIR/default.conf"
 
 # Test nginx config
 nginx -t

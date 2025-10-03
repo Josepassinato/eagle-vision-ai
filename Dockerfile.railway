@@ -2,10 +2,10 @@ FROM bluenviron/mediamtx:latest
 
 # Install nginx and gettext (for envsubst)
 USER root
-RUN apk add --no-cache nginx gettext
+RUN apk add --no-cache nginx gettext curl
 
 # Create necessary directories
-RUN mkdir -p /var/log/nginx /var/lib/nginx/tmp /etc/nginx/http.d /recordings
+RUN mkdir -p /var/log/nginx /var/lib/nginx/tmp /etc/nginx/http.d /etc/nginx/conf.d /run/nginx /recordings
 
 # Copy MediaMTX config
 COPY mediamtx.yml /mediamtx.yml
@@ -21,7 +21,7 @@ RUN chmod +x /start.sh
 EXPOSE 8080 8554 8888 9997
 
 # Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-  CMD wget --no-verbose --tries=1 --spider http://localhost:${PORT:-8080}/health || exit 1
+HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=5 \
+  CMD curl -fsS http://localhost:${PORT:-8080}/health || exit 1
 
 CMD ["/start.sh"]
