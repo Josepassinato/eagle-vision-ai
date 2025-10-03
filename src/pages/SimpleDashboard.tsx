@@ -19,7 +19,9 @@ import {
   Bell,
   Eye,
   TrendingUp,
-  Brain
+  Brain,
+  Zap,
+  Loader2
 } from "lucide-react";
 import Hls from 'hls.js';
 import { useBrowserDetection } from "@/hooks/useBrowserDetection";
@@ -46,6 +48,7 @@ const SimpleDashboard = () => {
   const [loadingCameras, setLoadingCameras] = useState(true);
   const [converting, setConverting] = useState(false);
   const [currentHlsUrl, setCurrentHlsUrl] = useState<string | null>(null);
+  const [addingTestCamera, setAddingTestCamera] = useState(false);
   const [stats, setStats] = useState({
     camerasOnline: 0,
     totalCameras: 0,
@@ -69,6 +72,43 @@ const SimpleDashboard = () => {
       cams.find((c) => c.status === 'online') ||
       cams[0]
     );
+  };
+
+  // Adicionar câmera de teste
+  const handleAddTestCamera = async () => {
+    setAddingTestCamera(true);
+    
+    try {
+      const { data, error } = await supabase.functions.invoke('ip-camera-manager', {
+        body: {
+          action: 'save-config',
+          name: 'Câmera Teste RTSP',
+          ip_address: '47.226.188.54',
+          brand: 'generic',
+          username: '',
+          password: '',
+          port: 554,
+          http_port: 80,
+          stream_urls: {
+            main: 'rtsp://47.226.188.54/1',
+            rtsp: 'rtsp://47.226.188.54/1'
+          }
+        },
+        headers: {
+          'x-org-id': 'demo-org-id'
+        }
+      });
+
+      if (error) throw error;
+
+      toast.success('Câmera de teste adicionada! 🎉');
+      loadCameras(); // Recarregar lista
+    } catch (error) {
+      console.error('Erro ao adicionar câmera de teste:', error);
+      toast.error('Erro ao adicionar câmera de teste');
+    } finally {
+      setAddingTestCamera(false);
+    }
   };
 
   // Carregar câmeras reais
@@ -338,6 +378,42 @@ const SimpleDashboard = () => {
               Sua segurança inteligente está funcionando. Aqui você vê tudo em tempo real.
             </p>
           </div>
+
+          {/* Test Camera Quick Add */}
+          {cameras.length === 0 && !loadingCameras && (
+            <Card className="mb-8 border-primary/50 bg-primary/5">
+              <CardContent className="pt-6">
+                <div className="flex items-center justify-between">
+                  <div className="space-y-1">
+                    <h3 className="font-semibold flex items-center gap-2">
+                      <Zap className="h-4 w-4 text-primary" />
+                      Adicionar Câmera de Teste
+                    </h3>
+                    <p className="text-sm text-muted-foreground">
+                      rtsp://47.226.188.54/1 - Clique para adicionar e começar a monitorar
+                    </p>
+                  </div>
+                  <Button 
+                    onClick={handleAddTestCamera}
+                    disabled={addingTestCamera}
+                    size="sm"
+                  >
+                    {addingTestCamera ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Adicionando...
+                      </>
+                    ) : (
+                      <>
+                        <Camera className="mr-2 h-4 w-4" />
+                        Adicionar Agora
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Status Cards */}
           <div className="grid md:grid-cols-4 gap-6 mb-8">
