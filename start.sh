@@ -3,6 +3,7 @@ set -e
 
 # Set default port if not provided
 PORT=${PORT:-8080}
+export PORT
 
 echo "Starting MediaMTX + Nginx on port $PORT"
 
@@ -32,4 +33,4 @@ echo "Nginx started successfully"
 
 # Start MediaMTX (foreground)
 echo "Starting MediaMTX..."
-exec /usr/local/bin/mediamtx
+exec /usr/local/bin/mediamtx -config /mediamtx.yml
