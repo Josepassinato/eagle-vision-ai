@@ -1,0 +1,47 @@
+# Git
+.git
+.gitignore
+
+# Node modules
+node_modules
+npm-debug.log
+
+# Development files
+*.md
+!README-MEDIAMTX.md
+.env*
+!.env.example
+
+# CI/CD
+.github
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+
+# Build artifacts
+dist
+build
+.cache
+
+# Tests
+tests
+*.test.js
+*.test.ts
+
+# Documentation (except MediaMTX)
+docs
+
+# Python
+__pycache__
+*.py[cod]
+*.egg-info
+venv
+.pytest_cache
+
+# Other
+*.log
+tmp
+.DS_Store
