@@ -32,4 +32,4 @@ echo "Nginx started successfully"
 
 # Start MediaMTX (foreground)
 echo "Starting MediaMTX..."
-exec /mediamtx
+exec /usr/local/bin/mediamtx

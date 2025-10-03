@@ -1,26 +1,27 @@
-FROM bluenviron/mediamtx:latest
+# Multi-stage build: get mediamtx binary, serve via nginx on Railway
+FROM bluenviron/mediamtx:latest AS mediamtx
 
-# Install nginx and gettext (for envsubst)
-USER root
-RUN apk add --no-cache nginx gettext curl
+FROM nginx:alpine
 
-# Create necessary directories
-RUN mkdir -p /var/log/nginx /var/lib/nginx/tmp /etc/nginx/http.d /etc/nginx/conf.d /run/nginx /recordings
+# Install deps for templating and healthcheck
+RUN apk add --no-cache gettext curl && \
+    mkdir -p /var/log/nginx /var/lib/nginx/tmp /etc/nginx/http.d /etc/nginx/conf.d /run/nginx /recordings
 
-# Copy MediaMTX config
+# Copy MediaMTX static binary from base image
+COPY --from=mediamtx /mediamtx /usr/local/bin/mediamtx
+
+# MediaMTX config
 COPY mediamtx.yml /mediamtx.yml
 
-# Copy nginx config
+# Nginx template and startup script
 COPY nginx-railway.conf /etc/nginx/http.d/default.conf.template
-
-# Create startup script
 COPY start.sh /start.sh
 RUN chmod +x /start.sh
 
-# Expose ports
-EXPOSE 8080 8554 8888 9997
+# Expose only the Railway HTTP port (nginx will proxy internally to MediaMTX)
+EXPOSE 8080
 
-# Health check
+# Health check on nginx
 HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=5 \
   CMD curl -fsS http://localhost:${PORT:-8080}/health || exit 1
 
