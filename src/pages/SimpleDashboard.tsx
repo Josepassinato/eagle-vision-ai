@@ -74,11 +74,22 @@ const SimpleDashboard = () => {
     );
   };
 
-  // Adicionar câmera de teste
+  // Adicionar câmera de teste e limpar outras
   const handleAddTestCamera = async () => {
     setAddingTestCamera(true);
     
     try {
+      // Primeiro, remover todas as câmeras antigas
+      const { error: deleteError } = await supabase
+        .from('ip_cameras')
+        .delete()
+        .neq('id', '00000000-0000-0000-0000-000000000000'); // Deleta todas
+      
+      if (deleteError) {
+        console.error('Erro ao limpar câmeras antigas:', deleteError);
+      }
+
+      // Adicionar a nova câmera de teste
       const { data, error } = await supabase.functions.invoke('ip-camera-manager', {
         body: {
           action: 'save-config',
@@ -101,11 +112,11 @@ const SimpleDashboard = () => {
 
       if (error) throw error;
 
-      toast.success('Câmera de teste adicionada! 🎉');
+      toast.success('Câmera de teste configurada! Outras câmeras removidas. 🎉');
       loadCameras(); // Recarregar lista
     } catch (error) {
-      console.error('Erro ao adicionar câmera de teste:', error);
-      toast.error('Erro ao adicionar câmera de teste');
+      console.error('Erro ao configurar câmera de teste:', error);
+      toast.error('Erro ao configurar câmera de teste');
     } finally {
       setAddingTestCamera(false);
     }
