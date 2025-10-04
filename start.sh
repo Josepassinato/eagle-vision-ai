@@ -26,11 +26,10 @@ cat "$DEST_DIR/default.conf"
 # Test nginx config
 nginx -t
 
-# Start nginx in background
-nginx
+# Start MediaMTX in background
+/usr/local/bin/mediamtx -config /mediamtx.yml &
+echo "MediaMTX started (PID $!)"
 
-echo "Nginx started successfully"
-
-# Start MediaMTX (foreground)
-echo "Starting MediaMTX..."
-exec /usr/local/bin/mediamtx -config /mediamtx.yml
+# Start nginx in foreground (container main process)
+echo "Starting Nginx in foreground..."
+exec nginx -g 'daemon off;'
