@@ -1,5 +1,5 @@
 #!/bin/sh
-set -e
+set -euxo pipefail
 
 # Set default port if not provided
 PORT=${PORT:-8080}
