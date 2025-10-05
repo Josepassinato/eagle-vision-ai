@@ -30,10 +30,15 @@ const startConversion = async (request: ConversionRequest): Promise<ConversionSt
   console.log(`Starting RTSP→HLS conversion for camera ${camera_id}`);
   
   // Gerar URL HLS usando MediaMTX
-  const mediamtxBase = Deno.env.get('MEDIAMTX_PUBLIC_BASE') || 'http://localhost:8888';
+  let mediamtxBase = Deno.env.get('MEDIAMTX_PUBLIC_BASE') || 'http://localhost:8888';
+  
+  // Garantir que o /hls está no final se não estiver
+  if (!mediamtxBase.endsWith('/hls')) {
+    mediamtxBase = mediamtxBase.replace(/\/$/, '') + '/hls';
+  }
   
   console.log(`[DEBUG] Gerando URL HLS para RTSP: ${rtsp_url}`);
-  console.log(`[DEBUG] MediaMTX base URL: ${mediamtxBase}`);
+  console.log(`[DEBUG] MediaMTX base URL normalizado: ${mediamtxBase}`);
   
   // Bloquear URLs de demo conhecidas
   const looksLikeDemo = /demo-|mux\.dev|akamaihd\.net|shaka-demo|tears-of-steel|BigBuckBunny/i.test(rtsp_url);
@@ -45,7 +50,7 @@ const startConversion = async (request: ConversionRequest): Promise<ConversionSt
     hls_url = undefined;
   } else {
     // Gerar URL HLS usando o camera_id como nome do stream no MediaMTX
-    // MediaMTX serve HLS em: http://mediamtx:8888/{stream_name}/index.m3u8
+    // MediaMTX serve HLS em: https://dominio/hls/{stream_name}/index.m3u8
     hls_url = `${mediamtxBase}/${camera_id}/index.m3u8`;
     console.log(`[DEBUG] URL HLS gerada: ${hls_url}`);
   }
